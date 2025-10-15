@@ -19,7 +19,7 @@ analyzer = SentimentIntensityAnalyzer()
 def fetch_sp500_tickers():
     url = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
     r = requests.get(url, timeout=20)
-    soup = BeautifulSoup(r.text, "lxml")
+    soup = BeautifulSoup(r.text, "html.parser")
     table = soup.find("table", {"id": "constituents"})
     df = pd.read_html(str(table))[0]
     return df.Symbol.tolist()
