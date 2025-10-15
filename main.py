@@ -7,6 +7,7 @@ from ta.momentum import RSIIndicator
 from ta.trend import MACD, EMAIndicator
 from bs4 import BeautifulSoup
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+from io import StringIO
 
 # ---------- config ----------
 NEWSAPI_KEY = os.getenv("NEWSAPI_KEY")
@@ -17,12 +18,42 @@ analyzer = SentimentIntensityAnalyzer()
 
 # ---------- helpers ----------
 def fetch_sp500_tickers():
-    url = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
-    r = requests.get(url, timeout=20)
-    soup = BeautifulSoup(r.text, "lxml")
-    table = soup.find("table", {"id": "constituents"})
-    df = pd.read_html(str(table))[0]
-    return df.Symbol.tolist()
+    print("Fetching S&P 500 tickers...")
+
+    try:
+        url = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+
+        # Try to directly parse tables from Wikipedia
+        tables = pd.read_html(response.text)
+        if len(tables) == 0:
+            raise ValueError("No tables found on Wikipedia page")
+
+        df = tables[0]
+
+        if "Symbol" not in df.columns:
+            raise ValueError("Wikipedia structure changed — 'Symbol' column missing")
+
+        tickers = df["Symbol"].tolist()
+        print(f"✅ Wikipedia fetch successful — {len(tickers)} tickers found.")
+        print("Sample:", tickers[:10])
+        return tickers
+
+    except Exception as e:
+        print(f"⚠️ Wikipedia fetch failed: {e}")
+        print("Trying fallback source (DataHub)...")
+
+        try:
+            fallback_url = "https://datahub.io/core/s-and-p-500-companies/r/constituents.csv"
+            df = pd.read_csv(fallback_url)
+            tickers = df["Symbol"].tolist() if "Symbol" in df.columns else df["symbol"].tolist()
+            print(f"✅ Fallback successful — {len(tickers)} tickers found.")
+            print("Sample:", tickers[:10])
+            return tickers
+        except Exception as e2:
+            print(f"❌ Fallback failed too: {e2}")
+            raise RuntimeError("Failed to fetch S&P 500 tickers from all sources.")
 
 def fetch_tsx_tickers_local():
     local = "tsx_tickers.csv"
