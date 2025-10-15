@@ -111,4 +111,118 @@ def main(output="email"):
     sp500 = fetch_sp500_tickers()
     tsx = fetch_tsx_tickers_local()
     universe = sp500[:200] + tsx[:100]
-    print(f"Running for {len(u
+    print(f"Running for {len(universe)} tickers...")
+
+    results = []
+    for ticker in universe:
+        try:
+            yf_ticker = yf.Ticker(ticker)
+            hist = yf_ticker.history(period="1y", interval="1d")
+            if hist.empty:
+                continue
+            close = hist["Close"]
+            tech = compute_technical_indicators(close)
+            info = yf_ticker.info
+            fund = {
+                "pe": info.get("trailingPE"),
+                "de_ratio": info.get("debtToEquity"),
+                "marketCap": info.get("marketCap"),
+                "eps": info.get("trailingEps"),
+                "eps_growth_3y": info.get("earningsQuarterlyGrowth") or 0,
+                "revenue_3y_growth": None,
+            }
+
+            articles = news_headlines(ticker, max_results=5)
+            comp = sum(
+                analyzer.polarity_scores(a.get("title", "") + " " + (a.get("description") or "")).get("compound", 0)
+                for a in articles
+            )
+            avg_sent = comp / len(articles) if articles else 0
+            score = score_stock(fund, tech, avg_sent)
+            results.append({"ticker": ticker, "score": score, "fund": fund, "tech": tech, "sentiment": avg_sent})
+            time.sleep(0.25)
+        except Exception as e:
+            print("err", ticker, e)
+
+    df = pd.DataFrame(results).sort_values("score", ascending=False)
+    top15 = df.head(15)
+    bottom15 = df.tail(15)
+
+    sectors = {"strength": ["Industrials", "Financials"], "weakness": ["Information Technology"]}
+
+    market_news = []
+    mnews = news_headlines("stock market OR equities OR S&P 500 OR TSX", max_results=6)
+    for a in mnews:
+        market_news.append(
+            {"title": a.get("title"), "source": a.get("source", {}).get("name"), "url": a.get("url")}
+        )
+
+    portfolio = {
+        "equities": 0.6,
+        "bonds_or_cash": 0.2,
+        "gold_silver_crypto_mini": 0.1,
+        "high_quality_cyclicals": 0.1,
+    }
+
+    md = []
+    md.append(f"# Daily Market Report — {datetime.datetime.utcnow().date()}\n")
+    md.append("## Top 15 (by composite score)\n")
+    md.append(top15[["ticker", "score"]].to_markdown(index=False))
+    md.append("\n## Bottom 15 (by composite score)\n")
+    md.append(bottom15[["ticker", "score"]].to_markdown(index=False))
+    md.append("\n## Sector snapshot\n")
+    md.append(str(sectors))
+    md.append("\n## Market headlines\n")
+    for n in market_news:
+        md.append(f"- **{n['title']}** — {n['source']}")
+    md.append("\n## Portfolio (moderate risk) suggestion\n")
+    md.append(str(portfolio))
+    report_md = "\n\n".join(md)
+
+    if output == "email":
+        send_email(report_md)
+    elif output == "slack":
+        send_slack(report_md)
+    else:
+        print(report_md)
+
+    with open("daily_report.md", "w") as f:
+        f.write(report_md)
+    print("Done.")
+
+def send_email(body):
+    import smtplib
+    from email.message import EmailMessage
+
+    SMTP_USER = os.getenv("SMTP_USER")
+    SMTP_PASS = os.getenv("SMTP_PASS")
+    if not SMTP_USER or not SMTP_PASS:
+        print("SMTP creds missing; printing instead.\n")
+        print(body)
+        return
+
+    msg = EmailMessage()
+    msg["Subject"] = f"Daily Market Report {datetime.date.today()}"
+    msg["From"] = SMTP_USER
+    msg["To"] = SMTP_USER
+    msg.set_content(body)
+
+    s = smtplib.SMTP("smtp.gmail.com", 587)
+    s.starttls()
+    s.login(SMTP_USER, SMTP_PASS)
+    s.send_message(msg)
+    s.quit()
+    print("Email sent.")
+
+def send_slack(body):
+    url = os.getenv("SLACK_WEBHOOK")
+    if not url:
+        print(body)
+        return
+    requests.post(url, json={"text": body[:3000]})
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--output", default="print", choices=["print", "email", "slack"])
+    args = parser.parse_args()
+    main(output=args.output)
