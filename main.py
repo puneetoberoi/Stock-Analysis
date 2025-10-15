@@ -19,14 +19,19 @@ analyzer = SentimentIntensityAnalyzer()
 # ---------- helpers ----------
 def fetch_sp500_tickers():
     print("Fetching S&P 500 tickers...")
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                      "AppleWebKit/537.36 (KHTML, like Gecko) "
+                      "Chrome/115.0.0.0 Safari/537.36"
+    }
 
     try:
         url = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
-        response = requests.get(url, timeout=10)
+        response = requests.get(url, headers=headers, timeout=10)
         response.raise_for_status()
 
-        # Try to directly parse tables from Wikipedia
-        tables = pd.read_html(response.text)
+        # Use StringIO to remove future warning
+        tables = pd.read_html(StringIO(response.text))
         if len(tables) == 0:
             raise ValueError("No tables found on Wikipedia page")
 
@@ -43,11 +48,11 @@ def fetch_sp500_tickers():
     except Exception as e:
         print(f"⚠️ Wikipedia fetch failed: {e}")
         print("Trying fallback source (DataHub)...")
-
         try:
             fallback_url = "https://datahub.io/core/s-and-p-500-companies/r/constituents.csv"
             df = pd.read_csv(fallback_url)
-            tickers = df["Symbol"].tolist() if "Symbol" in df.columns else df["symbol"].tolist()
+            col = "Symbol" if "Symbol" in df.columns else "symbol"
+            tickers = df[col].tolist()
             print(f"✅ Fallback successful — {len(tickers)} tickers found.")
             print("Sample:", tickers[:10])
             return tickers
@@ -55,13 +60,23 @@ def fetch_sp500_tickers():
             print(f"❌ Fallback failed too: {e2}")
             raise RuntimeError("Failed to fetch S&P 500 tickers from all sources.")
 
+
 def fetch_tsx_tickers_local():
     local = "tsx_tickers.csv"
     if os.path.exists(local):
         df = pd.read_csv(local)
-        return df["symbol"].astype(str).tolist()
+        # check for column variants
+        if "symbol" in df.columns:
+            col = "symbol"
+        elif "Symbol" in df.columns:
+            col = "Symbol"
+        else:
+            print("⚠️ No 'symbol' column found in TSX CSV — using default tickers")
+            return ["RY.TO", "TD.TO", "ENB.TO", "BNS.TO", "CNQ.TO", "TRP.TO", "SHOP.TO", "BCE.TO"]
+        return df[col].astype(str).tolist()
     else:
         return ["RY.TO", "TD.TO", "ENB.TO", "BNS.TO", "CNQ.TO", "TRP.TO", "SHOP.TO", "BCE.TO"]
+
 
 def compute_technical_indicators(series):
     """Compute RSI, MACD, and EMAs using ta library"""
@@ -98,6 +113,7 @@ def compute_technical_indicators(series):
     }
     return out
 
+
 def news_headlines(query, max_results=10):
     if not NEWSAPI_KEY:
         return []
@@ -108,9 +124,10 @@ def news_headlines(query, max_results=10):
     except Exception:
         return []
 
+
 def headline_sentiment(headline):
-    s = analyzer.polarity_scores(headline)
-    return s
+    return analyzer.polarity_scores(headline)
+
 
 # ---------- scoring ----------
 def score_stock(fund, tech, sentiment_score):
@@ -136,6 +153,7 @@ def score_stock(fund, tech, sentiment_score):
     # macro/sector placeholder
     score += 5
     return score
+
 
 # ---------- main ----------
 def main(output="email"):
@@ -221,6 +239,7 @@ def main(output="email"):
         f.write(report_md)
     print("Done.")
 
+
 def send_email(body):
     import smtplib
     from email.message import EmailMessage
@@ -245,12 +264,14 @@ def send_email(body):
     s.quit()
     print("Email sent.")
 
+
 def send_slack(body):
     url = os.getenv("SLACK_WEBHOOK")
     if not url:
         print(body)
         return
     requests.post(url, json={"text": body[:3000]})
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
