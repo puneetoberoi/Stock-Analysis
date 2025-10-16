@@ -24,26 +24,14 @@ analyzer = SentimentIntensityAnalyzer()
 # ---------- helpers ----------
 
 async def make_robust_request(session, url, params=None, retries=3, delay=2, timeout=20):
-    """Enhanced request with better error logging"""
     for attempt in range(retries):
         try:
             async with session.get(url, params=params, headers=REQUEST_HEADERS, timeout=timeout) as response:
-                text = await response.text()
                 if response.status == 200:
-                    return text
-                elif response.status == 426:  # NewsAPI specific error
-                    logging.error(f"NewsAPI requires paid plan for this endpoint")
-                    return None
-                elif response.status == 429:
-                    logging.warning(f"Rate limit hit, waiting longer...")
-                    await asyncio.sleep(delay * 3)
-                else:
-                    logging.warning(f"Request failed with status {response.status}: {text[:200]}")
-        except asyncio.TimeoutError:
-            logging.warning(f"Request timeout for {url}")
+                    return await response.text()
+                logging.warning(f"Request to {url} failed with status {response.status}")
         except Exception as e:
-            logging.warning(f"Request attempt {attempt + 1} failed: {str(e)[:100]}")
-        
+            logging.warning(f"Request attempt {attempt + 1} for {url} failed: {e}")
         if attempt < retries - 1:
             await asyncio.sleep(delay)
     return None
@@ -66,11 +54,9 @@ def fetch_sp500_tickers_sync():
 def fetch_tsx_tickers_sync():
     try:
         for table in pd.read_html(StringIO(requests.get("https://en.wikipedia.org/wiki/S%26P/TSX_Composite_Index", headers=REQUEST_HEADERS, timeout=15).text)):
-            if 'Symbol' in table.columns: 
-                return [str(t).split(' ')[0].replace('.', '-') + ".TO" for t in table["Symbol"].tolist()]
-    except Exception: 
-        pass
-    return ["RY.TO", "TD.TO", "ENB.TO", "SHOP.TO", "CNR.TO"]
+            if 'Symbol' in table.columns: return [str(t).split(' ')[0].replace('.', '-') + ".TO" for t in table["Symbol"].tolist()]
+    except Exception: return ["RY.TO", "TD.TO", "ENB.TO", "SHOP.TO"]
+    return []
 
 async def fetch_finviz_news_throttled(throttler, session, ticker):
     async with throttler:
@@ -82,200 +68,106 @@ async def fetch_finviz_news_throttled(throttler, session, ticker):
         if not news_table: return []
         return [{"title": row.a.text, "url": row.a['href']} for row in news_table.find_all('tr')[:5] if row.a]
 
-async def fetch_market_headlines():
-    """Completely rewritten news fetching with multiple fallbacks"""
-    logging.info("Fetching market headlines...")
-    all_headlines = []
+async def fetch_market_headlines(session):
+    logging.info("Fetching market headlines, prioritizing Finnhub...")
+    headlines = []
     
-    async with aiohttp.ClientSession() as session:
-        # Priority 1: NewsAPI Top Headlines (most reliable)
-        if NEWSAPI_KEY:
-            try:
-                # Try business category first
-                url = "https://newsapi.org/v2/top-headlines"
-                params = {
-                    'category': 'business',
-                    'country': 'us',
-                    'apiKey': NEWSAPI_KEY,
-                    'pageSize': 10
-                }
-                
-                content = await make_robust_request(session, url, params=params)
-                if content:
-                    data = json.loads(content)
-                    if data.get('status') == 'ok' and data.get('articles'):
-                        for article in data['articles'][:5]:
-                            if article.get('title') and article['title'] != '[Removed]':
-                                all_headlines.append({
-                                    "title": article['title'],
-                                    "url": article.get('url', '#'),
-                                    "source": article.get('source', {}).get('name', 'NewsAPI')
-                                })
-                        logging.info(f"✅ Got {len(all_headlines)} headlines from NewsAPI")
-            except Exception as e:
-                logging.error(f"NewsAPI headlines failed: {e}")
-        
-        # Priority 2: Finnhub Market News
-        if FINNHUB_KEY and len(all_headlines) < 5:
-            try:
-                url = f"https://finnhub.io/api/v1/news?category=general&token={FINNHUB_KEY}"
-                content = await make_robust_request(session, url)
-                if content:
-                    news = json.loads(content)
-                    for article in news[:10]:
-                        if len(all_headlines) >= 10:
-                            break
-                        headline = article.get('headline', '')
-                        if headline:
-                            all_headlines.append({
-                                "title": headline,
-                                "url": article.get('url', '#'),
-                                "source": article.get('source', 'Finnhub')
-                            })
-                    logging.info(f"✅ Added Finnhub headlines, total: {len(all_headlines)}")
-            except Exception as e:
-                logging.error(f"Finnhub news failed: {e}")
-        
-        # Priority 3: Direct RSS/JSON feeds (no scraping needed)
-        if len(all_headlines) < 5:
-            try:
-                # Try CNN Money RSS converted to JSON
-                cnn_url = "https://api.rss2json.com/v1/api.json?rss_url=http://rss.cnn.com/rss/money_markets.rss"
-                content = await make_robust_request(session, cnn_url)
-                if content:
-                    data = json.loads(content)
-                    for item in data.get('items', [])[:5]:
-                        if len(all_headlines) >= 10:
-                            break
-                        all_headlines.append({
-                            "title": item.get('title', ''),
-                            "url": item.get('link', '#'),
-                            "source": "CNN Money"
+    # Priority 1: Finnhub (since it's working reliably)
+    if FINNHUB_KEY:
+        try:
+            url = f"https://finnhub.io/api/v1/news?category=general&token={FINNHUB_KEY}"
+            content = await make_robust_request(session, url)
+            if content:
+                articles = json.loads(content)
+                for article in articles[:10]:
+                    if article.get('headline'):
+                        headlines.append({
+                            "title": article['headline'],
+                            "url": article.get('url', '#'),
+                            "source": article.get('source', 'Finnhub')
                         })
-                    logging.info(f"✅ Added CNN headlines, total: {len(all_headlines)}")
-            except Exception as e:
-                logging.warning(f"CNN RSS failed: {e}")
+                logging.info(f"✅ Fetched {len(headlines)} headlines from Finnhub.")
+        except Exception as e:
+            logging.error(f"Finnhub headline fetch failed: {e}")
+
+    # Fallback: NewsAPI (use only if Finnhub fails)
+    if not headlines and NEWSAPI_KEY:
+        logging.warning("Finnhub failed, falling back to NewsAPI for headlines.")
+        try:
+            url = f"https://newsapi.org/v2/top-headlines?category=business&country=us&apiKey={NEWSAPI_KEY}&pageSize=10"
+            content = await make_robust_request(session, url)
+            if content:
+                data = json.loads(content)
+                if data.get('status') == 'ok':
+                    for article in data['articles']:
+                        if article.get('title') and article['title'] != '[Removed]':
+                            headlines.append({
+                                "title": article['title'],
+                                "url": article.get('url', '#'),
+                                "source": article.get('source', {}).get('name', 'NewsAPI')
+                            })
+                    logging.info(f"✅ Fetched {len(headlines)} headlines from NewsAPI fallback.")
+        except Exception as e:
+            logging.error(f"NewsAPI headline fallback failed: {e}")
+
+    if not headlines:
+        return [{"title": "Headlines temporarily unavailable, please check API keys.", "url": "#", "source": "System"}]
     
-    # Remove duplicates
-    seen = set()
-    unique_headlines = []
-    for h in all_headlines:
-        if h['title'] and h['title'] not in seen:
-            seen.add(h['title'])
-            unique_headlines.append(h)
-    
-    if not unique_headlines:
-        logging.error("❌ All headline sources failed!")
-        return [{"title": "Unable to fetch headlines - check API keys", "url": "#", "source": "System"}]
-    
-    logging.info(f"✅ Returning {len(unique_headlines)} unique headlines")
-    return unique_headlines[:10]
+    return headlines
 
 async def fetch_macro_sentiment(session):
-    """Enhanced macro sentiment analysis with better NewsAPI usage"""
+    logging.info("Analyzing macro sentiment using Finnhub data...")
     result = {
-        "geopolitical_risk": 0,
-        "trade_risk": 0,
-        "economic_sentiment": 0,
-        "overall_macro_score": 0,
-        "geo_articles": [],
-        "trade_articles": [],
-        "econ_articles": []
+        "geopolitical_risk": 0, "trade_risk": 0, "economic_sentiment": 0,
+        "overall_macro_score": 0, "geo_articles": [], "trade_articles": [], "econ_articles": []
     }
-    
-    if not NEWSAPI_KEY:
-        logging.warning("No NewsAPI key for macro sentiment")
+
+    if not FINNHUB_KEY:
+        logging.error("❌ Cannot perform macro analysis without Finnhub key.")
         return result
-    
+
     try:
-        # Get date range for last 7 days
-        to_date = datetime.date.today()
-        from_date = to_date - datetime.timedelta(days=7)
+        # Fetch a single batch of general news from Finnhub
+        url = f"https://finnhub.io/api/v1/news?category=general&minId=10&token={FINNHUB_KEY}"
+        content = await make_robust_request(session, url)
+        if not content:
+            logging.error("Failed to fetch news from Finnhub for macro analysis.")
+            return result
         
-        async def search_news(query, category_name):
-            """Search news with specific query"""
-            try:
-                url = "https://newsapi.org/v2/everything"
-                params = {
-                    'q': query,
-                    'from': from_date.isoformat(),
-                    'to': to_date.isoformat(),
-                    'language': 'en',
-                    'sortBy': 'relevancy',
-                    'pageSize': 20,
-                    'apiKey': NEWSAPI_KEY
-                }
-                
-                content = await make_robust_request(session, url, params=params, retries=2)
-                if content:
-                    data = json.loads(content)
-                    if data.get('status') == 'ok':
-                        articles = data.get('articles', [])
-                        logging.info(f"Found {len(articles)} articles for {category_name}")
-                        return articles
-                    elif data.get('status') == 'error':
-                        logging.error(f"NewsAPI error for {category_name}: {data.get('message')}")
-            except Exception as e:
-                logging.error(f"Failed to search {category_name}: {e}")
-            return []
+        articles = json.loads(content)
+        logging.info(f"Analyzing {len(articles)} articles from Finnhub for macro sentiment.")
         
-        # Fetch different categories
-        geo_task = search_news("war OR conflict OR military OR geopolitical", "geopolitical")
-        trade_task = search_news("tariff OR \"trade war\" OR sanctions", "trade")
-        econ_task = search_news("\"federal reserve\" OR inflation OR \"interest rates\" OR recession", "economic")
-        
-        geo_articles, trade_articles, econ_articles = await asyncio.gather(
-            geo_task, trade_task, econ_task
-        )
-        
-        # Process geopolitical
-        if geo_articles:
-            result['geopolitical_risk'] = min(len(geo_articles) / 10 * 100, 100)
-            result['geo_articles'] = [
-                {
-                    "title": a.get('title', ''),
-                    "url": a.get('url', '#'),
-                    "source": a.get('source', {}).get('name', 'Unknown')
-                }
-                for a in geo_articles[:3]
-                if a.get('title') and a['title'] != '[Removed]'
-            ]
-        
-        # Process trade
-        if trade_articles:
-            result['trade_risk'] = min(len(trade_articles) / 10 * 100, 100)
-            result['trade_articles'] = [
-                {
-                    "title": a.get('title', ''),
-                    "url": a.get('url', '#'), 
-                    "source": a.get('source', {}).get('name', 'Unknown')
-                }
-                for a in trade_articles[:3]
-                if a.get('title') and a['title'] != '[Removed]'
-            ]
-        
-        # Process economic with sentiment
-        if econ_articles:
-            sentiments = []
-            for article in econ_articles:
-                title = article.get('title', '')
-                if title and title != '[Removed]':
-                    sentiment = analyzer.polarity_scores(title).get('compound', 0)
-                    sentiments.append(sentiment)
-            
-            if sentiments:
-                result['economic_sentiment'] = sum(sentiments) / len(sentiments)
-            
-            result['econ_articles'] = [
-                {
-                    "title": a.get('title', ''),
-                    "url": a.get('url', '#'),
-                    "source": a.get('source', {}).get('name', 'Unknown')
-                }
-                for a in econ_articles[:3]
-                if a.get('title') and a['title'] != '[Removed]'
-            ]
-        
+        # Define keywords for categorization
+        geo_keywords = ['war', 'conflict', 'geopolitical', 'tensions', 'military', 'ukraine', 'gaza', 'taiwan']
+        trade_keywords = ['tariff', 'trade war', 'sanctions', 'export', 'import', 'wto']
+        econ_keywords = ['inflation', 'interest rate', 'federal reserve', 'recession', 'gdp', 'jobs report', 'cpi']
+
+        # Categorize articles
+        for article in articles:
+            headline = article.get('headline', '').lower()
+            if not headline: continue
+
+            article_data = {
+                "title": article['headline'],
+                "url": article.get('url', '#'),
+                "source": article.get('source', 'Finnhub')
+            }
+
+            if any(keyword in headline for keyword in geo_keywords) and len(result['geo_articles']) < 15:
+                result['geo_articles'].append(article_data)
+            if any(keyword in headline for keyword in trade_keywords) and len(result['trade_articles']) < 15:
+                result['trade_articles'].append(article_data)
+            if any(keyword in headline for keyword in econ_keywords) and len(result['econ_articles']) < 20:
+                result['econ_articles'].append(article_data)
+
+        # Calculate scores based on categorized articles
+        result['geopolitical_risk'] = min(len(result['geo_articles']) * 10, 100) # Each article adds 10 points
+        result['trade_risk'] = min(len(result['trade_articles']) * 10, 100)
+
+        if result['econ_articles']:
+            sentiments = [analyzer.polarity_scores(a['title']).get('compound', 0) for a in result['econ_articles']]
+            result['economic_sentiment'] = sum(sentiments) / len(sentiments) if sentiments else 0
+
         # Calculate overall score
         result['overall_macro_score'] = (
             -(result['geopolitical_risk'] / 100 * 15)
@@ -283,10 +175,15 @@ async def fetch_macro_sentiment(session):
             + (result['economic_sentiment'] * 15)
         )
         
-        logging.info(f"✅ Macro scores - Geo: {result['geopolitical_risk']:.0f}, Trade: {result['trade_risk']:.0f}, Econ: {result['economic_sentiment']:.2f}")
-        
+        # Trim articles for display
+        result['geo_articles'] = result['geo_articles'][:3]
+        result['trade_articles'] = result['trade_articles'][:3]
+        result['econ_articles'] = result['econ_articles'][:3]
+
+        logging.info(f"✅ Macro analysis complete. Geo Risk: {result['geopolitical_risk']}, Trade Risk: {result['trade_risk']}, Econ Sentiment: {result['economic_sentiment']:.2f}")
+
     except Exception as e:
-        logging.error(f"Macro sentiment failed: {e}")
+        logging.error(f"Error during macro sentiment analysis: {e}", exc_info=True)
     
     return result
 
@@ -307,37 +204,17 @@ async def fetch_context_data(session):
     
     # Commodities
     try:
-        gold_ticker = yf.Ticker('GC=F')
-        silver_ticker = yf.Ticker('SI=F')
-        
-        gold_info = await asyncio.to_thread(getattr, gold_ticker, 'info')
-        silver_info = await asyncio.to_thread(getattr, silver_ticker, 'info')
-        
-        gold_price = gold_info.get('regularMarketPrice', gold_info.get('previousClose'))
-        silver_price = silver_info.get('regularMarketPrice', silver_info.get('previousClose'))
-        
-        context_data['gold'] = {
-            'name': 'Gold',
-            'symbol': 'GC=F',
-            'current_price': gold_price
-        }
-        context_data['silver'] = {
-            'name': 'Silver',
-            'symbol': 'SI=F',
-            'current_price': silver_price
-        }
-        
-        if gold_price and silver_price:
-            context_data['gold_silver_ratio'] = f"{gold_price/silver_price:.1f}:1"
-    except Exception as e:
-        logging.warning(f"Commodities data fetch failed: {e}")
+        gold_info, silver_info = await asyncio.to_thread(yf.Ticker('GC=F').info), await asyncio.to_thread(yf.Ticker('SI=F').info)
+        context_data['gold'] = {'name': 'Gold', 'symbol': 'GC=F', 'current_price': gold_info.get('regularMarketPrice')}
+        context_data['silver'] = {'name': 'Silver', 'symbol': 'SI=F', 'current_price': silver_info.get('regularMarketPrice')}
+        if (gp := gold_info.get('regularMarketPrice')) and (sp := silver_info.get('regularMarketPrice')):
+            context_data['gold_silver_ratio'] = f"{gp/sp:.1f}:1"
+    except Exception: pass
     
     # Fear & Greed
     try:
         fg_content = await make_robust_request(session, "https://api.alternative.me/fng/?limit=1")
-        if fg_content:
-            fg_data = json.loads(fg_content)
-            context_data['crypto_sentiment'] = fg_data['data'][0]['value_classification']
+        context_data['crypto_sentiment'] = json.loads(fg_content)['data'][0]['value_classification'] if fg_content else "N/A"
     except Exception:
         context_data['crypto_sentiment'] = "N/A"
     
@@ -360,62 +237,39 @@ async def analyze_stock(semaphore, throttler, session, ticker):
             if data.empty: return None
             
             info = await asyncio.to_thread(getattr, yf_ticker, 'info')
-            
-            # Get news
             articles = await fetch_finviz_news_throttled(throttler, session, ticker)
             
-            # Sentiment analysis
             avg_sent = 0
             if articles:
                 sentiments = [analyzer.polarity_scores(a["title"]).get("compound", 0) for a in articles[:5]]
-                avg_sent = sum(sentiments) / len(sentiments) if sentiments else 0
+                if sentiments: avg_sent = sum(sentiments) / len(sentiments)
             
-            # Score calculation
             score = 50 + (avg_sent * 20)
             
             if (tech := compute_technical_indicators(data["Close"])):
-                if 40 < tech.get("rsi", 50) < 65:
-                    score += 15
+                if 40 < tech.get("rsi", 50) < 65: score += 15
             
-            if info.get('trailingPE') and 0 < info.get('trailingPE') < 35:
-                score += 15
+            if info.get('trailingPE') and 0 < info.get('trailingPE') < 35: score += 15
             
             return {
-                "ticker": ticker,
-                "score": min(score, 100),
-                "name": info.get('shortName', ticker),
-                "sector": info.get('sector', 'N/A'),
-                "summary": info.get('longBusinessSummary', None)
+                "ticker": ticker, "score": min(score, 100), "name": info.get('shortName', ticker),
+                "sector": info.get('sector', 'N/A'), "summary": info.get('longBusinessSummary', None)
             }
             
         except Exception as e:
-            if '$' not in str(e):
-                logging.debug(f"Error analyzing {ticker}: {e}")
+            if '$' not in str(e): logging.debug(f"Error analyzing {ticker}: {e}")
             return None
 
 def load_memory():
     if os.path.exists(MEMORY_FILE):
-        with open(MEMORY_FILE, 'r') as f:
-            return json.load(f)
+        with open(MEMORY_FILE, 'r') as f: return json.load(f)
     return {}
 
 def save_memory(data):
-    with open(MEMORY_FILE, 'w') as f:
-        json.dump(data, f)
+    with open(MEMORY_FILE, 'w') as f: json.dump(data, f)
 
 async def main(output="print"):
     previous_day_memory = load_memory()
-    
-    # Test API keys
-    if NEWSAPI_KEY:
-        logging.info(f"NewsAPI key detected: {NEWSAPI_KEY[:8]}...")
-    else:
-        logging.warning("NewsAPI key not found!")
-    
-    if FINNHUB_KEY:
-        logging.info(f"Finnhub key detected: {FINNHUB_KEY[:8]}...")
-    else:
-        logging.warning("Finnhub key not found!")
     
     sp500 = get_cached_tickers('sp500_cache.json', fetch_sp500_tickers_sync)
     tsx = get_cached_tickers('tsx_cache.json', fetch_tsx_tickers_sync)
@@ -425,40 +279,34 @@ async def main(output="print"):
     semaphore = asyncio.Semaphore(10)
     
     async with aiohttp.ClientSession() as session:
-        stock_tasks = [analyze_stock(semaphore, throttler, session, ticker) for ticker in universe]
-        context_task = fetch_context_data(session)
-        news_task = fetch_market_headlines()
-        macro_task = fetch_macro_sentiment(session)
+        # Pass the session to the functions that need it
+        tasks = {
+            "stocks": asyncio.gather(*[analyze_stock(semaphore, throttler, session, ticker) for ticker in universe]),
+            "context": fetch_context_data(session),
+            "news": fetch_market_headlines(session),
+            "macro": fetch_macro_sentiment(session)
+        }
         
-        results, context_data, market_news, macro_data = await asyncio.gather(
-            asyncio.gather(*stock_tasks),
-            context_task,
-            news_task,
-            macro_task
-        )
-    
-    stock_results = [r for r in results if r]
+        results = await asyncio.gather(*tasks.values())
+        stock_results, context_data, market_news, macro_data = results
+
+    stock_results = [r for r in stock_results if r]
     df_stocks = pd.DataFrame(stock_results).sort_values("score", ascending=False) if stock_results else pd.DataFrame()
     
     if output == "email":
         html_email = generate_html_email(df_stocks, context_data, market_news, macro_data, previous_day_memory)
         send_email(html_email)
-    else:
-        # Print summary for debugging
-        print(f"Headlines fetched: {len(market_news)}")
-        print(f"Macro scores - Geo: {macro_data['geopolitical_risk']}, Trade: {macro_data['trade_risk']}")
-        print(f"Stocks analyzed: {len(stock_results)}")
     
     if not df_stocks.empty:
         save_memory({
             "previous_top_stock_name": df_stocks.iloc[0]['name'],
             "previous_top_stock_ticker": df_stocks.iloc[0]['ticker'],
-            "previous_macro_score": macro_data.get('overall_macro_score', 0),
-            "date": datetime.date.today().isoformat()
+            "previous_macro_score": macro_data.get('overall_macro_score', 0)
         })
     
     logging.info("✅ Analysis complete.")
-
+# The email generation and sending functions remain the same as the previous correct version.
+# To save space, I'm omitting them here, but you should keep them in your file.
 def generate_html_email(df_stocks, context, market_news, macro_data, memory):
     def format_articles(articles):
         if not articles: 
@@ -555,24 +403,18 @@ def send_email(html_body):
     from email.mime.multipart import MIMEMultipart
     from email.mime.text import MIMEText
     
-    SMTP_USER = os.getenv("SMTP_USER")
-    SMTP_PASS = os.getenv("SMTP_PASS")
-    
+    SMTP_USER, SMTP_PASS = os.getenv("SMTP_USER"), os.getenv("SMTP_PASS")
     if not SMTP_USER or not SMTP_PASS:
         logging.warning("SMTP credentials missing.")
         return
     
     msg = MIMEMultipart('alternative')
-    msg["Subject"] = f"⛵ Your Daily Market Briefing - {datetime.date.today()}"
-    msg["From"] = SMTP_USER
-    msg["To"] = SMTP_USER
+    msg["Subject"], msg["From"], msg["To"] = f"⛵ Your Daily Market Briefing - {datetime.date.today()}", SMTP_USER, SMTP_USER
     msg.attach(MIMEText(html_body, 'html'))
     
     try:
         with smtplib.SMTP("smtp.gmail.com", 587) as server:
-            server.starttls()
-            server.login(SMTP_USER, SMTP_PASS)
-            server.send_message(msg)
+            server.starttls(); server.login(SMTP_USER, SMTP_PASS); server.send_message(msg)
         logging.info("✅ Email sent successfully.")
     except Exception as e:
         logging.error(f"Failed to send email: {e}")
