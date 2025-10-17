@@ -338,7 +338,8 @@ async def analyze_portfolio_watchlist(session, portfolio_file='portfolio.json'):
                 'ticker': ticker, 'name': info.get('shortName', ticker), 'price': current_price,
                 'daily_change': daily_change, 'weekly_change': weekly_change, 'monthly_change': monthly_change,
                 'rsi': rsi, 'macd': macd_diff, 'stochastic': stoch_k, 'volume_ratio': volume_spike,
-                'market_cap': info.get('marketCap', 0), 'pe_ratio': info.get('trailingPE', 0)
+                'market_cap': info.get('marketCap', 0), 'pe_ratio': info.get('trailingPE', 0),
+                'sector': info.get('sector', 'Unknown')
             }
             
             portfolio_data['stocks'].append(stock_analysis)
@@ -415,6 +416,146 @@ def generate_pattern_interpretation(current_conditions, avg_1m, avg_3m, win_1m, 
     
     return interpretation
 
+async def analyze_sector_performance_in_period(start_date, end_date):
+    """Analyze which sectors performed best in a historical period"""
+    sector_etfs = {
+        'Technology': 'XLK',
+        'Healthcare': 'XLV', 
+        'Financials': 'XLF',
+        'Energy': 'XLE',
+        'Industrials': 'XLI',
+        'Consumer Discretionary': 'XLY',
+        'Consumer Staples': 'XLP',
+        'Utilities': 'XLU',
+        'Materials': 'XLB',
+        'Real Estate': 'XLRE'
+    }
+    
+    sector_returns = {}
+    
+    try:
+        for sector, etf in sector_etfs.items():
+            try:
+                ticker = yf.Ticker(etf)
+                hist = ticker.history(start=start_date, end=end_date)
+                if not hist.empty and len(hist) > 1:
+                    period_return = ((hist['Close'].iloc[-1] / hist['Close'].iloc[0]) - 1) * 100
+                    sector_returns[sector] = period_return
+            except:
+                continue
+        
+        sorted_sectors = sorted(sector_returns.items(), key=lambda x: x[1], reverse=True)
+        return sorted_sectors
+    
+    except Exception as e:
+        logging.warning(f"Error analyzing sector performance: {e}")
+        return []
+
+async def generate_portfolio_recommendations_from_pattern(portfolio_data, pattern_data, macro_data):
+    """Generate specific buy/sell/hold recommendations based on historical patterns"""
+    if not pattern_data or not pattern_data.get('matches') or not portfolio_data:
+        return None
+    
+    recommendations = {
+        'buy': [],
+        'hold': [],
+        'sell': [],
+        'watch': [],
+        'sector_winners': [],
+        'sector_losers': []
+    }
+    
+    top_match = pattern_data['matches'][0]
+    
+    # Use sector performance data if available
+    if pattern_data.get('sector_performance'):
+        recommendations['sector_winners'] = pattern_data['sector_performance'][:3]
+        recommendations['sector_losers'] = pattern_data['sector_performance'][-3:]
+    
+    # Analyze each portfolio stock
+    for stock in portfolio_data['stocks']:
+        ticker = stock['ticker']
+        sector = stock.get('sector', 'Unknown')
+        rsi = stock['rsi']
+        monthly_change = stock['monthly_change']
+        
+        score = 0
+        reasons = []
+        
+        # 1. Sector alignment
+        winning_sectors = [s[0] for s in recommendations['sector_winners']]
+        losing_sectors = [s[0] for s in recommendations['sector_losers']]
+        
+        if any(ws in str(sector) for ws in winning_sectors):
+            score += 2
+            reasons.append(f"{sector} outperformed in similar conditions")
+        elif any(ls in str(sector) for ls in losing_sectors):
+            score -= 2
+            reasons.append(f"{sector} underperformed in similar conditions")
+        
+        # 2. Current technical condition
+        if rsi < 35:
+            score += 2
+            reasons.append(f"Oversold (RSI {rsi:.0f}) - potential bounce")
+        elif rsi > 70:
+            score -= 2
+            reasons.append(f"Overbought (RSI {rsi:.0f}) - take profits")
+        
+        # 3. Recent momentum
+        if monthly_change > 30:
+            score -= 1
+            reasons.append(f"Extended rally (+{monthly_change:.0f}%) - due for pullback")
+        elif -10 < monthly_change < 0:
+            score += 1
+            reasons.append("Healthy pullback - good entry")
+        
+        # 4. Historical pattern outcome
+        if pattern_data['avg_return_3m'] > 5:
+            score += 1
+            reasons.append(f"Historical pattern bullish (+{pattern_data['avg_return_3m']:.1f}% avg)")
+        elif pattern_data['avg_return_3m'] < -5:
+            score -= 1
+            reasons.append(f"Historical pattern bearish ({pattern_data['avg_return_3m']:.1f}% avg)")
+        
+        # 5. Macro alignment
+        if macro_data['geopolitical_risk'] > 70:
+            if ticker in ['AAPL', 'MSFT', 'GOOGL']:
+                score += 1
+                reasons.append("Mega-cap safety in uncertain times")
+        
+        # Final decision
+        recommendation = {
+            'ticker': ticker,
+            'name': stock['name'],
+            'action': '',
+            'confidence': '',
+            'reasons': reasons,
+            'score': score
+        }
+        
+        if score >= 3:
+            recommendation['action'] = 'STRONG BUY'
+            recommendation['confidence'] = 'High'
+            recommendations['buy'].append(recommendation)
+        elif score >= 1:
+            recommendation['action'] = 'BUY on dips'
+            recommendation['confidence'] = 'Medium'
+            recommendations['watch'].append(recommendation)
+        elif score <= -3:
+            recommendation['action'] = 'SELL / Take Profits'
+            recommendation['confidence'] = 'High'
+            recommendations['sell'].append(recommendation)
+        elif score <= -1:
+            recommendation['action'] = 'TRIM position'
+            recommendation['confidence'] = 'Medium'
+            recommendations['sell'].append(recommendation)
+        else:
+            recommendation['action'] = 'HOLD'
+            recommendation['confidence'] = 'Medium'
+            recommendations['hold'].append(recommendation)
+    
+    return recommendations
+
 async def find_historical_patterns(session, current_conditions):
     """Feature #3: Find similar market conditions in past 11 years - ENHANCED"""
     logging.info("🔮 Searching for historical patterns...")
@@ -477,11 +618,19 @@ async def find_historical_patterns(session, current_conditions):
             
             interpretation = generate_pattern_interpretation(current_conditions, avg_1m, avg_3m, win_rate_1m, win_rate_3m, bullish_matches, bearish_matches, neutral_matches)
             
+            # Get sector performance for top match
+            top_match_date = datetime.datetime.strptime(pattern_matches[0]['date'], '%Y-%m-%d')
+            period_end = top_match_date + datetime.timedelta(days=60)
+            sector_perf = await analyze_sector_performance_in_period(
+                pattern_matches[0]['date'],
+                period_end.strftime('%Y-%m-%d')
+            )
+            
             return {
                 'matches': pattern_matches[:5], 'avg_return_1m': avg_1m, 'avg_return_3m': avg_3m,
                 'win_rate_1m': win_rate_1m, 'win_rate_3m': win_rate_3m, 'sample_size': len(pattern_matches),
                 'bullish_count': len(bullish_matches), 'bearish_count': len(bearish_matches), 'neutral_count': len(neutral_matches),
-                'interpretation': interpretation,
+                'interpretation': interpretation, 'sector_performance': sector_perf,
                 'current_conditions': {
                     'rsi': current_rsi, 'volatility': current_volatility, 'trend': current_trend,
                     'geo_risk': current_conditions['geopolitical_risk'], 'trade_risk': current_conditions['trade_risk']
@@ -497,8 +646,7 @@ async def generate_ai_oracle_analysis(market_data, portfolio_data, pattern_data)
     logging.info("🤖 Generating AI Oracle analysis...")
     
     if not GEMINI_API_KEY:
-        logging.warning("Gemini API key not found")
-        # Fallback to rule-based analysis
+        logging.warning("Gemini API key not found - using fallback analysis")
         analysis = []
         if market_data['macro']['geopolitical_risk'] > 70: analysis.append("🛡️ DEFENSE PLAY: Geopolitical risk elevated. Consider: LMT, RTX, NOC.")
         if market_data['macro']['trade_risk'] > 60: analysis.append("🏭 DOMESTIC FOCUS: Trade tensions rising. Favor US-centric companies.")
@@ -510,7 +658,20 @@ async def generate_ai_oracle_analysis(market_data, portfolio_data, pattern_data)
 
     try:
         genai.configure(api_key=GEMINI_API_KEY)
-        model = genai.GenerativeModel('gemini-pro')
+        
+        # Try different model names
+        model = None
+        for model_name in ['gemini-1.5-flash', 'gemini-pro', 'models/gemini-pro']:
+            try:
+                model = genai.GenerativeModel(model_name)
+                logging.info(f"✅ Using Gemini model: {model_name}")
+                break
+            except Exception as e:
+                logging.warning(f"Failed to load model {model_name}: {e}")
+                continue
+        
+        if not model:
+            raise Exception("No Gemini model available")
         
         prompt = f"""You are an elite hedge fund analyst. Analyze this market data and provide sharp, actionable intelligence.
 
@@ -524,7 +685,7 @@ PORTFOLIO HIGHLIGHTS:
 {json.dumps([{'ticker': s['ticker'], 'rsi': round(s['rsi'], 1), 'monthly_change': round(s['monthly_change'], 1)} for s in portfolio_data['stocks'][:4]], indent=2) if portfolio_data else 'N/A'}
 
 HISTORICAL PATTERN:
-{json.dumps(pattern_data.get('interpretation', 'N/A'), indent=2) if pattern_data else 'N/A'}
+{json.dumps(pattern_data.get('interpretation', [])[:2], indent=2) if pattern_data else 'N/A'}
 
 Provide:
 1. IMMEDIATE OPPORTUNITIES: Specific stocks/sectors to buy now and why.
@@ -536,11 +697,22 @@ Provide:
 Focus on AI, geopolitical plays, and hidden opportunities. Be specific with price targets and timeframes. Be decisive."""
         
         response = model.generate_content(prompt)
+        logging.info("✅ Gemini AI analysis generated successfully")
         return {'analysis': response.text, 'generated_at': datetime.datetime.now().isoformat()}
         
     except Exception as e:
-        logging.error(f"Error generating AI analysis: {e}")
-        return {'analysis': 'AI analysis failed. Check API key and quota.', 'generated_at': datetime.datetime.now().isoformat()}
+        logging.error(f"Gemini API error: {e}")
+        # Fallback
+        analysis = []
+        if market_data['macro']['geopolitical_risk'] > 70: analysis.append("🛡️ DEFENSE PLAY: Geopolitical risk at maximum. Consider defense stocks (LMT, RTX, NOC) and safe-haven assets.")
+        if market_data['macro']['trade_risk'] > 60: analysis.append("🏭 TRADE WAR PROTECTION: Favor domestic-focused companies. Avoid heavy China exposure.")
+        if portfolio_data:
+            for stock in portfolio_data['stocks']:
+                if stock['rsi'] > 75: analysis.append(f"⚠️ {stock['ticker']}: Extremely overbought. Consider trimming position.")
+                elif stock['rsi'] < 25: analysis.append(f"🎯 {stock['ticker']}: Extremely oversold. Potential buying opportunity on strength.")
+        if pattern_data and pattern_data['avg_return_3m'] > 5: 
+            analysis.append(f"📈 HISTORICAL EDGE: Similar market conditions led to +{pattern_data['avg_return_3m']:.1f}% average returns. Position for upside with stops at -3%.")
+        return {'analysis': '\n\n'.join(analysis) if analysis else 'AI analysis temporarily unavailable. Using historical patterns for guidance.', 'generated_at': datetime.datetime.now().isoformat()}
 
 # ========================================
 # MAIN FUNCTION WITH ENHANCEMENTS
@@ -575,6 +747,13 @@ async def main(output="print"):
         portfolio_data = results[4] if ENABLE_WATCHLIST and len(results) > 4 else None
         pattern_data = await find_historical_patterns(session, macro_data) if ENABLE_PATTERN_MATCH else None
         
+        # Generate portfolio recommendations AFTER pattern data
+        portfolio_recommendations = None
+        if ENABLE_PATTERN_MATCH and pattern_data and portfolio_data:
+            portfolio_recommendations = await generate_portfolio_recommendations_from_pattern(
+                portfolio_data, pattern_data, macro_data
+            )
+        
         if ENABLE_AI_ORACLE:
             market_summary = {
                 'macro': macro_data,
@@ -586,7 +765,7 @@ async def main(output="print"):
             ai_analysis = None
     
     if output == "email":
-        html_email = generate_enhanced_html_email(df_stocks, context_data, market_news, macro_data, previous_day_memory, portfolio_data, pattern_data, ai_analysis)
+        html_email = generate_enhanced_html_email(df_stocks, context_data, market_news, macro_data, previous_day_memory, portfolio_data, pattern_data, ai_analysis, portfolio_recommendations)
         send_email(html_email)
     
     if not df_stocks.empty:
@@ -597,7 +776,7 @@ async def main(output="print"):
     
     logging.info("✅ Analysis complete with enhancements.")
 
-def generate_enhanced_html_email(df_stocks, context, market_news, macro_data, memory, portfolio_data, pattern_data, ai_analysis):
+def generate_enhanced_html_email(df_stocks, context, market_news, macro_data, memory, portfolio_data, pattern_data, ai_analysis, portfolio_recommendations=None):
     """Enhanced email generation with new features"""
     
     def format_articles(articles):
@@ -652,13 +831,43 @@ def generate_enhanced_html_email(df_stocks, context, market_news, macro_data, me
                 else:
                     interpretation_html += f'<p style="line-height:1.8;margin:10px 0;">{item["text"]}</p>'
         
+        # SECTOR PERFORMANCE
+        sector_html = ""
+        if pattern_data.get('sector_performance'):
+            sector_rows = ""
+            for sector, perf in pattern_data['sector_performance'][:5]:
+                color = "#16a34a" if perf > 0 else "#dc2626"
+                sector_rows += f'<tr><td style="padding:8px;border-bottom:1px solid #eee;">{sector}</td><td style="padding:8px;border-bottom:1px solid #eee;text-align:right;color:{color};font-weight:bold;">{perf:+.1f}%</td></tr>'
+            
+            sector_html = f"""<div style="margin:20px 0;"><h3>🎯 Sector Performance in Similar Periods:</h3><p style="font-size:0.9em;color:#666;">Based on {pattern_data['matches'][0]['date']} match ({pattern_data['matches'][0]['context']})</p><table style="width:100%;background-color:#fff;border-collapse:collapse;"><thead><tr style="background-color:#f3e8ff;"><th style="padding:10px;text-align:left;">Sector</th><th style="padding:10px;text-align:right;">3-Month Return</th></tr></thead><tbody>{sector_rows}</tbody></table></div>"""
+        
+        # PORTFOLIO RECOMMENDATIONS
+        recommendations_html = ""
+        if portfolio_recommendations:
+            buy_html = ""
+            if portfolio_recommendations['buy']:
+                for rec in portfolio_recommendations['buy']:
+                    buy_html += f"""<div style="margin:10px 0;padding:12px;background-color:#f0fdf4;border-left:4px solid #16a34a;border-radius:5px;"><div style="font-size:1.1em;font-weight:bold;color:#16a34a;">{rec['ticker']} - {rec['action']}</div><div style="font-size:0.9em;color:#666;margin-top:5px;">{'<br>'.join(['• ' + r for r in rec['reasons']])}< /div></div>"""
+            
+            sell_html = ""
+            if portfolio_recommendations['sell']:
+                for rec in portfolio_recommendations['sell']:
+                    sell_html += f"""<div style="margin:10px 0;padding:12px;background-color:#fef2f2;border-left:4px solid #dc2626;border-radius:5px;"><div style="font-size:1.1em;font-weight:bold;color:#dc2626;">{rec['ticker']} - {rec['action']}</div><div style="font-size:0.9em;color:#666;margin-top:5px;">{'<br>'.join(['• ' + r for r in rec['reasons']])}< /div></div>"""
+            
+            hold_html = ""
+            if portfolio_recommendations['hold']:
+                hold_tickers = [rec['ticker'] for rec in portfolio_recommendations['hold']]
+                hold_html = f"""<div style="margin:10px 0;padding:12px;background-color:#f8f8f8;border-left:4px solid #666;border-radius:5px;"><div style="font-size:1.1em;font-weight:bold;color:#666;">HOLD: {', '.join(hold_tickers)}</div><div style="font-size:0.9em;color:#666;margin-top:5px;">• Positions look balanced - no immediate action needed</div></div>"""
+            
+            recommendations_html = f"""<div style="margin:20px 0;"><h3 style="color:#7c3aed;">💼 YOUR PORTFOLIO PLAYBOOK</h3><p style="font-size:0.9em;color:#666;">Based on historical pattern analysis + current market conditions</p>{buy_html if buy_html else '<p style="color:#888;font-size:0.9em;">No strong buy signals at this time.</p>'}{sell_html if sell_html else '<p style="color:#888;font-size:0.9em;">No sell signals detected.</p>'}{hold_html}</div>"""
+        
         matches_html = ""
         for i, match in enumerate(pattern_data['matches'][:5], 1):
             outcome_color = "#16a34a" if match['future_3m'] > 0 else "#dc2626"
-            matches_html += f"""<div style="margin:15px 0;padding:15px;background-color:#f8f8f8;border-left:4px solid {outcome_color};border-radius:5px;"><div style="display:flex;justify-content:space-between;align-items:center;"><div><b style="font-size:1.1em;">{match['date']}</b><span style="color:#666;margin-left:10px;">({match['context']})</span><br><span style="font-size:0.9em;color:#666;">Match Strength: {match['similarity']:.1f}%</span></div><div style="text-align:right;"><div style="font-size:1.2em;font-weight:bold;color:{outcome_color};">{match['future_3m']:+.1f}%</div><div style="font-size:0.9em;color:#666;">3-month outcome</div></div></div><div style="margin-top:10px;font-size:0.9em;color:#666;">1-month: {match['future_1m']:+.1f}% | RSI then: {match['conditions']['rsi']:.1f} | Volatility: {match['conditions']['volatility']:.1f}%</div></div>"""
+            matches_html += f"""<div style="margin:15px 0;padding:15px;background-color:#f8f8f8;border-left:4px solid {outcome_color};border-radius:5px;"><div style="display:flex;justify-content:space-between;align-items:center;"><div><b style="font-size:1.1em;">{match['date']}</b><span style="color:#666;margin-left:10px;">({match['context']})</span><br><span style="font-size:0.9em;color:#666;">Match Strength: {match['similarity']:.1f}%</span></div><div style="text-align:right;"><div style="font-size:1.2em;font-weight:bold;color:{outcome_color};">{match['future_3m']:+.1f}%</div><div style="font-size:0.9em;color:#666;">S&P 500 outcome</div></div></div></div>"""
         
         win_bar_1m, win_bar_3m = int(pattern_data['win_rate_1m']), int(pattern_data['win_rate_3m'])
-        pattern_html = f"""<div class="section" style="background-color:#f3e8ff;border-left:4px solid #7c3aed;"><h2>🔮 11-YEAR PATTERN ANALYSIS</h2><p style="font-size:0.9em;color:#666;">Analyzing {pattern_data['sample_size']} similar market setups</p>{current_cond}<div style="background-color:#fff;padding:20px;border-radius:5px;margin:20px 0;"><h3 style="margin-top:0;color:#7c3aed;">📖 What History Tells Us:</h3>{interpretation_html}</div><div style="margin:20px 0;"><h3>🎯 Statistical Outlook:</h3><div style="background-color:#fff;padding:15px;border-radius:5px;"><div style="margin:15px 0;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;"><span><b>1-Month Probability:</b></span><span style="font-size:1.2em;font-weight:bold;color:{'#16a34a' if pattern_data['avg_return_1m'] > 0 else '#dc2626'}">{pattern_data['avg_return_1m']:+.1f}%</span></div><div style="background-color:#e5e7eb;height:20px;border-radius:10px;overflow:hidden;"><div style="background-color:{'#16a34a' if win_bar_1m >= 50 else '#dc2626'};width:{win_bar_1m}%;height:100%;"></div></div><div style="font-size:0.9em;color:#666;margin-top:5px;">Win Rate: {win_bar_1m}% ({pattern_data['bullish_count']} bullish, {pattern_data['bearish_count']} bearish)</div></div><div style="margin:15px 0;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;"><span><b>3-Month Probability:</b></span><span style="font-size:1.2em;font-weight:bold;color:{'#16a34a' if pattern_data['avg_return_3m'] > 0 else '#dc2626'}">{pattern_data['avg_return_3m']:+.1f}%</span></div><div style="background-color:#e5e7eb;height:20px;border-radius:10px;overflow:hidden;"><div style="background-color:{'#16a34a' if win_bar_3m >= 50 else '#dc2626'};width:{win_bar_3m}%;height:100%;"></div></div><div style="font-size:0.9em;color:#666;margin-top:5px;">Win Rate: {win_bar_3m}%</div></div></div></div><div style="margin:20px 0;"><h3>📅 Top 5 Historical Matches:</h3>{matches_html}</div></div>"""
+        pattern_html = f"""<div class="section" style="background-color:#f3e8ff;border-left:4px solid #7c3aed;"><h2>🔮 11-YEAR PATTERN ANALYSIS</h2><p style="font-size:0.9em;color:#666;">Analyzing {pattern_data['sample_size']} similar market setups</p>{current_cond}<div style="background-color:#fff;padding:20px;border-radius:5px;margin:20px 0;"><h3 style="margin-top:0;color:#7c3aed;">📖 What History Tells Us:</h3>{interpretation_html}</div>{sector_html}{recommendations_html}<div style="margin:20px 0;"><h3>📅 Historical Matches:</h3><p style="font-size:0.9em;color:#666;">These show S&P 500 performance. Sector performance varied (see table above).</p>{matches_html}</div></div>"""
 
     prev_score = memory.get('previous_macro_score', 0)
     current_score = macro_data.get('overall_macro_score', 0)
