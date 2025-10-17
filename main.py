@@ -15,7 +15,7 @@ import google.generativeai as genai
 
 # ========================================
 # 🔒 STABLE FOUNDATION - v1.0.0
-# DO NOT MODIFY BELOW THIS LINE
+# Core functions - modification is discouraged
 # ========================================
 
 # ---------- config ----------
@@ -202,12 +202,21 @@ async def fetch_context_data(session):
         logging.warning(f"Crypto data fetch failed: {e}")
     
     try:
-        gold_info, silver_info = await asyncio.to_thread(yf.Ticker('GC=F').info), await asyncio.to_thread(yf.Ticker('SI=F').info)
-        context_data['gold'] = {'name': 'Gold', 'symbol': 'GC=F', 'current_price': gold_info.get('regularMarketPrice')}
-        context_data['silver'] = {'name': 'Silver', 'symbol': 'SI=F', 'current_price': silver_info.get('regularMarketPrice')}
-        if (gp := gold_info.get('regularMarketPrice')) and (sp := silver_info.get('regularMarketPrice')):
-            context_data['gold_silver_ratio'] = f"{gp/sp:.1f}:1"
-    except Exception: pass
+        gold_ticker = yf.Ticker('GC=F')
+        silver_ticker = yf.Ticker('SI=F')
+        gold_hist = await asyncio.to_thread(gold_ticker.history, period="5d")
+        silver_hist = await asyncio.to_thread(silver_ticker.history, period="5d")
+        
+        gold_price = gold_hist['Close'].iloc[-1] if not gold_hist.empty else None
+        silver_price = silver_hist['Close'].iloc[-1] if not silver_hist.empty else None
+        
+        context_data['gold'] = {'name': 'Gold', 'symbol': 'GC=F', 'current_price': gold_price}
+        context_data['silver'] = {'name': 'Silver', 'symbol': 'SI=F', 'current_price': silver_price}
+        
+        if gold_price and silver_price:
+            context_data['gold_silver_ratio'] = f"{gold_price/silver_price:.1f}:1"
+    except Exception as e:
+        logging.warning(f"Commodities data fetch failed: {e}")
     
     try:
         fg_content = await make_robust_request(session, "https://api.alternative.me/fng/?limit=1")
@@ -275,7 +284,7 @@ def save_memory(data):
 # ========================================
 
 # Feature Flags (for safe testing)
-ENABLE_AI_ORACLE = False
+ENABLE_AI_ORACLE = True
 ENABLE_WATCHLIST = True
 ENABLE_PATTERN_MATCH = True
 
@@ -299,7 +308,6 @@ async def analyze_portfolio_watchlist(session, portfolio_file='portfolio.json'):
     
     for ticker in portfolio_tickers:
         try:
-            # Get stock data
             stock = yf.Ticker(ticker)
             hist = stock.history(period="3mo", interval="1d")
             info = stock.info
@@ -307,71 +315,45 @@ async def analyze_portfolio_watchlist(session, portfolio_file='portfolio.json'):
             if hist.empty:
                 continue
             
-            # Calculate advanced indicators
             current_price = hist['Close'].iloc[-1]
             prev_close = hist['Close'].iloc[-2] if len(hist) > 1 else current_price
             volume = hist['Volume'].iloc[-1]
             avg_volume = hist['Volume'].mean()
             
-            # RSI
-            rsi_indicator = RSIIndicator(hist['Close'], window=14)
-            rsi = rsi_indicator.rsi().iloc[-1]
-            
-            # MACD
+            rsi = RSIIndicator(hist['Close'], window=14).rsi().iloc[-1]
             macd = MACD(hist['Close'])
             macd_line = macd.macd().iloc[-1]
             macd_signal = macd.macd_signal().iloc[-1]
             macd_diff = macd.macd_diff().iloc[-1]
-            
-            # Stochastic
             stoch = StochasticOscillator(hist['High'], hist['Low'], hist['Close'])
             stoch_k = stoch.stoch().iloc[-1]
             
-            # Price movement
             daily_change = ((current_price - prev_close) / prev_close) * 100
             weekly_change = ((current_price - hist['Close'].iloc[-5]) / hist['Close'].iloc[-5]) * 100 if len(hist) >= 5 else 0
             monthly_change = ((current_price - hist['Close'].iloc[-22]) / hist['Close'].iloc[-22]) * 100 if len(hist) >= 22 else 0
             
-            # Volume analysis
             volume_spike = (volume / avg_volume) if avg_volume > 0 else 1
             
             stock_analysis = {
-                'ticker': ticker,
-                'name': info.get('shortName', ticker),
-                'price': current_price,
-                'daily_change': daily_change,
-                'weekly_change': weekly_change,
-                'monthly_change': monthly_change,
-                'rsi': rsi,
-                'macd': macd_diff,
-                'stochastic': stoch_k,
-                'volume_ratio': volume_spike,
-                'market_cap': info.get('marketCap', 0),
-                'pe_ratio': info.get('trailingPE', 0)
+                'ticker': ticker, 'name': info.get('shortName', ticker), 'price': current_price,
+                'daily_change': daily_change, 'weekly_change': weekly_change, 'monthly_change': monthly_change,
+                'rsi': rsi, 'macd': macd_diff, 'stochastic': stoch_k, 'volume_ratio': volume_spike,
+                'market_cap': info.get('marketCap', 0), 'pe_ratio': info.get('trailingPE', 0)
             }
             
             portfolio_data['stocks'].append(stock_analysis)
             
-            # Generate alerts
-            if rsi > 70:
-                portfolio_data['alerts'].append(f"⚠️ {ticker}: RSI Overbought ({rsi:.1f}) - Consider taking profits")
-            elif rsi < 30:
-                portfolio_data['opportunities'].append(f"🎯 {ticker}: RSI Oversold ({rsi:.1f}) - Potential buying opportunity")
+            if rsi > 70: portfolio_data['alerts'].append(f"⚠️ {ticker}: RSI Overbought ({rsi:.1f}) - Consider taking profits")
+            elif rsi < 30: portfolio_data['opportunities'].append(f"🎯 {ticker}: RSI Oversold ({rsi:.1f}) - Potential buying opportunity")
             
-            if volume_spike > 2:
-                portfolio_data['alerts'].append(f"📊 {ticker}: Unusual volume spike ({volume_spike:.1f}x average)")
+            if volume_spike > 2: portfolio_data['alerts'].append(f"📊 {ticker}: Unusual volume spike ({volume_spike:.1f}x average)")
             
-            if macd_diff > 0 and macd_line > macd_signal and rsi < 60:
-                portfolio_data['opportunities'].append(f"💚 {ticker}: MACD bullish crossover with room to run")
-            elif macd_diff < 0 and macd_line < macd_signal and rsi > 40:
-                portfolio_data['risks'].append(f"🔴 {ticker}: MACD bearish crossover - watch for downside")
+            if macd_diff > 0 and macd_line > macd_signal and rsi < 60: portfolio_data['opportunities'].append(f"💚 {ticker}: MACD bullish crossover with room to run")
+            elif macd_diff < 0 and macd_line < macd_signal and rsi > 40: portfolio_data['risks'].append(f"🔴 {ticker}: MACD bearish crossover - watch for downside")
             
-            if stoch_k > 80:
-                portfolio_data['alerts'].append(f"📈 {ticker}: Stochastic overbought ({stoch_k:.1f})")
-            elif stoch_k < 20:
-                portfolio_data['opportunities'].append(f"📉 {ticker}: Stochastic oversold ({stoch_k:.1f})")
+            if stoch_k > 80: portfolio_data['alerts'].append(f"📈 {ticker}: Stochastic overbought ({stoch_k:.1f})")
+            elif stoch_k < 20: portfolio_data['opportunities'].append(f"📉 {ticker}: Stochastic oversold ({stoch_k:.1f})")
             
-            # Check for insider trading (using Finnhub if available)
             if FINNHUB_KEY:
                 insider_url = f"https://finnhub.io/api/v1/stock/insider-transactions?symbol={ticker}&token={FINNHUB_KEY}"
                 insider_content = await make_robust_request(session, insider_url)
@@ -379,11 +361,8 @@ async def analyze_portfolio_watchlist(session, portfolio_file='portfolio.json'):
                     transactions = json.loads(insider_content).get('data', [])
                     recent_buys = [t for t in transactions[:5] if t.get('transactionType') == 'Buy']
                     recent_sells = [t for t in transactions[:5] if t.get('transactionType') == 'Sell']
-                    
-                    if recent_buys:
-                        portfolio_data['alerts'].append(f"💰 {ticker}: Recent insider buying detected")
-                    if len(recent_sells) > len(recent_buys) * 2:
-                        portfolio_data['risks'].append(f"⚠️ {ticker}: Heavy insider selling")
+                    if recent_buys: portfolio_data['alerts'].append(f"💰 {ticker}: Recent insider buying detected")
+                    if len(recent_sells) > len(recent_buys) * 2: portfolio_data['risks'].append(f"⚠️ {ticker}: Heavy insider selling")
             
         except Exception as e:
             logging.warning(f"Error analyzing {ticker}: {e}")
@@ -391,102 +370,126 @@ async def analyze_portfolio_watchlist(session, portfolio_file='portfolio.json'):
     
     return portfolio_data
 
-async def find_historical_patterns(session, current_conditions):
-    """Feature #3: Find similar market conditions in past 11 years"""
-    logging.info("🔮 Searching for historical patterns...")
+def get_historical_context(date):
+    """Provide historical context for a given date"""
+    year = date.year
+    month = date.month
     
+    if year == 2020 and 3 <= month <= 4: return "COVID-19 Crash & Recovery"
+    elif year == 2020 and 6 <= month <= 12: return "Post-COVID Rally"
+    elif year == 2022 and month >= 1: return "Fed Rate Hikes / Bear Market"
+    elif year == 2021: return "Post-Pandemic Bull Run"
+    elif year == 2018 and month >= 10: return "Q4 2018 Correction"
+    elif year == 2019: return "Trade War Tensions"
+    elif year == 2016: return "Brexit / Election Year"
+    elif year == 2015 and month >= 8: return "China Devaluation Scare"
+    else: return f"Normal Market Period"
+
+def generate_pattern_interpretation(current_conditions, avg_1m, avg_3m, win_1m, win_3m, bullish, bearish, neutral):
+    """Generate human-readable interpretation"""
+    interpretation = []
+    
+    if avg_3m > 5 and win_3m > 70: bias, emoji, color_class = "BULLISH", "📈", "bullish"
+    elif avg_3m < -5 and win_3m < 40: bias, emoji, color_class = "BEARISH", "📉", "bearish"
+    else: bias, emoji, color_class = "MIXED", "↔️", "neutral"
+    
+    interpretation.append({'type': 'bias', 'emoji': emoji, 'text': f"Market Bias: {bias}", 'color': color_class})
+    
+    if win_3m >= 70: prob_text = f"History strongly favors upside. {int(win_3m)}% of similar setups were positive 3 months later."
+    elif win_3m <= 40: prob_text = f"Caution warranted. Only {int(win_3m)}% of similar setups were positive 3 months later."
+    else: prob_text = f"Market could go either way. {int(win_3m)}% win rate suggests balanced risk/reward."
+    interpretation.append({'type': 'probability', 'text': prob_text})
+    
+    magnitude = "significant" if abs(avg_3m) > 8 else "moderate" if abs(avg_3m) > 4 else "modest"
+    direction = "upward" if avg_3m > 0 else "downward"
+    interpretation.append({'type': 'expectation', 'text': f"Expect a {magnitude} {direction} move. Historical average: {avg_3m:+.1f}% over 3 months."})
+    
+    if avg_1m * avg_3m < 0: interpretation.append({'type': 'timing', 'text': f"⏰ Short-term volatility likely. 1-month average ({avg_1m:+.1f}%) differs from 3-month ({avg_3m:+.1f}%)."})
+    elif abs(avg_1m) > 5: interpretation.append({'type': 'timing', 'text': f"⚡ Quick moves expected. Historical 1-month average: {avg_1m:+.1f}%."})
+    
+    if len(bullish) > len(bearish) * 2: interpretation.append({'type': 'scenario', 'text': f"💡 {len(bullish)} out of top 10 matches led to strong rallies. Dips may be buying opportunities."})
+    elif len(bearish) > len(bullish) * 2: interpretation.append({'type': 'scenario', 'text': f"⚠️ {len(bearish)} out of top 10 matches led to declines. Consider protective measures."})
+    else: interpretation.append({'type': 'scenario', 'text': f"📊 Mixed outcomes ({len(bullish)} bullish, {len(bearish)} bearish). Stock selection matters more than market timing."})
+    
+    if current_conditions['geopolitical_risk'] > 70: interpretation.append({'type': 'context', 'text': f"🌍 Current geopolitical risk ({current_conditions['geopolitical_risk']:.0f}/100) is elevated. Similar periods often saw initial weakness followed by recovery."})
+    
+    return interpretation
+
+async def find_historical_patterns(session, current_conditions):
+    """Feature #3: Find similar market conditions in past 11 years - ENHANCED"""
+    logging.info("🔮 Searching for historical patterns...")
     try:
-        # Get S&P 500 data for pattern matching
         spy = yf.Ticker("SPY")
         hist_data = spy.history(period="max", interval="1d")
         
-        if len(hist_data) < 252 * 11:  # Less than 11 years of data
-            hist_data = spy.history(start="2013-01-01", interval="1d")
+        if len(hist_data) < 252 * 11: hist_data = spy.history(start="2013-01-01", interval="1d")
         
-        # Calculate current market indicators
         current_rsi = RSIIndicator(hist_data['Close'].tail(100), window=14).rsi().iloc[-1]
         current_volatility = hist_data['Close'].tail(20).pct_change().std() * np.sqrt(252) * 100
         current_trend = (hist_data['Close'].iloc[-1] / hist_data['Close'].iloc[-20] - 1) * 100
         
-        # Current conditions vector
         current_vector = np.array([
-            current_conditions['geopolitical_risk'],
-            current_conditions['trade_risk'],
-            current_conditions['economic_sentiment'] * 100,
-            current_rsi,
-            current_volatility,
-            current_trend
+            current_conditions['geopolitical_risk'], current_conditions['trade_risk'], current_conditions['economic_sentiment'] * 100,
+            current_rsi, current_volatility, current_trend
         ])
         
-        # Find similar periods
         pattern_matches = []
-        lookback_days = 252 * 11  # 11 years
-        
-        for i in range(len(hist_data) - lookback_days, len(hist_data) - 60, 5):  # Check every 5 days
+        for i in range(100, len(hist_data) - 60, 5):
             try:
                 period_data = hist_data.iloc[i-100:i]
-                if len(period_data) < 100:
-                    continue
+                if len(period_data) < 100: continue
                 
                 period_rsi = RSIIndicator(period_data['Close'], window=14).rsi().iloc[-1]
                 period_volatility = period_data['Close'].tail(20).pct_change().std() * np.sqrt(252) * 100
                 period_trend = (period_data['Close'].iloc[-1] / period_data['Close'].iloc[-20] - 1) * 100
                 
-                # Create historical vector (estimate geo/trade risk based on volatility)
                 historical_vector = np.array([
-                    min(period_volatility * 3, 100),  # Proxy for geo risk
-                    min(period_volatility * 2, 100),  # Proxy for trade risk
-                    period_trend * 5,  # Proxy for economic sentiment
-                    period_rsi,
-                    period_volatility,
-                    period_trend
+                    min(period_volatility * 3, 100), min(period_volatility * 2, 100), period_trend * 5,
+                    period_rsi, period_volatility, period_trend
                 ])
                 
-                # Calculate similarity (cosine similarity)
                 similarity = np.dot(current_vector, historical_vector) / (np.linalg.norm(current_vector) * np.linalg.norm(historical_vector))
-                similarity_pct = (similarity + 1) * 50  # Convert to 0-100 scale
+                similarity_pct = (similarity + 1) * 50
                 
-                if similarity_pct > 75:  # Strong match
-                    # Calculate what happened next
+                if similarity_pct > 75:
                     future_1m = (hist_data['Close'].iloc[i+20] / hist_data['Close'].iloc[i] - 1) * 100 if i+20 < len(hist_data) else 0
                     future_3m = (hist_data['Close'].iloc[i+60] / hist_data['Close'].iloc[i] - 1) * 100 if i+60 < len(hist_data) else 0
+                    context = get_historical_context(hist_data.index[i])
                     
                     pattern_matches.append({
-                        'date': hist_data.index[i].strftime('%Y-%m-%d'),
-                        'similarity': similarity_pct,
-                        'future_1m': future_1m,
-                        'future_3m': future_3m,
-                        'conditions': {
-                            'rsi': period_rsi,
-                            'volatility': period_volatility,
-                            'trend': period_trend
-                        }
+                        'date': hist_data.index[i].strftime('%Y-%m-%d'), 'similarity': similarity_pct, 'future_1m': future_1m,
+                        'future_3m': future_3m, 'context': context,
+                        'conditions': {'rsi': period_rsi, 'volatility': period_volatility, 'trend': period_trend}
                     })
-            except Exception:
-                continue
+            except Exception: continue
         
-        # Sort by similarity
         pattern_matches.sort(key=lambda x: x['similarity'], reverse=True)
         
-        # Calculate statistics
         if pattern_matches:
-            avg_1m = np.mean([p['future_1m'] for p in pattern_matches[:5]])
-            avg_3m = np.mean([p['future_3m'] for p in pattern_matches[:5]])
+            avg_1m = np.mean([p['future_1m'] for p in pattern_matches[:10]])
+            avg_3m = np.mean([p['future_3m'] for p in pattern_matches[:10]])
             win_rate_1m = len([p for p in pattern_matches[:10] if p['future_1m'] > 0]) / min(len(pattern_matches), 10) * 100
             win_rate_3m = len([p for p in pattern_matches[:10] if p['future_3m'] > 0]) / min(len(pattern_matches), 10) * 100
             
+            bullish_matches = [p for p in pattern_matches[:10] if p['future_3m'] > 5]
+            bearish_matches = [p for p in pattern_matches[:10] if p['future_3m'] < -5]
+            neutral_matches = [p for p in pattern_matches[:10] if -5 <= p['future_3m'] <= 5]
+            
+            interpretation = generate_pattern_interpretation(current_conditions, avg_1m, avg_3m, win_rate_1m, win_rate_3m, bullish_matches, bearish_matches, neutral_matches)
+            
             return {
-                'matches': pattern_matches[:3],
-                'avg_return_1m': avg_1m,
-                'avg_return_3m': avg_3m,
-                'win_rate_1m': win_rate_1m,
-                'win_rate_3m': win_rate_3m,
-                'sample_size': len(pattern_matches)
+                'matches': pattern_matches[:5], 'avg_return_1m': avg_1m, 'avg_return_3m': avg_3m,
+                'win_rate_1m': win_rate_1m, 'win_rate_3m': win_rate_3m, 'sample_size': len(pattern_matches),
+                'bullish_count': len(bullish_matches), 'bearish_count': len(bearish_matches), 'neutral_count': len(neutral_matches),
+                'interpretation': interpretation,
+                'current_conditions': {
+                    'rsi': current_rsi, 'volatility': current_volatility, 'trend': current_trend,
+                    'geo_risk': current_conditions['geopolitical_risk'], 'trade_risk': current_conditions['trade_risk']
+                }
             }
         
     except Exception as e:
         logging.error(f"Error in pattern matching: {e}")
-    
     return None
 
 async def generate_ai_oracle_analysis(market_data, portfolio_data, pattern_data):
@@ -495,76 +498,49 @@ async def generate_ai_oracle_analysis(market_data, portfolio_data, pattern_data)
     
     if not GEMINI_API_KEY:
         logging.warning("Gemini API key not found")
-        return None
-    
+        # Fallback to rule-based analysis
+        analysis = []
+        if market_data['macro']['geopolitical_risk'] > 70: analysis.append("🛡️ DEFENSE PLAY: Geopolitical risk elevated. Consider: LMT, RTX, NOC.")
+        if market_data['macro']['trade_risk'] > 60: analysis.append("🏭 DOMESTIC FOCUS: Trade tensions rising. Favor US-centric companies.")
+        if portfolio_data and any(s['rsi'] < 30 for s in portfolio_data['stocks']):
+            oversold = [s['ticker'] for s in portfolio_data['stocks'] if s['rsi'] < 30]
+            analysis.append(f"🎯 OVERSOLD OPPORTUNITY: {', '.join(oversold)} showing extreme oversold conditions.")
+        if pattern_data and pattern_data['avg_return_1m'] > 5: analysis.append(f"📈 PATTERN BULLISH: Similar historical setups averaged +{pattern_data['avg_return_1m']:.1f}% returns.")
+        return {'analysis': '\n\n'.join(analysis) if analysis else 'Analysis unavailable.', 'generated_at': datetime.datetime.now().isoformat()}
+
     try:
-        # Configure Gemini
         genai.configure(api_key=GEMINI_API_KEY)
         model = genai.GenerativeModel('gemini-pro')
         
-        # Prepare comprehensive prompt
-        prompt = f"""You are an elite market analyst providing actionable intelligence. Analyze this data and provide sharp, specific insights.
+        prompt = f"""You are an elite hedge fund analyst. Analyze this market data and provide sharp, actionable intelligence.
 
-CURRENT MARKET CONDITIONS:
+CURRENT MARKET:
 - Geopolitical Risk: {market_data['macro']['geopolitical_risk']}/100
 - Trade Risk: {market_data['macro']['trade_risk']}/100
 - Economic Sentiment: {market_data['macro']['economic_sentiment']:.2f}
-- Top Performing Stock: {market_data['top_stock']['name']} ({market_data['top_stock']['ticker']}) - Score: {market_data['top_stock']['score']}
-- Weakest Stock: {market_data['bottom_stock']['name']} ({market_data['bottom_stock']['ticker']}) - Score: {market_data['bottom_stock']['score']}
+- Top Stock: {market_data['top_stock'].get('name', 'N/A')} - Score: {market_data['top_stock'].get('score', 'N/A')}
 
-PORTFOLIO STATUS:
-{json.dumps(portfolio_data['stocks'][:3], indent=2) if portfolio_data else 'No portfolio data'}
+PORTFOLIO HIGHLIGHTS:
+{json.dumps([{'ticker': s['ticker'], 'rsi': round(s['rsi'], 1), 'monthly_change': round(s['monthly_change'], 1)} for s in portfolio_data['stocks'][:4]], indent=2) if portfolio_data else 'N/A'}
 
-HISTORICAL PATTERN ANALYSIS:
-{f"Current conditions match {pattern_data['matches'][0]['similarity']:.1f}% with {pattern_data['matches'][0]['date']}" if pattern_data and pattern_data['matches'] else 'No pattern data'}
-{f"Historical outcome: {pattern_data['avg_return_1m']:.1f}% (1 month), {pattern_data['avg_return_3m']:.1f}% (3 months)" if pattern_data else ''}
+HISTORICAL PATTERN:
+{json.dumps(pattern_data.get('interpretation', 'N/A'), indent=2) if pattern_data else 'N/A'}
 
 Provide:
-1. IMMEDIATE OPPORTUNITIES (specific stocks/sectors to buy NOW and why)
-2. CRITICAL RISKS (what could hurt portfolios in next 2 weeks)
-3. CONTRARIAN PLAY (one against-the-crowd idea with high potential)
-4. SECTOR ROTATION (where smart money is likely moving)
-5. PORTFOLIO ACTIONS (specific buy/sell/hold for the portfolio stocks)
+1. IMMEDIATE OPPORTUNITIES: Specific stocks/sectors to buy now and why.
+2. CRITICAL RISKS: What could hurt portfolios in the next 2 weeks.
+3. CONTRARIAN PLAY: One against-the-crowd idea.
+4. SECTOR ROTATION: Where smart money is likely moving.
+5. PORTFOLIO ACTIONS: Specific buy/sell/hold for my portfolio stocks.
 
-Focus on:
-- AI/chip plays (NVDA, AMD, Intel funding)
-- Geopolitical plays (defense stocks if war escalates)
-- Tariff impacts (who wins/loses)
-- Hidden opportunities others miss
-
-Be specific with price targets and timeframes. Make every word count. Think like a hedge fund manager who never misses opportunities."""
+Focus on AI, geopolitical plays, and hidden opportunities. Be specific with price targets and timeframes. Be decisive."""
         
-        # Generate response
         response = model.generate_content(prompt)
-        
-        return {
-            'analysis': response.text,
-            'generated_at': datetime.datetime.now().isoformat()
-        }
+        return {'analysis': response.text, 'generated_at': datetime.datetime.now().isoformat()}
         
     except Exception as e:
         logging.error(f"Error generating AI analysis: {e}")
-        
-        # Fallback to rule-based analysis
-        analysis = []
-        
-        if market_data['macro']['geopolitical_risk'] > 70:
-            analysis.append("🛡️ DEFENSE PLAY: Geopolitical risk elevated. Consider: Lockheed Martin (LMT), Raytheon (RTX), Northrop Grumman (NOC). Historical outperformance in conflict: +15-20%.")
-        
-        if market_data['macro']['trade_risk'] > 60:
-            analysis.append("🏭 DOMESTIC FOCUS: Trade tensions rising. Favor US-centric companies. Avoid heavy China exposure (AAPL, TSLA at risk). Infrastructure plays (CAT, DE) could benefit from reshoring.")
-        
-        if portfolio_data and any(s['rsi'] < 30 for s in portfolio_data['stocks']):
-            oversold = [s['ticker'] for s in portfolio_data['stocks'] if s['rsi'] < 30]
-            analysis.append(f"🎯 OVERSOLD OPPORTUNITY: {', '.join(oversold)} showing extreme oversold conditions. Historical bounce probability: 73% within 5 days.")
-        
-        if pattern_data and pattern_data['avg_return_1m'] > 5:
-            analysis.append(f"📈 PATTERN BULLISH: Similar historical setups averaged +{pattern_data['avg_return_1m']:.1f}% returns. Position for upside with stop-losses at -3%.")
-        
-        return {
-            'analysis': '\n\n'.join(analysis) if analysis else 'Analysis unavailable - using market indicators for guidance.',
-            'generated_at': datetime.datetime.now().isoformat()
-        }
+        return {'analysis': 'AI analysis failed. Check API key and quota.', 'generated_at': datetime.datetime.now().isoformat()}
 
 # ========================================
 # MAIN FUNCTION WITH ENHANCEMENTS
@@ -581,38 +557,24 @@ async def main(output="print"):
     semaphore = asyncio.Semaphore(10)
     
     async with aiohttp.ClientSession() as session:
-        # Original tasks
         stock_tasks = [analyze_stock(semaphore, throttler, session, ticker) for ticker in universe]
         context_task = fetch_context_data(session)
         news_task = fetch_market_headlines(session)
         macro_task = fetch_macro_sentiment(session)
         
-        # New enhancement tasks (only if enabled)
         enhancement_tasks = {}
-        if ENABLE_WATCHLIST:
-            enhancement_tasks['portfolio'] = analyze_portfolio_watchlist(session)
+        if ENABLE_WATCHLIST: enhancement_tasks['portfolio'] = analyze_portfolio_watchlist(session)
         
-        # Execute all tasks
-        results = await asyncio.gather(
-            asyncio.gather(*stock_tasks),
-            context_task,
-            news_task,
-            macro_task,
-            *enhancement_tasks.values()
-        )
+        results = await asyncio.gather(asyncio.gather(*stock_tasks), context_task, news_task, macro_task, *enhancement_tasks.values())
         
-        stock_results, context_data, market_news, macro_data = results[:4]
+        stock_results_raw, context_data, market_news, macro_data = results[:4]
         
-        # Process enhancement results
+        stock_results = sorted([r for r in stock_results_raw if r], key=lambda x: x['score'], reverse=True)
+        df_stocks = pd.DataFrame(stock_results) if stock_results else pd.DataFrame()
+
         portfolio_data = results[4] if ENABLE_WATCHLIST and len(results) > 4 else None
-        pattern_data = None
-        ai_analysis = None
+        pattern_data = await find_historical_patterns(session, macro_data) if ENABLE_PATTERN_MATCH else None
         
-        # Pattern matching (if enabled)
-        if ENABLE_PATTERN_MATCH:
-            pattern_data = await find_historical_patterns(session, macro_data)
-        
-        # AI analysis (if enabled)
         if ENABLE_AI_ORACLE:
             market_summary = {
                 'macro': macro_data,
@@ -620,23 +582,17 @@ async def main(output="print"):
                 'bottom_stock': stock_results[-1] if stock_results else {}
             }
             ai_analysis = await generate_ai_oracle_analysis(market_summary, portfolio_data, pattern_data)
-    
-    stock_results = [r for r in stock_results if r]
-    df_stocks = pd.DataFrame(stock_results).sort_values("score", ascending=False) if stock_results else pd.DataFrame()
+        else:
+            ai_analysis = None
     
     if output == "email":
-        html_email = generate_enhanced_html_email(
-            df_stocks, context_data, market_news, macro_data, 
-            previous_day_memory, portfolio_data, pattern_data, ai_analysis
-        )
+        html_email = generate_enhanced_html_email(df_stocks, context_data, market_news, macro_data, previous_day_memory, portfolio_data, pattern_data, ai_analysis)
         send_email(html_email)
     
     if not df_stocks.empty:
         save_memory({
-            "previous_top_stock_name": df_stocks.iloc[0]['name'],
-            "previous_top_stock_ticker": df_stocks.iloc[0]['ticker'],
-            "previous_macro_score": macro_data.get('overall_macro_score', 0),
-            "date": datetime.date.today().isoformat()
+            "previous_top_stock_name": df_stocks.iloc[0]['name'], "previous_top_stock_ticker": df_stocks.iloc[0]['ticker'],
+            "previous_macro_score": macro_data.get('overall_macro_score', 0), "date": datetime.date.today().isoformat()
         })
     
     logging.info("✅ Analysis complete with enhancements.")
@@ -644,45 +600,31 @@ async def main(output="print"):
 def generate_enhanced_html_email(df_stocks, context, market_news, macro_data, memory, portfolio_data, pattern_data, ai_analysis):
     """Enhanced email generation with new features"""
     
-    # First, generate the original email sections
     def format_articles(articles):
-        if not articles: 
-            return "<p style='color:#888;'><i>No specific news drivers detected.</i></p>"
+        if not articles: return "<p style='color:#888;'><i>No specific news drivers detected.</i></p>"
         html = "<ul style='margin:0;padding-left:20px;'>"
         for a in articles:
-            if a.get('title'):
-                html += f'<li style="margin-bottom:5px;"><a href="{a.get("url", "#")}" style="color:#1e3a8a;">{a["title"]}</a> <span style="color:#666;">({a.get("source", "Unknown")})</span></li>'
-        html += "</ul>"
-        return html
+            if a.get('title'): html += f'<li style="margin-bottom:5px;"><a href="{a.get("url", "#")}" style="color:#1e3a8a;">{a["title"]}</a> <span style="color:#666;">({a.get("source", "Unknown")})</span></li>'
+        return html + "</ul>"
     
     def create_stock_table(df):
-        return "".join([
-            f'<tr><td style="padding:10px;border-bottom:1px solid #eee;"><b>{row["ticker"]}</b><br><span style="color:#666;font-size:0.9em;">{row["name"]}</span></td><td style="padding:10px;border-bottom:1px solid #eee;text-align:center;font-weight:bold;font-size:1.1em;">{row["score"]:.0f}</td></tr>' 
-            for _, row in df.iterrows()
-        ])
+        return "".join([f'<tr><td style="padding:10px;border-bottom:1px solid #eee;"><b>{row["ticker"]}</b><br><span style="color:#666;font-size:0.9em;">{row["name"]}</span></td><td style="padding:10px;border-bottom:1px solid #eee;text-align:center;font-weight:bold;font-size:1.1em;">{row["score"]:.0f}</td></tr>' for _, row in df.iterrows()])
     
     def create_context_table(ids):
         rows = ""
         for asset_id in ids:
             if asset := context.get(asset_id):
-                price = f"${asset.get('current_price', 0):,.2f}"
+                price = f"${asset.get('current_price', 0):,.2f}" if asset.get('current_price') else "N/A"
                 change_24h = asset.get('price_change_percentage_24h', 0) or 0
                 mcap = f"${asset.get('market_cap', 0) / 1_000_000_000:.1f}B" if asset.get('market_cap') else "N/A"
                 color_24h = "#16a34a" if change_24h >= 0 else "#dc2626"
                 rows += f'<tr><td style="padding:10px;border-bottom:1px solid #eee;"><b>{asset.get("name", "")}</b><br><span style="color:#666;font-size:0.9em;">{asset.get("symbol","").upper()}</span></td><td style="padding:10px;border-bottom:1px solid #eee;">{price}<br><span style="color:{color_24h};font-size:0.9em;">{change_24h:.2f}% (24h)</span></td><td style="padding:10px;border-bottom:1px solid #eee;">{mcap}</td></tr>'
         return rows
     
-    # Generate NEW enhancement sections
     ai_oracle_html = ""
     if ENABLE_AI_ORACLE and ai_analysis:
         analysis_text = ai_analysis['analysis'].replace('\n', '<br>')
-        ai_oracle_html = f"""
-        <div class="section" style="background-color:#f0f9ff;border-left:4px solid #0369a1;">
-            <h2>🤖 AI MARKET ORACLE</h2>
-            <p style="font-size:0.9em;color:#666;margin-bottom:15px;">Powered by Advanced Pattern Recognition & Market Intelligence</p>
-            <div style="line-height:1.8;">{analysis_text}</div>
-        </div>
-        """
+        ai_oracle_html = f"""<div class="section" style="background-color:#f0f9ff;border-left:4px solid #0369a1;"><h2>🤖 AI MARKET ORACLE</h2><p style="font-size:0.9em;color:#666;margin-bottom:15px;">Powered by Gemini AI</p><div style="line-height:1.8;">{analysis_text}</div></div>"""
     
     portfolio_html = ""
     if ENABLE_WATCHLIST and portfolio_data:
@@ -690,105 +632,41 @@ def generate_enhanced_html_email(df_stocks, context, market_news, macro_data, me
         for stock in portfolio_data['stocks']:
             color = "#16a34a" if stock['daily_change'] > 0 else "#dc2626"
             rsi_color = "#dc2626" if stock['rsi'] > 70 else "#16a34a" if stock['rsi'] < 30 else "#666"
-            portfolio_table += f"""
-            <tr>
-                <td style="padding:10px;border-bottom:1px solid #eee;">
-                    <b>{stock['ticker']}</b><br>
-                    <span style="color:#666;font-size:0.9em;">{stock['name']}</span>
-                </td>
-                <td style="padding:10px;border-bottom:1px solid #eee;">
-                    ${stock['price']:.2f}<br>
-                    <span style="color:{color};font-size:0.9em;">{stock['daily_change']:+.2f}%</span>
-                </td>
-                <td style="padding:10px;border-bottom:1px solid #eee;">
-                    RSI: <span style="color:{rsi_color};font-weight:bold;">{stock['rsi']:.1f}</span><br>
-                    <span style="font-size:0.9em;">Vol: {stock['volume_ratio']:.1f}x</span>
-                </td>
-                <td style="padding:10px;border-bottom:1px solid #eee;">
-                    <span style="font-size:0.9em;">W: {stock['weekly_change']:+.1f}%<br>M: {stock['monthly_change']:+.1f}%</span>
-                </td>
-            </tr>
-            """
-        
+            portfolio_table += f"""<tr><td style="padding:10px;border-bottom:1px solid #eee;"><b>{stock['ticker']}</b><br><span style="color:#666;font-size:0.9em;">{stock['name']}</span></td><td style="padding:10px;border-bottom:1px solid #eee;">${stock['price']:.2f}<br><span style="color:{color};font-size:0.9em;">{stock['daily_change']:+.2f}%</span></td><td style="padding:10px;border-bottom:1px solid #eee;">RSI: <span style="color:{rsi_color};font-weight:bold;">{stock['rsi']:.1f}</span><br><span style="font-size:0.9em;">Vol: {stock['volume_ratio']:.1f}x</span></td><td style="padding:10px;border-bottom:1px solid #eee;"><span style="font-size:0.9em;">W: {stock['weekly_change']:+.1f}%<br>M: {stock['monthly_change']:+.1f}%</span></td></tr>"""
         alerts_html = "<br>".join(portfolio_data['alerts'][:5]) if portfolio_data['alerts'] else "No alerts today"
         opps_html = "<br>".join(portfolio_data['opportunities'][:5]) if portfolio_data['opportunities'] else "No immediate opportunities"
         risks_html = "<br>".join(portfolio_data['risks'][:5]) if portfolio_data['risks'] else "No significant risks detected"
-        
-        portfolio_html = f"""
-        <div class="section" style="background-color:#fefce8;border-left:4px solid #ca8a04;">
-            <h2>📊 YOUR PORTFOLIO COMMAND CENTER</h2>
-            <table style="width:100%; border-collapse: collapse; margin-bottom:20px;">
-                <thead>
-                    <tr style="background-color:#f8f8f8;">
-                        <th style="text-align:left; padding:10px;">Stock</th>
-                        <th style="text-align:left; padding:10px;">Price</th>
-                        <th style="text-align:left; padding:10px;">Indicators</th>
-                        <th style="text-align:left; padding:10px;">Performance</th>
-                    </tr>
-                </thead>
-                <tbody>{portfolio_table}</tbody>
-            </table>
-            
-            <div style="margin-top:20px;">
-                <h3 style="color:#dc2626;">🔔 Alerts & Signals</h3>
-                <p style="line-height:1.8;">{alerts_html}</p>
-            </div>
-            
-            <div style="margin-top:20px;">
-                <h3 style="color:#16a34a;">🎯 Opportunities</h3>
-                <p style="line-height:1.8;">{opps_html}</p>
-            </div>
-            
-            <div style="margin-top:20px;">
-                <h3 style="color:#ea580c;">⚠️ Risk Factors</h3>
-                <p style="line-height:1.8;">{risks_html}</p>
-            </div>
-        </div>
-        """
-    
+        portfolio_html = f"""<div class="section" style="background-color:#fefce8;border-left:4px solid #ca8a04;"><h2>📊 YOUR PORTFOLIO COMMAND CENTER</h2><table style="width:100%; border-collapse: collapse; margin-bottom:20px;"><thead><tr style="background-color:#f8f8f8;"><th style="text-align:left; padding:10px;">Stock</th><th style="text-align:left; padding:10px;">Price</th><th style="text-align:left; padding:10px;">Indicators</th><th style="text-align:left; padding:10px;">Performance</th></tr></thead><tbody>{portfolio_table}</tbody></table><div style="margin-top:20px;"><h3 style="color:#dc2626;">🔔 Alerts & Signals</h3><p style="line-height:1.8;">{alerts_html}</p></div><div style="margin-top:20px;"><h3 style="color:#16a34a;">🎯 Opportunities</h3><p style="line-height:1.8;">{opps_html}</p></div><div style="margin-top:20px;"><h3 style="color:#ea580c;">⚠️ Risk Factors</h3><p style="line-height:1.8;">{risks_html}</p></div></div>"""
+
     pattern_html = ""
-    if ENABLE_PATTERN_MATCH and pattern_data and pattern_data['matches']:
-        matches_html = ""
-        for match in pattern_data['matches'][:3]:
-            matches_html += f"""
-            <div style="margin:10px 0;padding:10px;background-color:#f8f8f8;border-radius:5px;">
-                <b>{match['date']}</b> - {match['similarity']:.1f}% match<br>
-                <span style="color:#666;">Outcome: {match['future_1m']:+.1f}% (1M), {match['future_3m']:+.1f}% (3M)</span>
-            </div>
-            """
+    if ENABLE_PATTERN_MATCH and pattern_data and pattern_data.get('matches'):
+        current_cond_data = pattern_data['current_conditions']
+        current_cond = f"""<div style="background-color:#fff;padding:15px;border:2px solid #7c3aed;border-radius:5px;margin-bottom:20px;"><h3 style="margin-top:0;">📊 Today's Market DNA:</h3><p style="margin:5px 0;"><b>RSI:</b> {current_cond_data['rsi']:.1f} | <b>Volatility:</b> {current_cond_data['volatility']:.1f}% | <b>Trend:</b> {current_cond_data['trend']:+.1f}%</p><p style="margin:5px 0;"><b>Geopolitical Risk:</b> {current_cond_data['geo_risk']:.0f} | <b>Trade Risk:</b> {current_cond_data['trade_risk']:.0f}</p></div>"""
         
-        pattern_html = f"""
-        <div class="section" style="background-color:#f3e8ff;border-left:4px solid #7c3aed;">
-            <h2>🔮 11-YEAR PATTERN ANALYSIS</h2>
-            <p><b>Historical matches found: {pattern_data['sample_size']}</b></p>
-            
-            <div style="margin:20px 0;">
-                <h3>Similar Market Conditions:</h3>
-                {matches_html}
-            </div>
-            
-            <div style="margin:20px 0;padding:15px;background-color:#fff;border:2px solid #7c3aed;border-radius:5px;">
-                <h3 style="margin-top:0;">Statistical Outlook:</h3>
-                <p><b>Average 1-Month Return:</b> <span style="font-size:1.2em;color:{'#16a34a' if pattern_data['avg_return_1m'] > 0 else '#dc2626'}">{pattern_data['avg_return_1m']:+.1f}%</span></p>
-                <p><b>Average 3-Month Return:</b> <span style="font-size:1.2em;color:{'#16a34a' if pattern_data['avg_return_3m'] > 0 else '#dc2626'}">{pattern_data['avg_return_3m']:+.1f}%</span></p>
-                <p><b>Win Rate (1M):</b> {pattern_data['win_rate_1m']:.0f}%</p>
-                <p><b>Win Rate (3M):</b> {pattern_data['win_rate_3m']:.0f}%</p>
-            </div>
-        </div>
-        """
-    
-    # Build the complete email (original + enhancements)
+        interpretation_html = ""
+        if pattern_data.get('interpretation'):
+            for item in pattern_data['interpretation']:
+                if item['type'] == 'bias':
+                    color = {'bullish': '#16a34a', 'bearish': '#dc2626', 'neutral': '#666'}[item['color']]
+                    interpretation_html += f'<p style="font-size:1.2em;font-weight:bold;color:{color};">{item["emoji"]} {item["text"]}</p>'
+                else:
+                    interpretation_html += f'<p style="line-height:1.8;margin:10px 0;">{item["text"]}</p>'
+        
+        matches_html = ""
+        for i, match in enumerate(pattern_data['matches'][:5], 1):
+            outcome_color = "#16a34a" if match['future_3m'] > 0 else "#dc2626"
+            matches_html += f"""<div style="margin:15px 0;padding:15px;background-color:#f8f8f8;border-left:4px solid {outcome_color};border-radius:5px;"><div style="display:flex;justify-content:space-between;align-items:center;"><div><b style="font-size:1.1em;">{match['date']}</b><span style="color:#666;margin-left:10px;">({match['context']})</span><br><span style="font-size:0.9em;color:#666;">Match Strength: {match['similarity']:.1f}%</span></div><div style="text-align:right;"><div style="font-size:1.2em;font-weight:bold;color:{outcome_color};">{match['future_3m']:+.1f}%</div><div style="font-size:0.9em;color:#666;">3-month outcome</div></div></div><div style="margin-top:10px;font-size:0.9em;color:#666;">1-month: {match['future_1m']:+.1f}% | RSI then: {match['conditions']['rsi']:.1f} | Volatility: {match['conditions']['volatility']:.1f}%</div></div>"""
+        
+        win_bar_1m, win_bar_3m = int(pattern_data['win_rate_1m']), int(pattern_data['win_rate_3m'])
+        pattern_html = f"""<div class="section" style="background-color:#f3e8ff;border-left:4px solid #7c3aed;"><h2>🔮 11-YEAR PATTERN ANALYSIS</h2><p style="font-size:0.9em;color:#666;">Analyzing {pattern_data['sample_size']} similar market setups</p>{current_cond}<div style="background-color:#fff;padding:20px;border-radius:5px;margin:20px 0;"><h3 style="margin-top:0;color:#7c3aed;">📖 What History Tells Us:</h3>{interpretation_html}</div><div style="margin:20px 0;"><h3>🎯 Statistical Outlook:</h3><div style="background-color:#fff;padding:15px;border-radius:5px;"><div style="margin:15px 0;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;"><span><b>1-Month Probability:</b></span><span style="font-size:1.2em;font-weight:bold;color:{'#16a34a' if pattern_data['avg_return_1m'] > 0 else '#dc2626'}">{pattern_data['avg_return_1m']:+.1f}%</span></div><div style="background-color:#e5e7eb;height:20px;border-radius:10px;overflow:hidden;"><div style="background-color:{'#16a34a' if win_bar_1m >= 50 else '#dc2626'};width:{win_bar_1m}%;height:100%;"></div></div><div style="font-size:0.9em;color:#666;margin-top:5px;">Win Rate: {win_bar_1m}% ({pattern_data['bullish_count']} bullish, {pattern_data['bearish_count']} bearish)</div></div><div style="margin:15px 0;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;"><span><b>3-Month Probability:</b></span><span style="font-size:1.2em;font-weight:bold;color:{'#16a34a' if pattern_data['avg_return_3m'] > 0 else '#dc2626'}">{pattern_data['avg_return_3m']:+.1f}%</span></div><div style="background-color:#e5e7eb;height:20px;border-radius:10px;overflow:hidden;"><div style="background-color:{'#16a34a' if win_bar_3m >= 50 else '#dc2626'};width:{win_bar_3m}%;height:100%;"></div></div><div style="font-size:0.9em;color:#666;margin-top:5px;">Win Rate: {win_bar_3m}%</div></div></div></div><div style="margin:20px 0;"><h3>📅 Top 5 Historical Matches:</h3>{matches_html}</div></div>"""
+
     prev_score = memory.get('previous_macro_score', 0)
     current_score = macro_data.get('overall_macro_score', 0)
     mood_change = "stayed relatively stable"
-    if (diff := current_score - prev_score) > 3:
-        mood_change = f"improved since yesterday (from {prev_score:.1f} to {current_score:.1f})"
-    elif diff < -3:
-        mood_change = f"turned more cautious since yesterday (from {prev_score:.1f} to {current_score:.1f})"
-    
+    if (diff := current_score - prev_score) > 3: mood_change = f"improved since yesterday (from {prev_score:.1f} to {current_score:.1f})"
+    elif diff < -3: mood_change = f"turned more cautious since yesterday (from {prev_score:.1f} to {current_score:.1f})"
     editor_note = f"Good morning. The overall market mood has {mood_change}. This briefing is your daily blueprint for navigating the currents."
-    if memory.get('previous_top_stock_name'):
-        editor_note += f"<br><br><b>Yesterday's Champion:</b> {memory['previous_top_stock_name']} ({memory['previous_top_stock_ticker']}) led our rankings."
+    if memory.get('previous_top_stock_name'): editor_note += f"<br><br><b>Yesterday's Champion:</b> {memory['previous_top_stock_name']} ({memory['previous_top_stock_ticker']}) led our rankings."
     
     sector_html = ""
     if not df_stocks.empty:
@@ -796,65 +674,16 @@ def generate_enhanced_html_email(df_stocks, context, market_news, macro_data, me
         for _, row in top_by_sector.iterrows():
             if row['sector'] and row['sector'] != 'N/A':
                 summary_text = "Business summary not available."
-                if row["summary"] and isinstance(row["summary"], str):
-                    summary_text = '. '.join(row["summary"].split('. ')[:2]) + '.'
+                if row["summary"] and isinstance(row["summary"], str): summary_text = '. '.join(row["summary"].split('. ')[:2]) + '.'
                 sector_html += f'<div style="margin-bottom:15px;"><b>{row["name"]} ({row["ticker"]})</b> in <i>{row["sector"]}</i><p style="font-size:0.9em;color:#333;margin:5px 0 0 0;">{summary_text}</p></div>'
     
     top10_html = create_stock_table(df_stocks.head(10)) if not df_stocks.empty else "<tr><td>No data available</td></tr>"
     bottom10_html = create_stock_table(df_stocks.tail(10).iloc[::-1]) if not df_stocks.empty else "<tr><td>No data available</td></tr>"
     crypto_html = create_context_table(["bitcoin", "ethereum", "solana", "ripple"])
     commodities_html = create_context_table(["gold", "silver"])
+    market_news_html = "".join([f'<div style="margin-bottom:15px;"><b><a href="{article.get("url", "#")}" style="color:#000;">{article["title"]}</a></b><br><span style="color:#666;font-size:0.9em;">{article.get("source", "Unknown")}</span></div>' for article in market_news[:10]]) or "<p><i>Headlines temporarily unavailable.</i></p>"
     
-    market_news_html = ""
-    for article in market_news[:10]:
-        if article.get('title'):
-            market_news_html += f'<div style="margin-bottom:15px;"><b><a href="{article.get("url", "#")}" style="color:#000;">{article["title"]}</a></b><br><span style="color:#666;font-size:0.9em;">{article.get("source", "Unknown")}</span></div>'
-    
-    if not market_news_html:
-        market_news_html = "<p><i>Headlines temporarily unavailable.</i></p>"
-    
-    return f"""
-    <!DOCTYPE html><html><head><style>
-    body{{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0;padding:0;background-color:#f7f7f7;}} 
-    .container{{width:100%;max-width:700px;margin:20px auto;background-color:#fff;border:1px solid #ddd;}} 
-    .header{{background-color:#0c0a09;color:#fff;padding:30px;text-align:center;}} 
-    .section{{padding:25px;border-bottom:1px solid #ddd;}} 
-    h2{{font-size:1.5em;color:#111;margin-top:0;}} 
-    h3{{font-size:1.2em;color:#333;border-bottom:2px solid #e2e8f0;padding-bottom:5px;}}
-    </style></head><body><div class="container">
-    
-    <div class="header"><h1>Your Daily Intelligence Briefing</h1><p style="font-size:1.1em; color:#aaa;">{datetime.date.today().strftime('%A, %B %d, %Y')}</p></div>
-    
-    <div class="section"><h2>EDITOR'S NOTE</h2><p>{editor_note}</p></div>
-    
-    {ai_oracle_html}
-    {portfolio_html}
-    {pattern_html}
-    
-    <div class="section"><h2>THE BIG PICTURE: The Market Weather Report</h2>
-        <h3>Overall Macro Score: {macro_data['overall_macro_score']:.1f} / 30</h3>
-        <p><b>How it's calculated:</b> This is our "weather forecast" for investors, combining risks and sentiment.</p>
-        <p><b>🌍 Geopolitical Risk ({macro_data['geopolitical_risk']:.0f}/100):</b> Measures global instability.<br><u>Key Drivers:</u> {format_articles(macro_data['geo_articles'])}</p>
-        <p><b>🚢 Trade Risk ({macro_data['trade_risk']:.0f}/100):</b> Tracks trade tensions.<br><u>Key Drivers:</u> {format_articles(macro_data['trade_articles'])}</p>
-        <p><b>💼 Economic Sentiment ({macro_data['economic_sentiment']:.2f}):</b> Market mood (-1 to +1).<br><u>Key Drivers:</u> {format_articles(macro_data['econ_articles'])}</p>
-    </div>
-    
-    <div class="section"><h2>SECTOR DEEP DIVE</h2><p>Top companies from different sectors.</p>{sector_html or "<p><i>No sector data available.</i></p>"}</div>
-    
-    <div class="section"><h2>STOCK RADAR</h2>
-        <h3>📈 Top 10 Strongest Signals</h3><table style="width:100%; border-collapse: collapse;"><thead><tr><th style="text-align:left; padding:10px;">Company</th><th style="text-align:center; padding:10px;">Score</th></tr></thead><tbody>{top10_html}</tbody></table>
-        <h3 style="margin-top: 30px;">📉 Top 10 Weakest Signals</h3><table style="width:100%; border-collapse: collapse;"><thead><tr><th style="text-align:left; padding:10px;">Company</th><th style="text-align:center; padding:10px;">Score</th></tr></thead><tbody>{bottom10_html}</tbody></table>
-    </div>
-    
-    <div class="section"><h2>BEYOND STOCKS: Alternative Assets</h2>
-        <h3>🪙 Crypto</h3><p><b>Market Sentiment: {context.get('crypto_sentiment', 'N/A')}</b></p><table style="width:100%; border-collapse: collapse;"><thead><tr><th style="text-align:left; padding:10px;">Asset</th><th style="text-align:left; padding:10px;">Price / 24h</th><th style="text-align:left; padding:10px;">Market Cap</th></tr></thead><tbody>{crypto_html}</tbody></table>
-        <h3 style="margin-top: 30px;">💎 Commodities</h3><p><b>Gold/Silver Ratio: {context.get('gold_silver_ratio', 'N/A')}</b></p><table style="width:100%; border-collapse: collapse;"><thead><tr><th style="text-align:left; padding:10px;">Asset</th><th style="text-align:left; padding:10px;">Price / 24h</th><th style="text-align:left; padding:10px;">Market Cap</th></tr></thead><tbody>{commodities_html}</tbody></table>
-    </div>
-    
-    <div class="section"><h2>FROM THE WIRE: Today's Top Headlines</h2>{market_news_html}</div>
-    
-    </div></body></html>
-    """
+    return f"""<!DOCTYPE html><html><head><style>body{{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0;padding:0;background-color:#f7f7f7;}} .container{{width:100%;max-width:700px;margin:20px auto;background-color:#fff;border:1px solid #ddd;}} .header{{background-color:#0c0a09;color:#fff;padding:30px;text-align:center;}} .section{{padding:25px;border-bottom:1px solid #ddd;}} h2{{font-size:1.5em;color:#111;margin-top:0;}} h3{{font-size:1.2em;color:#333;border-bottom:2px solid #e2e8f0;padding-bottom:5px;}}</style></head><body><div class="container"><div class="header"><h1>Your Daily Intelligence Briefing</h1><p style="font-size:1.1em; color:#aaa;">{datetime.date.today().strftime('%A, %B %d, %Y')}</p></div><div class="section"><h2>EDITOR'S NOTE</h2><p>{editor_note}</p></div>{ai_oracle_html}{portfolio_html}{pattern_html}<div class="section"><h2>THE BIG PICTURE: The Market Weather Report</h2><h3>Overall Macro Score: {macro_data['overall_macro_score']:.1f} / 30</h3><p><b>How it's calculated:</b> This is our "weather forecast" for investors, combining risks and sentiment.</p><p><b>🌍 Geopolitical Risk ({macro_data['geopolitical_risk']:.0f}/100):</b> Measures global instability.<br><u>Key Drivers:</u> {format_articles(macro_data['geo_articles'])}</p><p><b>🚢 Trade Risk ({macro_data['trade_risk']:.0f}/100):</b> Tracks trade tensions.<br><u>Key Drivers:</u> {format_articles(macro_data['trade_articles'])}</p><p><b>💼 Economic Sentiment ({macro_data['economic_sentiment']:.2f}):</b> Market mood (-1 to +1).<br><u>Key Drivers:</u> {format_articles(macro_data['econ_articles'])}</p></div><div class="section"><h2>SECTOR DEEP DIVE</h2><p>Top companies from different sectors.</p>{sector_html or "<p><i>No sector data available.</i></p>"}</div><div class="section"><h2>STOCK RADAR</h2><h3>📈 Top 10 Strongest Signals</h3><table style="width:100%; border-collapse: collapse;"><thead><tr><th style="text-align:left; padding:10px;">Company</th><th style="text-align:center; padding:10px;">Score</th></tr></thead><tbody>{top10_html}</tbody></table><h3 style="margin-top: 30px;">📉 Top 10 Weakest Signals</h3><table style="width:100%; border-collapse: collapse;"><thead><tr><th style="text-align:left; padding:10px;">Company</th><th style="text-align:center; padding:10px;">Score</th></tr></thead><tbody>{bottom10_html}</tbody></table></div><div class="section"><h2>BEYOND STOCKS: Alternative Assets</h2><h3>🪙 Crypto</h3><p><b>Market Sentiment: {context.get('crypto_sentiment', 'N/A')}</b></p><table style="width:100%; border-collapse: collapse;"><thead><tr><th style="text-align:left; padding:10px;">Asset</th><th style="text-align:left; padding:10px;">Price / 24h</th><th style="text-align:left; padding:10px;">Market Cap</th></tr></thead><tbody>{crypto_html}</tbody></table><h3 style="margin-top: 30px;">💎 Commodities</h3><p><b>Gold/Silver Ratio: {context.get('gold_silver_ratio', 'N/A')}</b></p><table style="width:100%; border-collapse: collapse;"><thead><tr><th style="text-align:left; padding:10px;">Asset</th><th style="text-align:left; padding:10px;">Price / 24h</th><th style="text-align:left; padding:10px;">Market Cap</th></tr></thead><tbody>{commodities_html}</tbody></table></div><div class="section"><h2>FROM THE WIRE: Today's Top Headlines</h2>{market_news_html}</div></div></body></html>"""
 
 def send_email(html_body):
     import smtplib
