@@ -1022,6 +1022,179 @@ async def analyze_portfolio_with_v2_features(session, portfolio_file='portfolio.
     
     return portfolio_data
 
+async def generate_portfolio_recommendations_from_pattern(portfolio_data, pattern_data, macro_data):
+    """FIXED v2.0.0: Generate CLEAR, NON-CONFLICTING recommendations"""
+    if not pattern_data or not pattern_data.get('matches') or not portfolio_data:
+        return None
+    
+    recommendations = {
+        'final_verdicts': {},  # ONE recommendation per stock
+        'sector_winners': [],
+        'sector_losers': []
+    }
+    
+    # Get sector performance data
+    if pattern_data.get('sector_performance'):
+        recommendations['sector_winners'] = pattern_data['sector_performance'][:3]
+        recommendations['sector_losers'] = pattern_data['sector_performance'][-3:]
+    
+    # Create sector ranking for better logic
+    sector_ranks = {}
+    if pattern_data.get('sector_performance'):
+        for idx, (sector, perf) in enumerate(pattern_data['sector_performance']):
+            sector_ranks[sector] = {
+                'rank': idx + 1,
+                'performance': perf,
+                'is_winner': idx < 3,
+                'is_loser': idx >= len(pattern_data['sector_performance']) - 3
+            }
+    
+    # Analyze each portfolio stock with PRIORITY-BASED system
+    for stock in portfolio_data['stocks']:
+        ticker = stock['ticker']
+        sector = stock.get('sector', 'Unknown')
+        rsi = stock['rsi']
+        monthly_change = stock['monthly_change']
+        weekly_change = stock['weekly_change']
+        
+        # Priority scoring system (higher priority = stronger signal)
+        signals = []
+        
+        # PRIORITY 1: Extreme RSI (strongest signal)
+        if rsi > 80:
+            signals.append({
+                'priority': 10,
+                'action': 'SELL',
+                'reason': f'Extremely overbought (RSI {rsi:.0f})',
+                'confidence': 'HIGH'
+            })
+        elif rsi > 70 and monthly_change > 30:
+            signals.append({
+                'priority': 9,
+                'action': 'TAKE PROFITS',
+                'reason': f'Overbought (RSI {rsi:.0f}) + Extended rally (+{monthly_change:.0f}%)',
+                'confidence': 'HIGH'
+            })
+        elif rsi < 20:
+            signals.append({
+                'priority': 10,
+                'action': 'BUY',
+                'reason': f'Extremely oversold (RSI {rsi:.0f})',
+                'confidence': 'HIGH'
+            })
+        elif rsi < 30:
+            signals.append({
+                'priority': 8,
+                'action': 'BUY DIP',
+                'reason': f'Oversold (RSI {rsi:.0f}) - bounce likely',
+                'confidence': 'MEDIUM'
+            })
+        
+        # PRIORITY 2: Extreme price moves
+        if monthly_change > 50:
+            signals.append({
+                'priority': 8,
+                'action': 'TRIM 50%',
+                'reason': f'Parabolic move (+{monthly_change:.0f}% monthly)',
+                'confidence': 'HIGH'
+            })
+        elif monthly_change < -30:
+            signals.append({
+                'priority': 7,
+                'action': 'AVERAGE DOWN',
+                'reason': f'Heavy selloff ({monthly_change:.0f}% monthly)',
+                'confidence': 'MEDIUM'
+            })
+        
+        # PRIORITY 3: Technical + Pattern alignment
+        if stock.get('gap') and stock['gap']['signal'] == 'GAP UP':
+            if rsi < 60:
+                signals.append({
+                    'priority': 6,
+                    'action': 'HOLD',
+                    'reason': f"Gapped up {stock['gap']['gap_percent']:.1f}% with room to run",
+                    'confidence': 'MEDIUM'
+                })
+            else:
+                signals.append({
+                    'priority': 5,
+                    'action': 'WATCH',
+                    'reason': f"Gapped up but getting extended",
+                    'confidence': 'LOW'
+                })
+        
+        # PRIORITY 4: 52-week levels
+        if stock.get('week52'):
+            if stock['week52']['signal'] == 'AT 52W HIGH' and rsi < 70:
+                signals.append({
+                    'priority': 5,
+                    'action': 'HOLD',
+                    'reason': 'At 52W high with momentum',
+                    'confidence': 'MEDIUM'
+                })
+            elif stock['week52']['signal'] == 'AT 52W LOW':
+                signals.append({
+                    'priority': 6,
+                    'action': 'BUY STARTER',
+                    'reason': 'At 52W low - potential reversal',
+                    'confidence': 'MEDIUM'
+                })
+        
+        # PRIORITY 5: Sector performance
+        if sector in sector_ranks:
+            rank_info = sector_ranks[sector]
+            if rank_info['is_winner'] and rsi < 60:
+                signals.append({
+                    'priority': 4,
+                    'action': 'ADD',
+                    'reason': f"{sector} ranked #{rank_info['rank']} (+{rank_info['performance']:.1f}%) historically",
+                    'confidence': 'LOW'
+                })
+            elif rank_info['is_loser'] and rsi > 50:
+                signals.append({
+                    'priority': 3,
+                    'action': 'REDUCE',
+                    'reason': f"{sector} underperformed (ranked #{rank_info['rank']})",
+                    'confidence': 'LOW'
+                })
+        
+        # PRIORITY 6: Historical pattern baseline
+        if pattern_data['avg_return_3m'] > 5 and not signals:
+            signals.append({
+                'priority': 2,
+                'action': 'HOLD',
+                'reason': f"Pattern bullish (+{pattern_data['avg_return_3m']:.1f}% avg)",
+                'confidence': 'LOW'
+            })
+        elif pattern_data['avg_return_3m'] < -5 and not signals:
+            signals.append({
+                'priority': 2,
+                'action': 'HEDGE',
+                'reason': f"Pattern bearish ({pattern_data['avg_return_3m']:.1f}% avg)",
+                'confidence': 'LOW'
+            })
+        
+        # DEFAULT: No strong signals
+        if not signals:
+            signals.append({
+                'priority': 1,
+                'action': 'HOLD',
+                'reason': 'No strong signals - maintain position',
+                'confidence': 'NEUTRAL'
+            })
+        
+        # Pick the HIGHEST PRIORITY signal as final verdict
+        final_signal = max(signals, key=lambda x: x['priority'])
+        
+        recommendations['final_verdicts'][ticker] = {
+            'action': final_signal['action'],
+            'reason': final_signal['reason'],
+            'confidence': final_signal['confidence'],
+            'name': stock['name']
+        }
+    
+    return recommendations
+
 # ========================================
 # MAIN FUNCTION - Updated for v2.0.0
 # ========================================
@@ -1099,7 +1272,7 @@ async def main(output="print"):
 # ========================================
 
 def generate_enhanced_html_email(df_stocks, context, market_news, macro_data, memory, portfolio_data, pattern_data, ai_analysis, portfolio_recommendations=None):
-    """Enhanced email with v2.0.0 features"""
+    """FIXED v2.0.0: Clear, non-conflicting email display"""
     
     def format_articles(articles):
         if not articles:
@@ -1263,38 +1436,57 @@ def generate_enhanced_html_email(df_stocks, context, market_news, macro_data, me
             </table>
             </div>"""
         
+        # FIXED: Clear, single recommendations display
         recommendations_html = ""
-        if portfolio_recommendations:
-            buy_html = ""
-            if portfolio_recommendations['buy']:
-                for rec in portfolio_recommendations['buy']:
-                    buy_html += f"""<div style="margin:10px 0;padding:12px;background-color:#f0fdf4;border-left:4px solid #16a34a;border-radius:5px;">
-                    <div style="font-size:1.1em;font-weight:bold;color:#16a34a;">{rec['ticker']} - {rec['action']}</div>
-                    <div style="font-size:0.9em;color:#666;margin-top:5px;">{'<br>'.join(['• ' + r for r in rec['reasons']])}</div>
-                    </div>"""
+        if portfolio_recommendations and portfolio_recommendations.get('final_verdicts'):
+            rec_items = []
             
-            sell_html = ""
-            if portfolio_recommendations['sell']:
-                for rec in portfolio_recommendations['sell']:
-                    sell_html += f"""<div style="margin:10px 0;padding:12px;background-color:#fef2f2;border-left:4px solid #dc2626;border-radius:5px;">
-                    <div style="font-size:1.1em;font-weight:bold;color:#dc2626;">{rec['ticker']} - {rec['action']}</div>
-                    <div style="font-size:0.9em;color:#666;margin-top:5px;">{'<br>'.join(['• ' + r for r in rec['reasons']])}</div>
-                    </div>"""
-            
-            hold_html = ""
-            if portfolio_recommendations['hold']:
-                hold_tickers = [rec['ticker'] for rec in portfolio_recommendations['hold']]
-                hold_html = f"""<div style="margin:10px 0;padding:12px;background-color:#f8f8f8;border-left:4px solid #666;border-radius:5px;">
-                <div style="font-size:1.1em;font-weight:bold;color:#666;">HOLD: {', '.join(hold_tickers)}</div>
-                <div style="font-size:0.9em;color:#666;margin-top:5px;">• Positions look balanced - no immediate action needed</div>
-                </div>"""
+            for ticker, verdict in portfolio_recommendations['final_verdicts'].items():
+                action = verdict['action']
+                reason = verdict['reason']
+                confidence = verdict.get('confidence', 'MEDIUM')
+                name = verdict.get('name', ticker)
+                
+                # Color coding based on action
+                if action in ['BUY', 'BUY DIP', 'BUY STARTER', 'ADD', 'AVERAGE DOWN']:
+                    color = "#16a34a"
+                    icon = "🟢"
+                elif action in ['SELL', 'TRIM 50%', 'TAKE PROFITS', 'REDUCE']:
+                    color = "#dc2626" 
+                    icon = "🔴"
+                elif action in ['HOLD', 'WATCH']:
+                    color = "#666"
+                    icon = "⚪"
+                elif action == 'HEDGE':
+                    color = "#ea580c"
+                    icon = "🟡"
+                else:
+                    color = "#666"
+                    icon = "⚪"
+                
+                # Confidence badge
+                conf_badge = ""
+                if confidence == 'HIGH':
+                    conf_badge = '<span style="background:#dc2626;color:white;padding:2px 6px;border-radius:3px;font-size:0.8em;margin-left:8px;">HIGH CONF</span>'
+                elif confidence == 'MEDIUM':
+                    conf_badge = '<span style="background:#f59e0b;color:white;padding:2px 6px;border-radius:3px;font-size:0.8em;margin-left:8px;">MED CONF</span>'
+                elif confidence == 'LOW':
+                    conf_badge = '<span style="background:#6b7280;color:white;padding:2px 6px;border-radius:3px;font-size:0.8em;margin-left:8px;">LOW CONF</span>'
+                
+                rec_items.append(f"""
+                <div style="margin:10px 0;padding:12px;background-color:#f9f9f9;border-left:4px solid {color};border-radius:5px;">
+                    <div style="font-size:1.1em;font-weight:bold;color:{color};">
+                        {icon} {ticker}: {action} {conf_badge}
+                    </div>
+                    <div style="font-size:0.9em;color:#333;margin-top:2px;">{name}</div>
+                    <div style="font-size:0.9em;color:#666;margin-top:5px;">• {reason}</div>
+                </div>
+                """)
             
             recommendations_html = f"""<div style="margin:20px 0;">
-            <h3 style="color:#7c3aed;">💼 YOUR PORTFOLIO PLAYBOOK</h3>
-            <p style="font-size:0.9em;color:#666;">Based on historical pattern analysis + current market conditions</p>
-            {buy_html if buy_html else '<p style="color:#888;font-size:0.9em;">No strong buy signals at this time.</p>'}
-            {sell_html if sell_html else '<p style="color:#888;font-size:0.9em;">No sell signals detected.</p>'}
-            {hold_html}
+            <h3 style="color:#7c3aed;">💼 YOUR PORTFOLIO ACTION PLAN</h3>
+            <p style="font-size:0.9em;color:#666;">One clear recommendation per stock - no conflicts</p>
+            {''.join(rec_items)}
             </div>"""
         
         matches_html = ""
