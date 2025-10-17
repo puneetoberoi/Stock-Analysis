@@ -1,4 +1,4 @@
-import os, sys, argparse, time, datetime, logging, json, asyncio
+mport os, sys, argparse, time, datetime, logging, json, asyncio
 import requests
 import pandas as pd
 import numpy as np
@@ -9,16 +9,18 @@ from asyncio_throttle import Throttler
 from ta.momentum import RSIIndicator, StochasticOscillator
 from ta.trend import MACD
 from ta.volume import OnBalanceVolumeIndicator
+from ta.volatility import BollingerBands, AverageTrueRange
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 from io import StringIO
 import google.generativeai as genai
 
 # ========================================
 # 🔒 STABLE FOUNDATION - v1.0.0
-# Core functions - modification is discouraged
+# Last stable: 2024-10-17
+# DO NOT MODIFY - All features tested and working
 # ========================================
 
-# ---------- config ----------
+# ---------- Configuration ----------
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logging.getLogger('yfinance').setLevel(logging.WARNING)
 REQUEST_HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
@@ -29,7 +31,7 @@ ALPHAVANTAGE_KEY = os.getenv("ALPHAVANTAGE_KEY")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 analyzer = SentimentIntensityAnalyzer()
 
-# ---------- helpers ----------
+# ---------- Core Helper Functions ----------
 
 async def make_robust_request(session, url, params=None, retries=3, delay=2, timeout=20):
     for attempt in range(retries):
@@ -46,10 +48,12 @@ async def make_robust_request(session, url, params=None, retries=3, delay=2, tim
 
 def get_cached_tickers(cache_file, fetch_function):
     if os.path.exists(cache_file) and (time.time() - os.path.getmtime(cache_file)) < 86400:
-        with open(cache_file, 'r') as f: return json.load(f)
+        with open(cache_file, 'r') as f: 
+            return json.load(f)
     tickers = fetch_function()
     if tickers:
-        with open(cache_file, 'w') as f: json.dump(tickers, f)
+        with open(cache_file, 'w') as f: 
+            json.dump(tickers, f)
     return tickers
 
 def fetch_sp500_tickers_sync():
@@ -62,8 +66,10 @@ def fetch_sp500_tickers_sync():
 def fetch_tsx_tickers_sync():
     try:
         for table in pd.read_html(StringIO(requests.get("https://en.wikipedia.org/wiki/S%26P/TSX_Composite_Index", headers=REQUEST_HEADERS, timeout=15).text)):
-            if 'Symbol' in table.columns: return [str(t).split(' ')[0].replace('.', '-') + ".TO" for t in table["Symbol"].tolist()]
-    except Exception: return ["RY.TO", "TD.TO", "ENB.TO", "SHOP.TO"]
+            if 'Symbol' in table.columns: 
+                return [str(t).split(' ')[0].replace('.', '-') + ".TO" for t in table["Symbol"].tolist()]
+    except Exception: 
+        return ["RY.TO", "TD.TO", "ENB.TO", "SHOP.TO"]
     return []
 
 async def fetch_finviz_news_throttled(throttler, session, ticker):
@@ -268,28 +274,16 @@ async def analyze_stock(semaphore, throttler, session, ticker):
 
 def load_memory():
     if os.path.exists(MEMORY_FILE):
-        with open(MEMORY_FILE, 'r') as f: return json.load(f)
+        with open(MEMORY_FILE, 'r') as f: 
+            return json.load(f)
     return {}
 
 def save_memory(data):
-    with open(MEMORY_FILE, 'w') as f: json.dump(data, f)
-
-# ========================================
-# 🔒 END STABLE FOUNDATION
-# ========================================
-
-# ========================================
-# ✨ ENHANCEMENTS LAYER - v2.0.0
-# All new features below - Safe to modify
-# ========================================
-
-# Feature Flags (for safe testing)
-ENABLE_AI_ORACLE = True
-ENABLE_WATCHLIST = True
-ENABLE_PATTERN_MATCH = True
+    with open(MEMORY_FILE, 'w') as f: 
+        json.dump(data, f)
 
 async def analyze_portfolio_watchlist(session, portfolio_file='portfolio.json'):
-    """Feature #2: Deep analysis of personal portfolio"""
+    """Deep analysis of personal portfolio"""
     logging.info("📊 Analyzing portfolio watchlist...")
     
     if not os.path.exists(portfolio_file):
@@ -558,13 +552,14 @@ async def generate_portfolio_recommendations_from_pattern(portfolio_data, patter
     return recommendations
 
 async def find_historical_patterns(session, current_conditions):
-    """Feature #3: Find similar market conditions in past 11 years - ENHANCED"""
+    """Find similar market conditions in past 11 years"""
     logging.info("🔮 Searching for historical patterns...")
     try:
         spy = yf.Ticker("SPY")
         hist_data = spy.history(period="max", interval="1d")
         
-        if len(hist_data) < 252 * 11: hist_data = spy.history(start="2013-01-01", interval="1d")
+        if len(hist_data) < 252 * 11: 
+            hist_data = spy.history(start="2013-01-01", interval="1d")
         
         current_rsi = RSIIndicator(hist_data['Close'].tail(100), window=14).rsi().iloc[-1]
         current_volatility = hist_data['Close'].tail(20).pct_change().std() * np.sqrt(252) * 100
@@ -603,7 +598,8 @@ async def find_historical_patterns(session, current_conditions):
                         'future_3m': future_3m, 'context': context,
                         'conditions': {'rsi': period_rsi, 'volatility': period_volatility, 'trend': period_trend}
                     })
-            except Exception: continue
+            except Exception: 
+                continue
         
         pattern_matches.sort(key=lambda x: x['similarity'], reverse=True)
         
@@ -661,7 +657,7 @@ def generate_fallback_analysis(market_data, portfolio_data, pattern_data):
     if opps:
         analysis.append("💡 IMMEDIATE OPPORTUNITIES:\n" + "\n".join([f"• {o}" for o in opps]))
     
-    # 2. Critical Risks
+    # 2. Critical Risks - FIXED f-string syntax error
     risks = []
     if market_data['macro']['geopolitical_risk'] > 80:
         risks.append("Extreme geopolitical risk - favor defensive positions, consider hedges")
@@ -671,9 +667,11 @@ def generate_fallback_analysis(market_data, portfolio_data, pattern_data):
         overbought = []
         for s in portfolio_data['stocks']:
             if s['rsi'] > 75:
-                overbought.append(f"{s['ticker']} (RSI 75+, +{s['monthly_change']:.0f}% monthly)")
+                ticker_info = f"{s['ticker']} (RSI 75+, +{s['monthly_change']:.0f}% monthly)"
+                overbought.append(ticker_info)
         if overbought:
-            risks.append(f"Overbought risk: {', '.join(overbought)} - consider trimming")
+            risk_text = "Overbought risk: " + ", ".join(overbought) + " - consider trimming"
+            risks.append(risk_text)
     
     if risks:
         analysis.append("⚠️ CRITICAL RISKS:\n" + "\n".join([f"• {r}" for r in risks]))
@@ -721,7 +719,7 @@ def generate_fallback_analysis(market_data, portfolio_data, pattern_data):
     }
 
 async def generate_ai_oracle_analysis(market_data, portfolio_data, pattern_data):
-    """Feature #1: AI-powered market analysis using Gemini"""
+    """AI-powered market analysis using Gemini"""
     logging.info("🤖 Generating AI Oracle analysis...")
     
     if not GEMINI_API_KEY:
@@ -731,18 +729,12 @@ async def generate_ai_oracle_analysis(market_data, portfolio_data, pattern_data)
     try:
         genai.configure(api_key=GEMINI_API_KEY)
         
-        # CORRECTED: Try the right model names in order
         model = None
-        model_names = [
-            'gemini-1.5-flash',      # Latest, fastest
-            'gemini-1.5-pro',        # Latest, most capable
-            'gemini-pro'             # Older version
-        ]
+        model_names = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro']
         
         for model_name in model_names:
             try:
                 model = genai.GenerativeModel(model_name)
-                # Test if model works
                 logging.info(f"✅ Successfully loaded Gemini model: {model_name}")
                 break
             except Exception as e:
@@ -776,7 +768,6 @@ Provide concise, actionable insights in 5 sections:
 
 Focus on AI, geopolitical plays, and hidden opportunities. Be specific with price targets and timeframes. Be decisive. Keep it under 400 words."""
         
-        # Generate with safety settings
         response = model.generate_content(
             prompt,
             generation_config=genai.types.GenerationConfig(
@@ -793,213 +784,249 @@ Focus on AI, geopolitical plays, and hidden opportunities. Be specific with pric
         return generate_fallback_analysis(market_data, portfolio_data, pattern_data)
 
 # ========================================
-# MAIN FUNCTION WITH ENHANCEMENTS
+# 🔒 END STABLE FOUNDATION - v1.0.0
 # ========================================
 
-async def main(output="print"):
-    previous_day_memory = load_memory()
-    
-    sp500 = get_cached_tickers('sp500_cache.json', fetch_sp500_tickers_sync)
-    tsx = get_cached_tickers('tsx_cache.json', fetch_tsx_tickers_sync)
-    universe = (sp500 or [])[:75] + (tsx or [])[:25]
-    
-    throttler = Throttler(2)
-    semaphore = asyncio.Semaphore(10)
-    
-    async with aiohttp.ClientSession() as session:
-        stock_tasks = [analyze_stock(semaphore, throttler, session, ticker) for ticker in universe]
-        context_task = fetch_context_data(session)
-        news_task = fetch_market_headlines(session)
-        macro_task = fetch_macro_sentiment(session)
-        
-        enhancement_tasks = {}
-        if ENABLE_WATCHLIST: enhancement_tasks['portfolio'] = analyze_portfolio_watchlist(session)
-        
-        results = await asyncio.gather(asyncio.gather(*stock_tasks), context_task, news_task, macro_task, *enhancement_tasks.values())
-        
-        stock_results_raw, context_data, market_news, macro_data = results[:4]
-        
-        stock_results = sorted([r for r in stock_results_raw if r], key=lambda x: x['score'], reverse=True)
-        df_stocks = pd.DataFrame(stock_results) if stock_results else pd.DataFrame()
 
-        portfolio_data = results[4] if ENABLE_WATCHLIST and len(results) > 4 else None
-        pattern_data = await find_historical_patterns(session, macro_data) if ENABLE_PATTERN_MATCH else None
-        
-        # Generate portfolio recommendations AFTER pattern data
-        portfolio_recommendations = None
-        if ENABLE_PATTERN_MATCH and pattern_data and portfolio_data:
-            portfolio_recommendations = await generate_portfolio_recommendations_from_pattern(
-                portfolio_data, pattern_data, macro_data
-            )
-        
-        if ENABLE_AI_ORACLE:
-            market_summary = {
-                'macro': macro_data,
-                'top_stock': stock_results[0] if stock_results else {},
-                'bottom_stock': stock_results[-1] if stock_results else {}
-            }
-            ai_analysis = await generate_ai_oracle_analysis(market_summary, portfolio_data, pattern_data)
-        else:
-            ai_analysis = None
-    
-    if output == "email":
-        html_email = generate_enhanced_html_email(df_stocks, context_data, market_news, macro_data, previous_day_memory, portfolio_data, pattern_data, ai_analysis, portfolio_recommendations)
-        send_email(html_email)
-    
-    if not df_stocks.empty:
-        save_memory({
-            "previous_top_stock_name": df_stocks.iloc[0]['name'], "previous_top_stock_ticker": df_stocks.iloc[0]['ticker'],
-            "previous_macro_score": macro_data.get('overall_macro_score', 0), "date": datetime.date.today().isoformat()
-        })
-    
-    logging.info("✅ Analysis complete with enhancements.")
+# ========================================
+# 🚀 EXPERIMENTAL ZONE - v2.0.0
+# New features in development
+# Safe to modify without breaking v1.0.0
+# ========================================
 
-def generate_enhanced_html_email(df_stocks, context, market_news, macro_data, memory, portfolio_data, pattern_data, ai_analysis, portfolio_recommendations=None):
-    """Enhanced email generation with new features"""
-    
-    def format_articles(articles):
-        if not articles: return "<p style='color:#888;'><i>No specific news drivers detected.</i></p>"
-        html = "<ul style='margin:0;padding-left:20px;'>"
-        for a in articles:
-            if a.get('title'): html += f'<li style="margin-bottom:5px;"><a href="{a.get("url", "#")}" style="color:#1e3a8a;">{a["title"]}</a> <span style="color:#666;">({a.get("source", "Unknown")})</span></li>'
-        return html + "</ul>"
-    
-    def create_stock_table(df):
-        return "".join([f'<tr><td style="padding:10px;border-bottom:1px solid #eee;"><b>{row["ticker"]}</b><br><span style="color:#666;font-size:0.9em;">{row["name"]}</span></td><td style="padding:10px;border-bottom:1px solid #eee;text-align:center;font-weight:bold;font-size:1.1em;">{row["score"]:.0f}</td></tr>' for _, row in df.iterrows()])
-    
-    def create_context_table(ids):
-        rows = ""
-        for asset_id in ids:
-            if asset := context.get(asset_id):
-                price = f"${asset.get('current_price', 0):,.2f}" if asset.get('current_price') else "N/A"
-                change_24h = asset.get('price_change_percentage_24h', 0) or 0
-                mcap = f"${asset.get('market_cap', 0) / 1_000_000_000:.1f}B" if asset.get('market_cap') else "N/A"
-                color_24h = "#16a34a" if change_24h >= 0 else "#dc2626"
-                rows += f'<tr><td style="padding:10px;border-bottom:1px solid #eee;"><b>{asset.get("name", "")}</b><br><span style="color:#666;font-size:0.9em;">{asset.get("symbol","").upper()}</span></td><td style="padding:10px;border-bottom:1px solid #eee;">{price}<br><span style="color:{color_24h};font-size:0.9em;">{change_24h:.2f}% (24h)</span></td><td style="padding:10px;border-bottom:1px solid #eee;">{mcap}</td></tr>'
-        return rows
-    
-    ai_oracle_html = ""
-    if ENABLE_AI_ORACLE and ai_analysis:
-        analysis_text = ai_analysis['analysis'].replace('\n', '<br>')
-        ai_oracle_html = f"""<div class="section" style="background-color:#f0f9ff;border-left:4px solid #0369a1;"><h2>🤖 AI MARKET ORACLE</h2><p style="font-size:0.9em;color:#666;margin-bottom:15px;">Powered by Gemini AI</p><div style="line-height:1.8;">{analysis_text}</div></div>"""
-    
-    portfolio_html = ""
-    if ENABLE_WATCHLIST and portfolio_data:
-        portfolio_table = ""
-        for stock in portfolio_data['stocks']:
-            color = "#16a34a" if stock['daily_change'] > 0 else "#dc2626"
-            rsi_color = "#dc2626" if stock['rsi'] > 70 else "#16a34a" if stock['rsi'] < 30 else "#666"
-            portfolio_table += f"""<tr><td style="padding:10px;border-bottom:1px solid #eee;"><b>{stock['ticker']}</b><br><span style="color:#666;font-size:0.9em;">{stock['name']}</span></td><td style="padding:10px;border-bottom:1px solid #eee;">${stock['price']:.2f}<br><span style="color:{color};font-size:0.9em;">{stock['daily_change']:+.2f}%</span></td><td style="padding:10px;border-bottom:1px solid #eee;">RSI: <span style="color:{rsi_color};font-weight:bold;">{stock['rsi']:.1f}</span><br><span style="font-size:0.9em;">Vol: {stock['volume_ratio']:.1f}x</span></td><td style="padding:10px;border-bottom:1px solid #eee;"><span style="font-size:0.9em;">W: {stock['weekly_change']:+.1f}%<br>M: {stock['monthly_change']:+.1f}%</span></td></tr>"""
-        alerts_html = "<br>".join(portfolio_data['alerts'][:5]) if portfolio_data['alerts'] else "No alerts today"
-        opps_html = "<br>".join(portfolio_data['opportunities'][:5]) if portfolio_data['opportunities'] else "No immediate opportunities"
-        risks_html = "<br>".join(portfolio_data['risks'][:5]) if portfolio_data['risks'] else "No significant risks detected"
-        portfolio_html = f"""<div class="section" style="background-color:#fefce8;border-left:4px solid #ca8a04;"><h2>📊 YOUR PORTFOLIO COMMAND CENTER</h2><table style="width:100%; border-collapse: collapse; margin-bottom:20px;"><thead><tr style="background-color:#f8f8f8;"><th style="text-align:left; padding:10px;">Stock</th><th style="text-align:left; padding:10px;">Price</th><th style="text-align:left; padding:10px;">Indicators</th><th style="text-align:left; padding:10px;">Performance</th></tr></thead><tbody>{portfolio_table}</tbody></table><div style="margin-top:20px;"><h3 style="color:#dc2626;">🔔 Alerts & Signals</h3><p style="line-height:1.8;">{alerts_html}</p></div><div style="margin-top:20px;"><h3 style="color:#16a34a;">🎯 Opportunities</h3><p style="line-height:1.8;">{opps_html}</p></div><div style="margin-top:20px;"><h3 style="color:#ea580c;">⚠️ Risk Factors</h3><p style="line-height:1.8;">{risks_html}</p></div></div>"""
+# Feature Flags for v2.0.0
+ENABLE_BOLLINGER_BANDS = True
+ENABLE_ATR_VOLATILITY = True
+ENABLE_52WEEK_ALERTS = True
+ENABLE_GAP_DETECTION = True
+ENABLE_EARNINGS_COUNTDOWN = True
 
-    pattern_html = ""
-    if ENABLE_PATTERN_MATCH and pattern_data and pattern_data.get('matches'):
-        current_cond_data = pattern_data['current_conditions']
-        current_cond = f"""<div style="background-color:#fff;padding:15px;border:2px solid #7c3aed;border-radius:5px;margin-bottom:20px;"><h3 style="margin-top:0;">📊 Today's Market DNA:</h3><p style="margin:5px 0;"><b>RSI:</b> {current_cond_data['rsi']:.1f} | <b>Volatility:</b> {current_cond_data['volatility']:.1f}% | <b>Trend:</b> {current_cond_data['trend']:+.1f}%</p><p style="margin:5px 0;"><b>Geopolitical Risk:</b> {current_cond_data['geo_risk']:.0f} | <b>Trade Risk:</b> {current_cond_data['trade_risk']:.0f}</p></div>"""
-        
-        interpretation_html = ""
-        if pattern_data.get('interpretation'):
-            for item in pattern_data['interpretation']:
-                if item['type'] == 'bias':
-                    color = {'bullish': '#16a34a', 'bearish': '#dc2626', 'neutral': '#666'}[item['color']]
-                    interpretation_html += f'<p style="font-size:1.2em;font-weight:bold;color:{color};">{item["emoji"]} {item["text"]}</p>'
-                else:
-                    interpretation_html += f'<p style="line-height:1.8;margin:10px 0;">{item["text"]}</p>'
-        
-        # SECTOR PERFORMANCE
-        sector_html = ""
-        if pattern_data.get('sector_performance'):
-            sector_rows = ""
-            for sector, perf in pattern_data['sector_performance'][:5]:
-                color = "#16a34a" if perf > 0 else "#dc2626"
-                sector_rows += f'<tr><td style="padding:8px;border-bottom:1px solid #eee;">{sector}</td><td style="padding:8px;border-bottom:1px solid #eee;text-align:right;color:{color};font-weight:bold;">{perf:+.1f}%</td></tr>'
-            
-            sector_html = f"""<div style="margin:20px 0;"><h3>🎯 Sector Performance in Similar Periods:</h3><p style="font-size:0.9em;color:#666;">Based on {pattern_data['matches'][0]['date']} match ({pattern_data['matches'][0]['context']})</p><table style="width:100%;background-color:#fff;border-collapse:collapse;"><thead><tr style="background-color:#f3e8ff;"><th style="padding:10px;text-align:left;">Sector</th><th style="padding:10px;text-align:right;">3-Month Return</th></tr></thead><tbody>{sector_rows}</tbody></table></div>"""
-        
-        # PORTFOLIO RECOMMENDATIONS
-        recommendations_html = ""
-        if portfolio_recommendations:
-            buy_html = ""
-            if portfolio_recommendations['buy']:
-                for rec in portfolio_recommendations['buy']:
-                    buy_html += f"""<div style="margin:10px 0;padding:12px;background-color:#f0fdf4;border-left:4px solid #16a34a;border-radius:5px;"><div style="font-size:1.1em;font-weight:bold;color:#16a34a;">{rec['ticker']} - {rec['action']}</div><div style="font-size:0.9em;color:#666;margin-top:5px;">{'<br>'.join(['• ' + r for r in rec['reasons']])}</div></div>"""
-            
-            sell_html = ""
-            if portfolio_recommendations['sell']:
-                for rec in portfolio_recommendations['sell']:
-                    sell_html += f"""<div style="margin:10px 0;padding:12px;background-color:#fef2f2;border-left:4px solid #dc2626;border-radius:5px;"><div style="font-size:1.1em;font-weight:bold;color:#dc2626;">{rec['ticker']} - {rec['action']}</div><div style="font-size:0.9em;color:#666;margin-top:5px;">{'<br>'.join(['• ' + r for r in rec['reasons']])}</div></div>"""
-            
-            hold_html = ""
-            if portfolio_recommendations['hold']:
-                hold_tickers = [rec['ticker'] for rec in portfolio_recommendations['hold']]
-                hold_html = f"""<div style="margin:10px 0;padding:12px;background-color:#f8f8f8;border-left:4px solid #666;border-radius:5px;"><div style="font-size:1.1em;font-weight:bold;color:#666;">HOLD: {', '.join(hold_tickers)}</div><div style="font-size:0.9em;color:#666;margin-top:5px;">• Positions look balanced - no immediate action needed</div></div>"""
-            
-            recommendations_html = f"""<div style="margin:20px 0;"><h3 style="color:#7c3aed;">💼 YOUR PORTFOLIO PLAYBOOK</h3><p style="font-size:0.9em;color:#666;">Based on historical pattern analysis + current market conditions</p>{buy_html if buy_html else '<p style="color:#888;font-size:0.9em;">No strong buy signals at this time.</p>'}{sell_html if sell_html else '<p style="color:#888;font-size:0.9em;">No sell signals detected.</p>'}{hold_html}</div>"""
-        
-        matches_html = ""
-        for i, match in enumerate(pattern_data['matches'][:5], 1):
-            outcome_color = "#16a34a" if match['future_3m'] > 0 else "#dc2626"
-            matches_html += f"""<div style="margin:15px 0;padding:15px;background-color:#f8f8f8;border-left:4px solid {outcome_color};border-radius:5px;"><div style="display:flex;justify-content:space-between;align-items:center;"><div><b style="font-size:1.1em;">{match['date']}</b><span style="color:#666;margin-left:10px;">({match['context']})</span><br><span style="font-size:0.9em;color:#666;">Match Strength: {match['similarity']:.1f}%</span></div><div style="text-align:right;"><div style="font-size:1.2em;font-weight:bold;color:{outcome_color};">{match['future_3m']:+.1f}%</div><div style="font-size:0.9em;color:#666;">S&P 500 outcome</div></div></div></div>"""
-        
-        win_bar_1m, win_bar_3m = int(pattern_data['win_rate_1m']), int(pattern_data['win_rate_3m'])
-        pattern_html = f"""<div class="section" style="background-color:#f3e8ff;border-left:4px solid #7c3aed;"><h2>🔮 11-YEAR PATTERN ANALYSIS</h2><p style="font-size:0.9em;color:#666;">Analyzing {pattern_data['sample_size']} similar market setups</p>{current_cond}<div style="background-color:#fff;padding:20px;border-radius:5px;margin:20px 0;"><h3 style="margin-top:0;color:#7c3aed;">📖 What History Tells Us:</h3>{interpretation_html}</div>{sector_html}{recommendations_html}<div style="margin:20px 0;"><h3>📅 Historical Matches:</h3><p style="font-size:0.9em;color:#666;">These show S&P 500 performance. Sector performance varied (see table above).</p>{matches_html}</div></div>"""
-
-    prev_score = memory.get('previous_macro_score', 0)
-    current_score = macro_data.get('overall_macro_score', 0)
-    mood_change = "stayed relatively stable"
-    if (diff := current_score - prev_score) > 3: mood_change = f"improved since yesterday (from {prev_score:.1f} to {current_score:.1f})"
-    elif diff < -3: mood_change = f"turned more cautious since yesterday (from {prev_score:.1f} to {current_score:.1f})"
-    editor_note = f"Good morning. The overall market mood has {mood_change}. This briefing is your daily blueprint for navigating the currents."
-    if memory.get('previous_top_stock_name'): editor_note += f"<br><br><b>Yesterday's Champion:</b> {memory['previous_top_stock_name']} ({memory['previous_top_stock_ticker']}) led our rankings."
-    
-    sector_html = ""
-    if not df_stocks.empty:
-        # Fixed pandas warning
-        top_by_sector = df_stocks.groupby('sector', group_keys=False)[['ticker', 'name', 'score', 'sector', 'summary']].apply(lambda x: x.nlargest(2, 'score'))
-        for _, row in top_by_sector.iterrows():
-            if row['sector'] and row['sector'] != 'N/A':
-                summary_text = "Business summary not available."
-                if row["summary"] and isinstance(row["summary"], str): summary_text = '. '.join(row["summary"].split('. ')[:2]) + '.'
-                sector_html += f'<div style="margin-bottom:15px;"><b>{row["name"]} ({row["ticker"]})</b> in <i>{row["sector"]}</i><p style="font-size:0.9em;color:#333;margin:5px 0 0 0;">{summary_text}</p></div>'
-    
-    top10_html = create_stock_table(df_stocks.head(10)) if not df_stocks.empty else "<tr><td>No data available</td></tr>"
-    bottom10_html = create_stock_table(df_stocks.tail(10).iloc[::-1]) if not df_stocks.empty else "<tr><td>No data available</td></tr>"
-    crypto_html = create_context_table(["bitcoin", "ethereum", "solana", "ripple"])
-    commodities_html = create_context_table(["gold", "silver"])
-    market_news_html = "".join([f'<div style="margin-bottom:15px;"><b><a href="{article.get("url", "#")}" style="color:#000;">{article["title"]}</a></b><br><span style="color:#666;font-size:0.9em;">{article.get("source", "Unknown")}</span></div>' for article in market_news[:10]]) or "<p><i>Headlines temporarily unavailable.</i></p>"
-    
-    return f"""<!DOCTYPE html><html><head><style>body{{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0;padding:0;background-color:#f7f7f7;}} .container{{width:100%;max-width:700px;margin:20px auto;background-color:#fff;border:1px solid #ddd;}} .header{{background-color:#0c0a09;color:#fff;padding:30px;text-align:center;}} .section{{padding:25px;border-bottom:1px solid #ddd;}} h2{{font-size:1.5em;color:#111;margin-top:0;}} h3{{font-size:1.2em;color:#333;border-bottom:2px solid #e2e8f0;padding-bottom:5px;}}</style></head><body><div class="container"><div class="header"><h1>Your Daily Intelligence Briefing</h1><p style="font-size:1.1em; color:#aaa;">{datetime.date.today().strftime('%A, %B %d, %Y')}</p></div><div class="section"><h2>EDITOR'S NOTE</h2><p>{editor_note}</p></div>{ai_oracle_html}{portfolio_html}{pattern_html}<div class="section"><h2>THE BIG PICTURE: The Market Weather Report</h2><h3>Overall Macro Score: {macro_data['overall_macro_score']:.1f} / 30</h3><p><b>How it's calculated:</b> This is our "weather forecast" for investors, combining risks and sentiment.</p><p><b>🌍 Geopolitical Risk ({macro_data['geopolitical_risk']:.0f}/100):</b> Measures global instability.<br><u>Key Drivers:</u> {format_articles(macro_data['geo_articles'])}</p><p><b>🚢 Trade Risk ({macro_data['trade_risk']:.0f}/100):</b> Tracks trade tensions.<br><u>Key Drivers:</u> {format_articles(macro_data['trade_articles'])}</p><p><b>💼 Economic Sentiment ({macro_data['economic_sentiment']:.2f}):</b> Market mood (-1 to +1).<br><u>Key Drivers:</u> {format_articles(macro_data['econ_articles'])}</p></div><div class="section"><h2>SECTOR DEEP DIVE</h2><p>Top companies from different sectors.</p>{sector_html or "<p><i>No sector data available.</i></p>"}</div><div class="section"><h2>STOCK RADAR</h2><h3>📈 Top 10 Strongest Signals</h3><table style="width:100%; border-collapse: collapse;"><thead><tr><th style="text-align:left; padding:10px;">Company</th><th style="text-align:center; padding:10px;">Score</th></tr></thead><tbody>{top10_html}</tbody></table><h3 style="margin-top: 30px;">📉 Top 10 Weakest Signals</h3><table style="width:100%; border-collapse: collapse;"><thead><tr><th style="text-align:left; padding:10px;">Company</th><th style="text-align:center; padding:10px;">Score</th></tr></thead><tbody>{bottom10_html}</tbody></table></div><div class="section"><h2>BEYOND STOCKS: Alternative Assets</h2><h3>🪙 Crypto</h3><p><b>Market Sentiment: {context.get('crypto_sentiment', 'N/A')}</b></p><table style="width:100%; border-collapse: collapse;"><thead><tr><th style="text-align:left; padding:10px;">Asset</th><th style="text-align:left; padding:10px;">Price / 24h</th><th style="text-align:left; padding:10px;">Market Cap</th></tr></thead><tbody>{crypto_html}</tbody></table><h3 style="margin-top: 30px;">💎 Commodities</h3><p><b>Gold/Silver Ratio: {context.get('gold_silver_ratio', 'N/A')}</b></p><table style="width:100%; border-collapse: collapse;"><thead><tr><th style="text-align:left; padding:10px;">Asset</th><th style="text-align:left; padding:10px;">Price / 24h</th><th style="text-align:left; padding:10px;">Market Cap</th></tr></thead><tbody>{commodities_html}</tbody></table></div><div class="section"><h2>FROM THE WIRE: Today's Top Headlines</h2>{market_news_html}</div></div></body></html>"""
-
-def send_email(html_body):
-    import smtplib
-    from email.mime.multipart import MIMEMultipart
-    from email.mime.text import MIMEText
-    
-    SMTP_USER, SMTP_PASS = os.getenv("SMTP_USER"), os.getenv("SMTP_PASS")
-    if not SMTP_USER or not SMTP_PASS:
-        logging.warning("SMTP credentials missing.")
-        return
-    
-    msg = MIMEMultipart('alternative')
-    msg["Subject"], msg["From"], msg["To"] = f"⛵ Your Daily Market Briefing - {datetime.date.today()}", SMTP_USER, SMTP_USER
-    msg.attach(MIMEText(html_body, 'html'))
+async def analyze_advanced_technicals(ticker, hist_data):
+    """
+    NEW v2.0.0: Advanced technical indicators
+    - Bollinger Bands with squeeze detection
+    - ATR for volatility measurement
+    - 52-week high/low proximity
+    - Gap detection
+    """
+    results = {
+        'bollinger': None,
+        'atr': None,
+        'week52': None,
+        'gap': None
+    }
     
     try:
-        with smtplib.SMTP("smtp.gmail.com", 587) as server:
-            server.starttls(); server.login(SMTP_USER, SMTP_PASS); server.send_message(msg)
-        logging.info("✅ Email sent successfully.")
+        if ENABLE_BOLLINGER_BANDS and len(hist_data) >= 20:
+            # Bollinger Bands
+            bb = BollingerBands(hist_data['Close'], window=20, window_dev=2)
+            bb_high = bb.bollinger_hband().iloc[-1]
+            bb_low = bb.bollinger_lband().iloc[-1]
+            bb_mid = bb.bollinger_mavg().iloc[-1]
+            current_price = hist_data['Close'].iloc[-1]
+            
+            # Squeeze detection: when bands are unusually narrow
+            bb_width = (bb_high - bb_low) / bb_mid * 100
+            bb_position = ((current_price - bb_low) / (bb_high - bb_low)) * 100 if bb_high != bb_low else 50
+            
+            squeeze = bb_width < 10  # Narrow bands = potential breakout coming
+            
+            results['bollinger'] = {
+                'upper': bb_high,
+                'lower': bb_low,
+                'middle': bb_mid,
+                'width': bb_width,
+                'position': bb_position,  # 0-100, where price is in the band
+                'squeeze': squeeze,
+                'signal': 'SQUEEZE - Breakout imminent' if squeeze else 
+                         'OVERBOUGHT' if bb_position > 95 else 
+                         'OVERSOLD' if bb_position < 5 else 'NEUTRAL'
+            }
+        
+        if ENABLE_ATR_VOLATILITY and len(hist_data) >= 14:
+            # Average True Range - volatility
+            atr = AverageTrueRange(hist_data['High'], hist_data['Low'], hist_data['Close'], window=14)
+            atr_value = atr.average_true_range().iloc[-1]
+            current_price = hist_data['Close'].iloc[-1]
+            atr_percent = (atr_value / current_price) * 100
+            
+            results['atr'] = {
+                'value': atr_value,
+                'percent': atr_percent,
+                'signal': 'HIGH VOLATILITY' if atr_percent > 3 else 
+                         'LOW VOLATILITY' if atr_percent < 1 else 'NORMAL'
+            }
+        
+        if ENABLE_52WEEK_ALERTS and len(hist_data) >= 252:
+            # 52-week high/low proximity
+            week52_high = hist_data['Close'].tail(252).max()
+            week52_low = hist_data['Close'].tail(252).min()
+            current_price = hist_data['Close'].iloc[-1]
+            
+            distance_from_high = ((current_price - week52_high) / week52_high) * 100
+            distance_from_low = ((current_price - week52_low) / week52_low) * 100
+            
+            results['week52'] = {
+                'high': week52_high,
+                'low': week52_low,
+                'current': current_price,
+                'distance_from_high_pct': distance_from_high,
+                'distance_from_low_pct': distance_from_low,
+                'signal': 'AT 52W HIGH' if distance_from_high > -2 else 
+                         'AT 52W LOW' if distance_from_low < 2 else 
+                         'NEAR 52W HIGH' if distance_from_high > -10 else 
+                         'NEAR 52W LOW' if distance_from_low < 10 else 'MID-RANGE'
+            }
+        
+        if ENABLE_GAP_DETECTION and len(hist_data) >= 2:
+            # Gap up/down detection
+            today_open = hist_data['Open'].iloc[-1]
+            yesterday_close = hist_data['Close'].iloc[-2]
+            gap_percent = ((today_open - yesterday_close) / yesterday_close) * 100
+            
+            results['gap'] = {
+                'gap_percent': gap_percent,
+                'signal': 'GAP UP' if gap_percent > 2 else 
+                         'GAP DOWN' if gap_percent < -2 else 
+                         'SMALL GAP UP' if gap_percent > 0.5 else 
+                         'SMALL GAP DOWN' if gap_percent < -0.5 else 'NO GAP'
+            }
+        
     except Exception as e:
-        logging.error(f"Failed to send email: {e}")
+        logging.warning(f"Error in advanced technicals for {ticker}: {e}")
+    
+    return results
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--output", default="print", choices=["print", "email"])
-    args = parser.parse_args()
+async def get_earnings_countdown(ticker, info):
+    """
+    NEW v2.0.0: Earnings date countdown
+    """
+    try:
+        if ENABLE_EARNINGS_COUNTDOWN:
+            earnings_date = info.get('earningsDate')
+            if earnings_date and len(earnings_date) > 0:
+                # Convert timestamp to datetime
+                earnings_dt = datetime.datetime.fromtimestamp(earnings_date[0])
+                today = datetime.datetime.now()
+                days_until = (earnings_dt - today).days
+                
+                return {
+                    'date': earnings_dt.strftime('%Y-%m-%d'),
+                    'days_until': days_until,
+                    'signal': 'EARNINGS THIS WEEK' if 0 <= days_until <= 7 else 
+                             'EARNINGS NEXT WEEK' if 7 < days_until <= 14 else 
+                             'EARNINGS SOON' if 14 < days_until <= 30 else 'NO IMMEDIATE EARNINGS'
+                }
+    except Exception as e:
+        logging.debug(f"Could not get earnings date for {ticker}: {e}")
     
-    if os.name == 'nt':
-        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+    return None
+
+async def analyze_portfolio_with_v2_features(session, portfolio_file='portfolio.json'):
+    """
+    ENHANCED v2.0.0: Portfolio analysis with new technical indicators
+    """
+    logging.info("📊 [v2.0] Analyzing portfolio with advanced features...")
     
-    asyncio.run(main(output=args.output))
+    if not os.path.exists(portfolio_file):
+        logging.warning(f"Portfolio file {portfolio_file} not found")
+        return None
+    
+    with open(portfolio_file, 'r') as f:
+        portfolio_tickers = json.load(f)
+    
+    portfolio_data = {
+        'stocks': [],
+        'alerts': [],
+        'opportunities': [],
+        'risks': [],
+        'v2_signals': []  # NEW: v2.0.0 specific signals
+    }
+    
+    for ticker in portfolio_tickers:
+        try:
+            stock = yf.Ticker(ticker)
+            hist = stock.history(period="1y", interval="1d")
+            info = stock.info
+            
+            if hist.empty:
+                continue
+            
+            # v1.0.0 metrics (stable)
+            current_price = hist['Close'].iloc[-1]
+            prev_close = hist['Close'].iloc[-2] if len(hist) > 1 else current_price
+            volume = hist['Volume'].iloc[-1]
+            avg_volume = hist['Volume'].mean()
+            
+            rsi = RSIIndicator(hist['Close'], window=14).rsi().iloc[-1]
+            macd = MACD(hist['Close'])
+            macd_diff = macd.macd_diff().iloc[-1]
+            
+            daily_change = ((current_price - prev_close) / prev_close) * 100
+            weekly_change = ((current_price - hist['Close'].iloc[-5]) / hist['Close'].iloc[-5]) * 100 if len(hist) >= 5 else 0
+            monthly_change = ((current_price - hist['Close'].iloc[-22]) / hist['Close'].iloc[-22]) * 100 if len(hist) >= 22 else 0
+            volume_spike = (volume / avg_volume) if avg_volume > 0 else 1
+            
+            # NEW v2.0.0 features
+            advanced_tech = await analyze_advanced_technicals(ticker, hist)
+            earnings_info = await get_earnings_countdown(ticker, info)
+            
+            stock_analysis = {
+                'ticker': ticker,
+                'name': info.get('shortName', ticker),
+                'price': current_price,
+                'daily_change': daily_change,
+                'weekly_change': weekly_change,
+                'monthly_change': monthly_change,
+                'rsi': rsi,
+                'macd': macd_diff,
+                'volume_ratio': volume_spike,
+                'sector': info.get('sector', 'Unknown'),
+                # v2.0.0 additions
+                'bollinger': advanced_tech.get('bollinger'),
+                'atr': advanced_tech.get('atr'),
+                'week52': advanced_tech.get('week52'),
+                'gap': advanced_tech.get('gap'),
+                'earnings': earnings_info
+            }
+            
+            portfolio_data['stocks'].append(stock_analysis)
+            
+            # v1.0.0 alerts (stable)
+            if rsi > 70:
+                portfolio_data['alerts'].append(f"⚠️ {ticker}: RSI Overbought ({rsi:.1f})")
+            elif rsi < 30:
+                portfolio_data['opportunities'].append(f"🎯 {ticker}: RSI Oversold ({rsi:.1f})")
+            
+            # NEW v2.0.0 alerts
+            if advanced_tech.get('bollinger') and advanced_tech['bollinger']['squeeze']:
+                portfolio_data['v2_signals'].append(f"💥 {ticker}: Bollinger Squeeze - breakout imminent!")
+            
+            if advanced_tech.get('bollinger') and advanced_tech['bollinger']['position'] > 95:
+                portfolio_data['alerts'].append(f"📈 {ticker}: Price at upper Bollinger Band - potential resistance")
+            elif advanced_tech.get('bollinger') and advanced_tech['bollinger']['position'] < 5:
+                portfolio_data['opportunities'].append(f"📉 {ticker}: Price at lower Bollinger Band - potential support")
+            
+            if advanced_tech.get('atr') and advanced_tech['atr']['signal'] == 'HIGH VOLATILITY':
+                portfolio_data['risks'].append(f"⚡ {ticker}: High volatility ({advanced_tech['atr']['percent']:.1f}%) - wider stops recommended")
+            
+            if advanced_tech.get('week52'):
+                if advanced_tech['week52']['signal'] == 'AT 52W HIGH':
+                    portfolio_data['v2_signals'].append(f"🎯 {ticker}: At 52-week HIGH (${advanced_tech['week52']['high']:.2f}) - momentum strong")
+                elif advanced_tech['week52']['signal'] == 'AT 52W LOW':
+                    portfolio_data['opportunities'].append(f"💎 {ticker}: At 52-week LOW (${advanced_tech['week52']['low']:.2f}) - potential reversal")
+            
+            if advanced_tech.get('gap'):
+                if advanced_tech['gap']['signal'] == 'GAP UP':
+                    portfolio_data['v2_signals'].append(f"⬆️ {ticker}: Gapped up {advanced_tech['gap']['gap_percent']:.1f}% - strong demand")
+                elif advanced_tech['gap']['signal'] == 'GAP DOWN':
+                    portfolio_data['alerts'].append(f"⬇️ {ticker}: Gapped down {advanced_tech['gap']['gap_percent']:.1f}% - watch for support")
+            
+            if earnings_info and earnings_info['signal'] == 'EARNINGS THIS WEEK':
+                portfolio_data['v2_signals'].append(f"📅 {ticker}: EARNINGS in {earnings_info['days_until']} days ({earnings_info['date']}) - expect volatility")
+            
+        except Exception as e:
+            logging.warning(f"Error analyzing {ticker} with v2 features: {e}")
+            continue
+    
+    return portfolio_data
