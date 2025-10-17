@@ -277,7 +277,7 @@ def save_memory(data):
 # Feature Flags (for safe testing)
 ENABLE_AI_ORACLE = False
 ENABLE_WATCHLIST = True
-ENABLE_PATTERN_MATCH = False
+ENABLE_PATTERN_MATCH = True
 
 async def analyze_portfolio_watchlist(session, portfolio_file='portfolio.json'):
     """Feature #2: Deep analysis of personal portfolio"""
