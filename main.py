@@ -355,7 +355,7 @@ async def analyze_portfolio_watchlist(session, portfolio_file='portfolio.json'):
             if stoch_k > 80: portfolio_data['alerts'].append(f"📈 {ticker}: Stochastic overbought ({stoch_k:.1f})")
             elif stoch_k < 20: portfolio_data['opportunities'].append(f"📉 {ticker}: Stochastic oversold ({stoch_k:.1f})")
             
-            # Skip insider transactions for Canadian stocks to avoid 403 errors
+            # Skip insider transactions for Canadian stocks
             if FINNHUB_KEY and not ticker.endswith('.TO'):
                 insider_url = f"https://finnhub.io/api/v1/stock/insider-transactions?symbol={ticker}&token={FINNHUB_KEY}"
                 insider_content = await make_robust_request(session, insider_url)
@@ -388,50 +388,32 @@ def get_historical_context(date):
     else: return f"Normal Market Period"
 
 def generate_pattern_interpretation(current_conditions, avg_1m, avg_3m, win_1m, win_3m, bullish, bearish, neutral):
-    """Generate human-readable interpretation - ENHANCED WITH CLARITY"""
+    """Generate human-readable interpretation"""
     interpretation = []
     
-    # Determine overall bias
-    if avg_3m > 5 and win_3m > 70: 
-        bias, emoji, color_class = "BULLISH", "📈", "bullish"
-    elif avg_3m < -5 and win_3m < 40: 
-        bias, emoji, color_class = "BEARISH", "📉", "bearish"
-    else: 
-        bias, emoji, color_class = "MIXED", "↔️", "neutral"
+    if avg_3m > 5 and win_3m > 70: bias, emoji, color_class = "BULLISH", "📈", "bullish"
+    elif avg_3m < -5 and win_3m < 40: bias, emoji, color_class = "BEARISH", "📉", "bearish"
+    else: bias, emoji, color_class = "MIXED", "↔️", "neutral"
     
-    interpretation.append({'type': 'bias', 'emoji': emoji, 'text': f"S&P 500 Market Bias: {bias}", 'color': color_class})
+    interpretation.append({'type': 'bias', 'emoji': emoji, 'text': f"Market Bias: {bias}", 'color': color_class})
     
-    # Historical probability with clarity
-    if win_3m >= 70: 
-        prob_text = f"History strongly favors upside for the S&P 500. {int(win_3m)}% of similar market setups saw positive index returns 3 months later."
-    elif win_3m <= 40: 
-        prob_text = f"Caution warranted for broad market. Only {int(win_3m)}% of similar S&P 500 setups were positive 3 months later."
-    else: 
-        prob_text = f"S&P 500 could go either way. {int(win_3m)}% win rate suggests balanced risk/reward for the index."
+    if win_3m >= 70: prob_text = f"History strongly favors upside. {int(win_3m)}% of similar setups were positive 3 months later."
+    elif win_3m <= 40: prob_text = f"Caution warranted. Only {int(win_3m)}% of similar setups were positive 3 months later."
+    else: prob_text = f"Market could go either way. {int(win_3m)}% win rate suggests balanced risk/reward."
     interpretation.append({'type': 'probability', 'text': prob_text})
     
-    # Expected market movement
     magnitude = "significant" if abs(avg_3m) > 8 else "moderate" if abs(avg_3m) > 4 else "modest"
     direction = "upward" if avg_3m > 0 else "downward"
-    interpretation.append({'type': 'expectation', 'text': f"Expect a {magnitude} {direction} move in the S&P 500. Historical average: {avg_3m:+.1f}% over 3 months."})
+    interpretation.append({'type': 'expectation', 'text': f"Expect a {magnitude} {direction} move. Historical average: {avg_3m:+.1f}% over 3 months."})
     
-    # Timing insights
-    if avg_1m * avg_3m < 0: 
-        interpretation.append({'type': 'timing', 'text': f"⏰ Short-term volatility likely. 1-month S&P 500 average ({avg_1m:+.1f}%) differs from 3-month ({avg_3m:+.1f}%)."})
-    elif abs(avg_1m) > 5: 
-        interpretation.append({'type': 'timing', 'text': f"⚡ Quick moves expected in the index. Historical 1-month average: {avg_1m:+.1f}%."})
+    if avg_1m * avg_3m < 0: interpretation.append({'type': 'timing', 'text': f"⏰ Short-term volatility likely. 1-month average ({avg_1m:+.1f}%) differs from 3-month ({avg_3m:+.1f}%)."})
+    elif abs(avg_1m) > 5: interpretation.append({'type': 'timing', 'text': f"⚡ Quick moves expected. Historical 1-month average: {avg_1m:+.1f}%."})
     
-    # Scenario analysis
-    if len(bullish) > len(bearish) * 2: 
-        interpretation.append({'type': 'scenario', 'text': f"💡 {len(bullish)} out of top 10 matches led to strong S&P 500 rallies. Index dips may be buying opportunities."})
-    elif len(bearish) > len(bullish) * 2: 
-        interpretation.append({'type': 'scenario', 'text': f"⚠️ {len(bearish)} out of top 10 matches led to S&P 500 declines. Consider protective measures for broad exposure."})
-    else: 
-        interpretation.append({'type': 'scenario', 'text': f"📊 Mixed S&P 500 outcomes ({len(bullish)} bullish, {len(bearish)} bearish). Stock selection matters more than market timing."})
+    if len(bullish) > len(bearish) * 2: interpretation.append({'type': 'scenario', 'text': f"💡 {len(bullish)} out of top 10 matches led to strong rallies. Dips may be buying opportunities."})
+    elif len(bearish) > len(bullish) * 2: interpretation.append({'type': 'scenario', 'text': f"⚠️ {len(bearish)} out of top 10 matches led to declines. Consider protective measures."})
+    else: interpretation.append({'type': 'scenario', 'text': f"📊 Mixed outcomes ({len(bullish)} bullish, {len(bearish)} bearish). Stock selection matters more than market timing."})
     
-    # Current context
-    if current_conditions['geopolitical_risk'] > 70: 
-        interpretation.append({'type': 'context', 'text': f"🌍 Current geopolitical risk ({current_conditions['geopolitical_risk']:.0f}/100) is elevated. Similar periods often saw initial S&P 500 weakness followed by recovery."})
+    if current_conditions['geopolitical_risk'] > 70: interpretation.append({'type': 'context', 'text': f"🌍 Current geopolitical risk ({current_conditions['geopolitical_risk']:.0f}/100) is elevated. Similar periods often saw initial weakness followed by recovery."})
     
     return interpretation
 
@@ -531,10 +513,10 @@ async def generate_portfolio_recommendations_from_pattern(portfolio_data, patter
         # 4. Historical pattern outcome
         if pattern_data['avg_return_3m'] > 5:
             score += 1
-            reasons.append(f"Historical S&P 500 pattern bullish (+{pattern_data['avg_return_3m']:.1f}% avg)")
+            reasons.append(f"Historical pattern bullish (+{pattern_data['avg_return_3m']:.1f}% avg)")
         elif pattern_data['avg_return_3m'] < -5:
             score -= 1
-            reasons.append(f"Historical S&P 500 pattern bearish ({pattern_data['avg_return_3m']:.1f}% avg)")
+            reasons.append(f"Historical pattern bearish ({pattern_data['avg_return_3m']:.1f}% avg)")
         
         # 5. Macro alignment
         if macro_data['geopolitical_risk'] > 70:
@@ -668,7 +650,7 @@ def generate_fallback_analysis(market_data, portfolio_data, pattern_data):
     # 1. Immediate Opportunities
     opps = []
     if pattern_data and pattern_data['avg_return_3m'] > 5:
-        opps.append(f"Historical S&P 500 pattern suggests +{pattern_data['avg_return_3m']:.1f}% upside over 3 months")
+        opps.append(f"Historical pattern suggests +{pattern_data['avg_return_3m']:.1f}% upside over 3 months")
     if market_data['macro']['geopolitical_risk'] > 70:
         opps.append("Defense sector (LMT, RTX, NOC) benefits from elevated geopolitical tensions")
     if portfolio_data:
@@ -686,9 +668,12 @@ def generate_fallback_analysis(market_data, portfolio_data, pattern_data):
     if market_data['macro']['trade_risk'] > 60:
         risks.append("Trade war escalation risk - avoid companies with heavy China exposure")
     if portfolio_data:
-        overbought = [{'ticker': s['ticker'], 'monthly': s['monthly_change']} for s in portfolio_data['stocks'] if s['rsi'] > 75]
+        overbought = []
+        for s in portfolio_data['stocks']:
+            if s['rsi'] > 75:
+                overbought.append(f"{s['ticker']} (RSI 75+, +{s['monthly_change']:.0f}% monthly)")
         if overbought:
-            risks.append(f"Overbought risk: {', '.join([f'{o['ticker']} (RSI 75+, +{o['monthly']:.0f}% monthly)' for o in overbought])} - consider trimming")
+            risks.append(f"Overbought risk: {', '.join(overbought)} - consider trimming")
     
     if risks:
         analysis.append("⚠️ CRITICAL RISKS:\n" + "\n".join([f"• {r}" for r in risks]))
@@ -696,7 +681,7 @@ def generate_fallback_analysis(market_data, portfolio_data, pattern_data):
     # 3. Contrarian Play
     contrarian = []
     if pattern_data and pattern_data['avg_return_1m'] < 0 and pattern_data['avg_return_3m'] > 5:
-        contrarian.append("Short-term S&P 500 weakness (+3m bullish) = buy the dip opportunity. Historical edge: 70% win rate.")
+        contrarian.append("Short-term weakness (+3m bullish) = buy the dip opportunity. Historical edge: 70% win rate.")
     if market_data['macro']['economic_sentiment'] < -0.3:
         contrarian.append("Extreme pessimism often marks bottoms. Consider scaling into quality names.")
     
@@ -746,7 +731,7 @@ async def generate_ai_oracle_analysis(market_data, portfolio_data, pattern_data)
     try:
         genai.configure(api_key=GEMINI_API_KEY)
         
-        # Try the right model names in order
+        # CORRECTED: Try the right model names in order
         model = None
         model_names = [
             'gemini-1.5-flash',      # Latest, fastest
@@ -757,6 +742,7 @@ async def generate_ai_oracle_analysis(market_data, portfolio_data, pattern_data)
         for model_name in model_names:
             try:
                 model = genai.GenerativeModel(model_name)
+                # Test if model works
                 logging.info(f"✅ Successfully loaded Gemini model: {model_name}")
                 break
             except Exception as e:
@@ -931,7 +917,7 @@ def generate_enhanced_html_email(df_stocks, context, market_news, macro_data, me
                 color = "#16a34a" if perf > 0 else "#dc2626"
                 sector_rows += f'<tr><td style="padding:8px;border-bottom:1px solid #eee;">{sector}</td><td style="padding:8px;border-bottom:1px solid #eee;text-align:right;color:{color};font-weight:bold;">{perf:+.1f}%</td></tr>'
             
-            sector_html = f"""<div style="margin:20px 0;"><h3>🎯 Sector Performance in Similar Periods:</h3><p style="font-size:0.9em;color:#666;">Based on {pattern_data['matches'][0]['date']} match ({pattern_data['matches'][0]['context']})</p><table style="width:100%;background-color:#fff;border-collapse:collapse;"><thead><tr style="background-color:#f3e8ff;"><th style="padding:10px;text-align:left;">Sector</th><th style="padding:10px;text-align:right;">3-Month Return</th></tr></thead><tbody>{sector_rows}</tbody></table><p style="font-size:0.9em;color:#666;margin-top:10px;"><i>Note: Individual stock performance may vary within sectors. Use sector ETFs (XLK, XLV, XLF, etc.) for broad exposure.</i></p></div>"""
+            sector_html = f"""<div style="margin:20px 0;"><h3>🎯 Sector Performance in Similar Periods:</h3><p style="font-size:0.9em;color:#666;">Based on {pattern_data['matches'][0]['date']} match ({pattern_data['matches'][0]['context']})</p><table style="width:100%;background-color:#fff;border-collapse:collapse;"><thead><tr style="background-color:#f3e8ff;"><th style="padding:10px;text-align:left;">Sector</th><th style="padding:10px;text-align:right;">3-Month Return</th></tr></thead><tbody>{sector_rows}</tbody></table></div>"""
         
         # PORTFOLIO RECOMMENDATIONS
         recommendations_html = ""
@@ -959,7 +945,7 @@ def generate_enhanced_html_email(df_stocks, context, market_news, macro_data, me
             matches_html += f"""<div style="margin:15px 0;padding:15px;background-color:#f8f8f8;border-left:4px solid {outcome_color};border-radius:5px;"><div style="display:flex;justify-content:space-between;align-items:center;"><div><b style="font-size:1.1em;">{match['date']}</b><span style="color:#666;margin-left:10px;">({match['context']})</span><br><span style="font-size:0.9em;color:#666;">Match Strength: {match['similarity']:.1f}%</span></div><div style="text-align:right;"><div style="font-size:1.2em;font-weight:bold;color:{outcome_color};">{match['future_3m']:+.1f}%</div><div style="font-size:0.9em;color:#666;">S&P 500 outcome</div></div></div></div>"""
         
         win_bar_1m, win_bar_3m = int(pattern_data['win_rate_1m']), int(pattern_data['win_rate_3m'])
-        pattern_html = f"""<div class="section" style="background-color:#f3e8ff;border-left:4px solid #7c3aed;"><h2>🔮 11-YEAR S&P 500 PATTERN ANALYSIS</h2><p style="font-size:0.9em;color:#666;">Analyzing {pattern_data['sample_size']} similar market setups from the S&P 500 index</p>{current_cond}<div style="background-color:#fff;padding:20px;border-radius:5px;margin:20px 0;"><h3 style="margin-top:0;color:#7c3aed;">📖 What S&P 500 History Tells Us:</h3>{interpretation_html}</div>{sector_html}{recommendations_html}<div style="margin:20px 0;"><h3>📅 Historical S&P 500 Matches:</h3><p style="font-size:0.9em;color:#666;">These show S&P 500 index performance. Individual sectors varied (see table above).</p>{matches_html}</div></div>"""
+        pattern_html = f"""<div class="section" style="background-color:#f3e8ff;border-left:4px solid #7c3aed;"><h2>🔮 11-YEAR PATTERN ANALYSIS</h2><p style="font-size:0.9em;color:#666;">Analyzing {pattern_data['sample_size']} similar market setups</p>{current_cond}<div style="background-color:#fff;padding:20px;border-radius:5px;margin:20px 0;"><h3 style="margin-top:0;color:#7c3aed;">📖 What History Tells Us:</h3>{interpretation_html}</div>{sector_html}{recommendations_html}<div style="margin:20px 0;"><h3>📅 Historical Matches:</h3><p style="font-size:0.9em;color:#666;">These show S&P 500 performance. Sector performance varied (see table above).</p>{matches_html}</div></div>"""
 
     prev_score = memory.get('previous_macro_score', 0)
     current_score = macro_data.get('overall_macro_score', 0)
@@ -971,7 +957,7 @@ def generate_enhanced_html_email(df_stocks, context, market_news, macro_data, me
     
     sector_html = ""
     if not df_stocks.empty:
-        # Fix the pandas warning here
+        # Fixed pandas warning
         top_by_sector = df_stocks.groupby('sector', group_keys=False)[['ticker', 'name', 'score', 'sector', 'summary']].apply(lambda x: x.nlargest(2, 'score'))
         for _, row in top_by_sector.iterrows():
             if row['sector'] and row['sector'] != 'N/A':
