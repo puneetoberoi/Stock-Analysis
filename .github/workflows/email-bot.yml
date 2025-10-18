@@ -1,0 +1,51 @@
+name: Email Conversation Bot
+
+on:
+  schedule:
+    - cron: '*/30 7-23 * * 1-5'  # Every 30 min, 7AM-11PM UTC, Mon-Fri
+  workflow_dispatch:
+
+jobs:
+  bot:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      # Download latest database from daily report
+      - name: Download database
+        uses: actions/download-artifact@v3
+        with:
+          name: market-intel-db
+        continue-on-error: true
+      
+      - name: Run bot check
+        env:
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          GOOGLE_CSE_ID: ${{ secrets.GOOGLE_CSE_ID }}
+        run: |
+          python -c "
+          import asyncio
+          from main import MarketIntelligenceDB, EmailConversationBot
+          
+          async def check_once():
+              db = MarketIntelligenceDB()
+              bot = EmailConversationBot(db)
+              bot.check_for_questions()
+          
+          asyncio.run(check_once())
+          "
