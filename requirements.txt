@@ -12,3 +12,7 @@ beautifulsoup4
 lxml
 scikit-learn
 vaderSentiment
+aiohttp
+asyncio-throttle
+google-generativeai
+html5lib
