@@ -1767,26 +1767,71 @@ class EmailConversationBot:
     def check_for_questions(self):
         try:
             logging.info("📧 Checking for email questions...")
-            mail = imaplib.IMAP4_SSL(self.imap_server)
+            
+            # Add timeout to IMAP connection (15 seconds)
+            logging.info("🔐 Connecting to IMAP server...")
+            mail = imaplib.IMAP4_SSL(self.imap_server, timeout=15)
+            
+            logging.info("🔑 Logging in...")
             mail.login(self.smtp_user, self.smtp_pass)
+            
+            logging.info("📬 Selecting inbox...")
             mail.select('inbox')
+            
+            logging.info("🔍 Searching for unread emails...")
             _, search_data = mail.search(None, 'UNSEEN')
             
-            for num in search_data[0].split():
+            unread_emails = search_data[0].split()
+            logging.info(f"📨 Found {len(unread_emails)} unread emails")
+            
+            if not unread_emails:
+                logging.info("✅ No unread emails - inbox is clear")
+                mail.close()
+                mail.logout()
+                return
+            
+            for num in unread_emails:
+                logging.info(f"📖 Fetching email #{num.decode()}...")
                 _, data = mail.fetch(num, '(RFC822)')
                 email_message = email.message_from_bytes(data[0][1])
                 
-                if 'Market Briefing' in email_message.get('Subject', ''):
+                subject = email_message.get('Subject', '')
+                logging.info(f"📧 Subject: {subject}")
+                
+                if 'Market Briefing' in subject:
+                    logging.info("✅ This is a reply to our briefing - processing...")
                     question = self.extract_question(email_message)
+                    
                     if question:
                         sender = email.utils.parseaddr(email_message['From'])[1]
-                        logging.info(f"📧 Received question from {sender}: '{question[:50]}...'")
+                        logging.info(f"❓ Question from {sender}: '{question[:100]}...'")
+                        
                         response = self.generate_response(question)
+                        logging.info(f"💬 Generated response ({len(response)} chars)")
+                        
                         self.send_response(sender, question, response)
+                    else:
+                        logging.info("⚠️ No valid question found in email body")
+                    
+                    # Mark as read
                     mail.store(num, '+FLAGS', '\\Seen')
+                else:
+                    logging.info(f"⏭️ Skipping - not a briefing reply")
             
-            mail.close(); mail.logout()
-        except Exception as e: logging.error(f"Error checking emails: {e}")
+            logging.info("🔒 Closing connection...")
+            mail.close()
+            mail.logout()
+            logging.info("✅ Email check complete")
+            
+        except imaplib.IMAP4.error as e:
+            logging.error(f"❌ IMAP error: {e}")
+            logging.error("💡 Check: 1) Gmail IMAP enabled 2) App password correct 3) Network access")
+        except socket.timeout:
+            logging.error(f"⏱️ Connection timeout - IMAP server not responding after 15 seconds")
+        except Exception as e:
+            logging.error(f"❌ Unexpected error: {type(e).__name__}: {e}")
+            import traceback
+            logging.error(traceback.format_exc())
     
     def extract_question(self, msg):
         body = ""
