@@ -1,0 +1,31 @@
+name: Email Bot Check
+
+on:
+  schedule:
+    - cron: '*/30 7-21 * * 1-5'  # Every 30 min, 7AM-9PM UTC, Mon-Fri
+  workflow_dispatch:
+
+jobs:
+  check-emails:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      - name: Check and respond to emails
+        env:
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: python main.py --check-emails
