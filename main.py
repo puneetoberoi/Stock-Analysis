@@ -1695,6 +1695,11 @@ def send_email(html_body):
 # Complete implementation with all fixes
 # ========================================
 
+# ========================================
+# 🚀 v3.0.0 - EMAIL CONVERSATION BOT
+# Complete implementation with all fixes
+# ========================================
+
 # v3.0 Feature Flags
 ENABLE_EMAIL_BOT = True
 ENABLE_DATA_PERSISTENCE = True
@@ -1823,12 +1828,13 @@ class EmailConversationBot:
                     else:
                         subject = str(subject_raw)
                     
-                    # SECURITY: Verify subject one more time
-                    if 'Your Daily Market Briefing' not in subject:
+                    # SECURITY: Verify subject one more time (handle Re:, Fwd:, etc.)
+                    if 'Daily Market Briefing' not in subject:
                         logging.warning(f"⚠️ Email #{num.decode()} doesn't match - IMAP filter failed. Skipping for security.")
+                        logging.warning(f"   Subject was: '{subject}'")
                         continue
                     
-                    logging.info(f"✅ Confirmed briefing reply: '{subject[:60]}...'")
+                    logging.info(f"✅ Confirmed briefing reply: '{subject[:80]}...'")
                     
                     # Extract question from reply
                     question = self.extract_question(email_message)
