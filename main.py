@@ -1704,206 +1704,144 @@ if __name__ == "__main__":
 # Complete implementation with all fixes
 # ========================================
 
-# v3.0 Feature Flags
-ENABLE_EMAIL_BOT = True
-ENABLE_DATA_PERSISTENCE = True
-
-def clean_for_json(obj):
-    """FIX 2: Convert numpy/pandas types for JSON serialization"""
-    if isinstance(obj, np.bool_):
-        return bool(obj)
-    if isinstance(obj, np.integer):
-        return int(obj)
-    if isinstance(obj, np.floating):
-        return float(obj)
-    if isinstance(obj, np.ndarray):
-        return obj.tolist()
-    if isinstance(obj, dict):
-        return {k: clean_for_json(v) for k, v in obj.items()}
-    if isinstance(obj, list):
-        return [clean_for_json(i) for i in obj]
-    return obj
-
-class MarketIntelligenceDB:
-    """v3.0: Persistent storage for analysis data"""
-    def __init__(self, db_path='market_intel.db'):
-        self.conn = sqlite3.connect(db_path)
-        self.init_schema()
-    
-    def init_schema(self):
-        self.conn.executescript('''
-            CREATE TABLE IF NOT EXISTS daily_analysis (
-                date TEXT PRIMARY KEY, portfolio_data TEXT, pattern_data TEXT, macro_data TEXT,
-                stock_scores TEXT, ai_analysis TEXT, recommendations TEXT
-            );
-            CREATE TABLE IF NOT EXISTS conversations (
-                id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT, user_question TEXT,
-                bot_response TEXT, context TEXT
-            );
-        ''')
-        self.conn.commit()
-    
-    def save_daily_analysis(self, date, portfolio_data, pattern_data, macro_data, 
-                           stock_scores, ai_analysis, recommendations):
-        try:
-            self.conn.execute('''
-                INSERT OR REPLACE INTO daily_analysis 
-                (date, portfolio_data, pattern_data, macro_data, stock_scores, ai_analysis, recommendations)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            ''', (
-                date,
-                json.dumps(clean_for_json(portfolio_data)), json.dumps(clean_for_json(pattern_data)),
-                json.dumps(clean_for_json(macro_data)), json.dumps(clean_for_json(stock_scores)),
-                json.dumps(clean_for_json(ai_analysis)), json.dumps(clean_for_json(recommendations))
-            ))
-            self.conn.commit()
-            logging.info(f"✅ Saved analysis data for {date}")
-        except Exception as e:
-            logging.error(f"Failed to save analysis to DB: {e}")
-
-    def get_latest_analysis(self):
-        cursor = self.conn.execute('SELECT * FROM daily_analysis ORDER BY date DESC LIMIT 1')
-        row = cursor.fetchone()
-        if not row: return None
-        return {
-            'date': row[0], 'portfolio_data': json.loads(row[1]) if row[1] else None,
-            'pattern_data': json.loads(row[2]) if row[2] else None, 'macro_data': json.loads(row[3]) if row[3] else None,
-            'stock_scores': json.loads(row[4]) if row[4] else None, 'ai_analysis': json.loads(row[5]) if row[5] else None,
-            'recommendations': json.loads(row[6]) if row[6] else None
-        }
-
-class EmailConversationBot:
-    """v3.0: Interactive email-based Q&A bot"""
-    def __init__(self):
-        self.db = MarketIntelligenceDB()
-        self.smtp_user, self.smtp_pass = os.getenv("SMTP_USER"), os.getenv("SMTP_PASS")
-        self.imap_server = "imap.gmail.com"
-        
-    def check_for_questions(self):
-        try:
-            logging.info("📧 Checking for email questions...")
-            mail = imaplib.IMAP4_SSL(self.imap_server)
-            mail.login(self.smtp_user, self.smtp_pass)
-            mail.select('inbox')
-            _, search_data = mail.search(None, 'UNSEEN')
-            
-            for num in search_data[0].split():
-                _, data = mail.fetch(num, '(RFC822)')
-                email_message = email.message_from_bytes(data[0][1])
-                
-                if 'Market Briefing' in email_message.get('Subject', ''):
-                    question = self.extract_question(email_message)
-                    if question:
-                        sender = email.utils.parseaddr(email_message['From'])[1]
-                        logging.info(f"📧 Received question from {sender}: '{question[:50]}...'")
-                        response = self.generate_response(question)
-                        self.send_response(sender, question, response)
-                    mail.store(num, '+FLAGS', '\\Seen')
-            
-            mail.close(); mail.logout()
-        except Exception as e: logging.error(f"Error checking emails: {e}")
-    
-    def extract_question(self, msg):
-        body = ""
-        if msg.is_multipart():
-            for part in msg.walk():
-                if part.get_content_type() == "text/plain": body = part.get_payload(decode=True).decode(errors='ignore')
-        else: body = msg.get_payload(decode=True).decode(errors='ignore')
-        return ' '.join([line.strip() for line in body.split('\n') if not line.startswith('>') and 'wrote:' not in line.lower() and line.strip()]).strip()
-    
-    def search_duckduckgo(self, query):
-        try:
-            url = f"https://html.duckduckgo.com/html/?q={requests.utils.quote(query + ' stock market')}"
-            response = requests.get(url, headers=REQUEST_HEADERS, timeout=10)
-            soup = BeautifulSoup(response.text, 'html.parser')
-            return [res.get_text(strip=True)[:250] + "..." for res in soup.find_all('a', class_='result__snippet')[:2]]
-        except Exception as e: return [f"Web search failed: {e}"]
-
-    def generate_response(self, question):
-        latest = self.db.get_latest_analysis()
-        if not latest: return "No analysis data available."
-        
-        response_parts = []
-        stock_found = False
-        
-        if latest.get('portfolio_data'):
-            for stock in latest['portfolio_data'].get('stocks', []):
-                if stock['ticker'].lower() in question.lower() or stock['name'].lower() in question.lower():
-                    stock_found = True
-                    rec = latest.get('recommendations', {}).get('final_verdicts', {}).get(stock['ticker'])
-                    response_parts.append(f"📊 **{stock['ticker']} Analysis:**")
-                    if rec: response_parts.append(f"**Recommendation:** {rec['action']} - {rec['reason']}")
-                    response_parts.append(f"Price: ${stock.get('price', 0):.2f} | RSI: {stock.get('rsi', 0):.1f}")
-                    break
-        
-        if not stock_found:
-            if 'buy' in question.lower():
-                buys = [f"• {t}: {v['action']} ({v['reason']})" for t,v in latest.get('recommendations',{}).get('final_verdicts',{}).items() if 'BUY' in v['action']]
-                response_parts.append("**🟢 Buy Opportunities:**\n" + ("\n".join(buys) if buys else "No strong buy signals."))
-            else:
-                response_parts.append("**🔍 Web Research:**\n" + "\n".join(self.search_duckduckgo(question)))
-        
-        return "\n".join(response_parts)
-
-    def send_response(self, to_email, question, response):
-        msg = MIMEMultipart()
-        msg['Subject'], msg['From'], msg['To'] = "Re: Your market analysis question", self.smtp_user, to_email
-        body = f"Thank you for your question:\n\n> {question}\n\n💡 My Analysis:\n{response}\n\n---\n🤖 Market Intelligence Bot"
-        msg.attach(MIMEText(body, 'plain'))
-        try:
-            with smtplib.SMTP('smtp.gmail.com', 587) as server:
-                server.starttls(); server.login(self.smtp_user, self.smtp_pass); server.send_message(msg)
-            logging.info(f"✅ Sent response to {to_email}")
-        except Exception as e: logging.error(f"Failed to send response: {e}")
+# ========================================
+# MAIN EXECUTION - FIXED v3.0.1
+# ========================================
 
 async def main(output="print", check_emails=False):
+    """
+    Main execution function
+    - If check_emails=True: Only run email bot
+    - Otherwise: Run full market analysis
+    """
     if check_emails:
         if ENABLE_EMAIL_BOT:
+            logging.info("🤖 Running email bot check...")
             bot = EmailConversationBot()
             bot.check_for_questions()
+            logging.info("✅ Email check complete")
+        else:
+            logging.warning("Email bot is disabled (ENABLE_EMAIL_BOT=False)")
         return
 
-    # This part runs the normal analysis from the stable foundation
+    # Full analysis mode (existing code)
+    logging.info("📊 Running full market analysis...")
     previous_day_memory = load_memory()
-    sp500, tsx = get_cached_tickers('sp500_cache.json', fetch_sp500_tickers_sync), get_cached_tickers('tsx_cache.json', fetch_tsx_tickers_sync)
+    
+    sp500 = get_cached_tickers('sp500_cache.json', fetch_sp500_tickers_sync)
+    tsx = get_cached_tickers('tsx_cache.json', fetch_tsx_tickers_sync)
     universe = (sp500 or [])[:75] + (tsx or [])[:25]
-    throttler, semaphore = Throttler(2), asyncio.Semaphore(10)
+    
+    throttler = Throttler(2)
+    semaphore = asyncio.Semaphore(10)
     
     async with aiohttp.ClientSession() as session:
-        tasks = [analyze_stock(semaphore, throttler, session, t) for t in universe] + [
-            fetch_context_data(session), fetch_market_headlines(session), fetch_macro_sentiment(session),
-            analyze_portfolio_with_v2_features(session) if ENABLE_V2_FEATURES else analyze_portfolio_watchlist(session)
-        ]
-        results = await asyncio.gather(*tasks)
-        stock_results, context_data, market_news, macro_data, portfolio_data = results[:len(universe)], results[len(universe)], results[len(universe)+1], results[len(universe)+2], results[len(universe)+3]
+        stock_tasks = [analyze_stock(semaphore, throttler, session, ticker) for ticker in universe]
+        context_task = fetch_context_data(session)
+        news_task = fetch_market_headlines(session)
+        macro_task = fetch_macro_sentiment(session)
+        
+        if ENABLE_V2_FEATURES:
+            portfolio_task = analyze_portfolio_with_v2_features(session)
+        else:
+            portfolio_task = analyze_portfolio_watchlist(session)
+        
+        results = await asyncio.gather(
+            asyncio.gather(*stock_tasks), 
+            context_task, 
+            news_task, 
+            macro_task, 
+            portfolio_task
+        )
+        
+        stock_results_raw, context_data, market_news, macro_data, portfolio_data = results
+        
+        stock_results = sorted([r for r in stock_results_raw if r], key=lambda x: x['score'], reverse=True)
+        df_stocks = pd.DataFrame(stock_results) if stock_results else pd.DataFrame()
 
-    df_stocks = pd.DataFrame(sorted([r for r in stock_results if r], key=lambda x: x['score'], reverse=True))
-    pattern_data = await find_historical_patterns(None, macro_data)
-    portfolio_recommendations = await generate_portfolio_recommendations_from_pattern(portfolio_data, pattern_data, macro_data) if pattern_data and portfolio_data else None
+        pattern_data = await find_historical_patterns(session, macro_data)
+        
+        portfolio_recommendations = None
+        if pattern_data and portfolio_data:
+            portfolio_recommendations = await generate_portfolio_recommendations_from_pattern(
+                portfolio_data, pattern_data, macro_data
+            )
+        
+        market_summary = {
+            'macro': macro_data,
+            'top_stock': stock_results[0] if stock_results else {},
+            'bottom_stock': stock_results[-1] if stock_results else {}
+        }
+        ai_analysis = await generate_ai_oracle_analysis(market_summary, portfolio_data, pattern_data)
     
-    market_summary = {'macro': macro_data, 'top_stock': df_stocks.iloc[0].to_dict() if not df_stocks.empty else {}}
-    ai_analysis = await generate_ai_oracle_analysis(market_summary, portfolio_data, pattern_data)
-    
+    # Save to database
     if ENABLE_DATA_PERSISTENCE:
         db = MarketIntelligenceDB()
-        db.save_daily_analysis(datetime.date.today().isoformat(), portfolio_data, pattern_data, macro_data, df_stocks.head(20).to_dict('records'), ai_analysis, portfolio_recommendations)
+        db.save_daily_analysis(
+            datetime.date.today().isoformat(),
+            portfolio_data,
+            pattern_data,
+            macro_data,
+            df_stocks.head(20).to_dict('records') if not df_stocks.empty else [],
+            ai_analysis,
+            portfolio_recommendations
+        )
     
+    # Send email if requested
     if output == "email":
-        html_email = generate_enhanced_html_email(df_stocks, context_data, market_news, macro_data, previous_day_memory, portfolio_data, pattern_data, ai_analysis, portfolio_recommendations)
+        html_email = generate_enhanced_html_email(
+            df_stocks, context_data, market_news, macro_data, 
+            previous_day_memory, portfolio_data, pattern_data, 
+            ai_analysis, portfolio_recommendations
+        )
+        
+        # Add bot instructions to email
         if ENABLE_EMAIL_BOT:
-            bot_section = """<div class="section" style="background-color:#e0f2fe;border-left:4px solid #0284c7;padding:25px;"><h2>🤖 ASK ME ANYTHING - NEW!</h2><p><b>Reply to this email with any question!</b><br><i>Examples: "Why is NVDA volatile?" • "What are my best stocks?"</i></p></div>"""
-            html_email = html_email.replace("<!-- BOT_INSTRUCTIONS_HERE -->", bot_section)
+            bot_section = """
+            <div class="section" style="background-color:#e0f2fe;border-left:4px solid #0284c7;">
+                <h2>🤖 ASK ME ANYTHING</h2>
+                <p style="font-size:1.1em;">
+                    <b>Have questions? Just reply to this email!</b><br>
+                    I'll analyze your portfolio and answer within minutes.
+                </p>
+                <p style="color:#666;font-size:0.9em;">
+                    <i>Examples:</i><br>
+                    • "Should I buy more NVDA?"<br>
+                    • "Why is AAPL down today?"<br>
+                    • "What are my best opportunities?"
+                </p>
+            </div>
+            """
+            # Insert before the closing container div
+            html_email = html_email.replace('</div>\n    </body>', 
+                                           bot_section + '</div>\n    </body>')
+        
         send_email(html_email)
     
-    if not df_stocks.empty: save_memory({"previous_top_stock_name": df_stocks.iloc[0]['name'], "date": datetime.date.today().isoformat()})
-    logging.info("✅ Analysis complete.")
+    # Save memory
+    if not df_stocks.empty:
+        save_memory({
+            "previous_top_stock_name": df_stocks.iloc[0]['name'],
+            "previous_top_stock_ticker": df_stocks.iloc[0]['ticker'],
+            "previous_macro_score": macro_data.get('overall_macro_score', 0),
+            "date": datetime.date.today().isoformat()
+        })
+    
+    logging.info("✅ Analysis complete with v2.0.0 features.")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Market Analysis and Email Bot")
-    parser.add_argument("--output", default="print", choices=["print", "email"], help="Run full analysis.")
-    parser.add_argument("--check-emails", action="store_true", help="Only check for emails.")
+    parser.add_argument("--output", default="print", choices=["print", "email"], 
+                       help="Output mode: print to console or send email")
+    parser.add_argument("--check-emails", action="store_true", 
+                       help="Only check for email questions and respond (bot mode)")
+    
     args = parser.parse_args()
     
-    if os.name == 'nt': asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+    # Windows compatibility
+    if os.name == 'nt':
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     
+    # Run with parsed arguments
     asyncio.run(main(output=args.output, check_emails=args.check_emails))
