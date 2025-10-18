@@ -1695,11 +1695,6 @@ def send_email(html_body):
 # Complete implementation with all fixes
 # ========================================
 
-# ========================================
-# 🚀 v3.0.0 - EMAIL CONVERSATION BOT
-# Complete implementation with all fixes
-# ========================================
-
 # v3.0 Feature Flags
 ENABLE_EMAIL_BOT = True
 ENABLE_DATA_PERSISTENCE = True
@@ -1822,16 +1817,26 @@ class EmailConversationBot:
                     email_message = email.message_from_bytes(data[0][1])
                     
                     # Double-check subject (defense in depth)
+                    # CRITICAL: Properly decode MIME-encoded subjects
                     subject_raw = email_message.get('Subject', '')
-                    if isinstance(subject_raw, email.header.Header):
-                        subject = str(subject_raw)
-                    else:
+                    
+                    # Decode MIME-encoded subject (handles =?UTF-8?Q?...?= encoding)
+                    try:
+                        decoded_parts = email.header.decode_header(subject_raw)
+                        subject = ''
+                        for part, encoding in decoded_parts:
+                            if isinstance(part, bytes):
+                                subject += part.decode(encoding or 'utf-8', errors='ignore')
+                            else:
+                                subject += str(part)
+                    except Exception as e:
+                        logging.warning(f"Failed to decode subject, using raw: {e}")
                         subject = str(subject_raw)
                     
                     # SECURITY: Verify subject one more time (handle Re:, Fwd:, etc.)
                     if 'Daily Market Briefing' not in subject:
                         logging.warning(f"⚠️ Email #{num.decode()} doesn't match - IMAP filter failed. Skipping for security.")
-                        logging.warning(f"   Subject was: '{subject}'")
+                        logging.warning(f"   Decoded subject: '{subject}'")
                         continue
                     
                     logging.info(f"✅ Confirmed briefing reply: '{subject[:80]}...'")
