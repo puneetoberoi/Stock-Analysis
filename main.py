@@ -21,6 +21,7 @@ import email
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import re
+import socket
 
 # ========================================
 # 🔒 STABLE FOUNDATION - v2.0.0
