@@ -13,6 +13,12 @@ from ta.volatility import BollingerBands, AverageTrueRange
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 from io import StringIO
 import google.generativeai as genai
+import sqlite3
+import imaplib
+import email
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+import re
 
 # ========================================
 # 🔒 STABLE FOUNDATION - v2.0.0
@@ -1696,12 +1702,17 @@ if __name__ == "__main__":
 # Complete implementation with DuckDuckGo search
 # ========================================
 
+# ========================================
+# 🚀 v3.0.0 - EMAIL CONVERSATION BOT
+# Complete implementation with all fixes
+# ========================================
+
 # v3.0 Feature Flags
 ENABLE_EMAIL_BOT = True
 ENABLE_DATA_PERSISTENCE = True
 
 def clean_for_json(obj):
-    """Convert numpy/pandas types for JSON serialization"""
+    """FIX 2: Convert numpy/pandas types for JSON serialization"""
     if isinstance(obj, (np.bool_, bool)):
         return bool(obj)
     elif isinstance(obj, (np.integer, np.int64)):
@@ -1736,7 +1747,6 @@ class MarketIntelligenceDB:
                 recommendations TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
-            
             CREATE TABLE IF NOT EXISTS conversations (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 date TEXT,
@@ -1789,7 +1799,7 @@ class MarketIntelligenceDB:
     def save_conversation(self, user_question, bot_response, context=None):
         """Save Q&A for learning"""
         self.conn.execute('INSERT INTO conversations (date, user_question, bot_response, context) VALUES (?, ?, ?, ?)',
-            (datetime.date.today().isoformat(), user_question, bot_response, json.dumps(context) if context else None))
+            (datetime.date.today().isoformat(), user_question, bot_response, json.dumps(clean_for_json(context)) if context else None))
         self.conn.commit()
 
 class EmailConversationBot:
@@ -1814,7 +1824,7 @@ class EmailConversationBot:
                 _, data = mail.fetch(num, '(RFC822)')
                 _, bytes_data = data[0]
                 email_message = email.message_from_bytes(bytes_data)
-                subject = email_message['Subject'] or ''
+                subject = email_message.get('Subject', '')
                 
                 if 'Market Briefing' in subject or 'Re:' in subject:
                     question = self.extract_question(email_message)
@@ -1924,14 +1934,25 @@ async def main(output="print", check_emails=False):
     throttler, semaphore = Throttler(2), asyncio.Semaphore(10)
     
     async with aiohttp.ClientSession() as session:
-        tasks = [analyze_stock(semaphore, throttler, session, ticker) for ticker in universe]
-        tasks.extend([fetch_context_data(session), fetch_market_headlines(session), fetch_macro_sentiment(session)])
-        if ENABLE_V2_FEATURES: tasks.append(analyze_portfolio_with_v2_features(session))
-        else: tasks.append(analyze_portfolio_watchlist(session))
+        stock_tasks = [analyze_stock(semaphore, throttler, session, ticker) for ticker in universe]
+        context_task = fetch_context_data(session)
+        news_task = fetch_market_headlines(session)
+        macro_task = fetch_macro_sentiment(session)
         
-        results = await asyncio.gather(*tasks)
-        stock_results_raw = results[:len(universe)]
-        context_data, market_news, macro_data, portfolio_data = results[len(universe):]
+        if ENABLE_V2_FEATURES:
+            portfolio_task = analyze_portfolio_with_v2_features(session)
+        else:
+            portfolio_task = analyze_portfolio_watchlist(session)
+        
+        results = await asyncio.gather(
+            asyncio.gather(*stock_tasks), 
+            context_task, 
+            news_task, 
+            macro_task, 
+            portfolio_task
+        )
+        
+        stock_results_raw, context_data, market_news, macro_data, portfolio_data = results
         
     stock_results = sorted([r for r in stock_results_raw if r], key=lambda x: x['score'], reverse=True)
     df_stocks = pd.DataFrame(stock_results) if stock_results else pd.DataFrame()
@@ -1949,6 +1970,7 @@ async def main(output="print", check_emails=False):
     
     if output == "email":
         html_email = generate_enhanced_html_email(df_stocks, context_data, market_news, macro_data, previous_day_memory, portfolio_data, pattern_data, ai_analysis, portfolio_recommendations)
+        
         if ENABLE_EMAIL_BOT:
             bot_section = """
             <div class="section" style="background-color:#e0f2fe;border-left:4px solid #0284c7;padding:25px;">
@@ -1958,6 +1980,7 @@ async def main(output="print", check_emails=False):
             </div>
             """
             html_email = html_email.replace("<!-- BOT_INSTRUCTIONS_HERE -->", bot_section)
+        
         send_email(html_email)
     
     if not df_stocks.empty:
@@ -1972,9 +1995,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
     if os.name == 'nt':
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-    asyncio.run(main(output=args.output, check_emails=args.check_emails))
-    
-    if os.name == 'nt':
-        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-    
     asyncio.run(main(output=args.output, check_emails=args.check_emails))
