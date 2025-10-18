@@ -1769,7 +1769,7 @@ class MarketIntelligenceDB:
         }
 
 class EmailConversationBot:
-    """v3.0: Interactive email-based Q&A bot with all fixes"""
+    """v3.0: Interactive email-based Q&A bot with AI + Web Search"""
     def __init__(self):
         self.db = MarketIntelligenceDB()
         self.smtp_user, self.smtp_pass = os.getenv("SMTP_USER"), os.getenv("SMTP_PASS")
@@ -1902,8 +1902,9 @@ class EmailConversationBot:
                     if question and len(question.strip()) > 5:  # At least 5 chars
                         logging.info(f"❓ Extracted question: '{question[:150]}...'")
                         
+                        # ENHANCED: Use AI-powered response
                         response = self.generate_response(question)
-                        logging.info(f"💬 Generated response ({len(response)} chars)")
+                        logging.info(f"💬 Generated AI response ({len(response)} chars)")
                         
                         self.send_response(sender, question, response)
                         
@@ -1997,58 +1998,164 @@ class EmailConversationBot:
         """Original extraction method - kept for compatibility"""
         return self.extract_question_improved(msg)
     
-    def search_duckduckgo(self, query):
-        try:
-            url = f"https://html.duckduckgo.com/html/?q={requests.utils.quote(query + ' stock market')}"
-            response = requests.get(url, headers=REQUEST_HEADERS, timeout=10)
-            soup = BeautifulSoup(response.text, 'html.parser')
-            return [res.get_text(strip=True)[:250] + "..." for res in soup.find_all('a', class_='result__snippet')[:2]]
-        except Exception as e: return [f"Web search failed: {e}"]
-
     def generate_response(self, question):
+        """Enhanced response generation using AI + Web Search"""
+        logging.info(f"🧠 Generating AI-powered response for: {question[:100]}...")
+        
+        # Step 1: Gather all context
         latest = self.db.get_latest_analysis()
-        if not latest: return "No analysis data available. Please run the daily analysis first."
         
-        response_parts = []
-        stock_found = False
-        
-        # Check if asking about specific stock
-        if latest.get('portfolio_data'):
+        # Step 2: Get relevant portfolio data
+        portfolio_context = ""
+        if latest and latest.get('portfolio_data'):
+            stocks_mentioned = []
             for stock in latest['portfolio_data'].get('stocks', []):
                 if stock['ticker'].lower() in question.lower() or stock['name'].lower() in question.lower():
-                    stock_found = True
-                    rec = latest.get('recommendations', {}).get('final_verdicts', {}).get(stock['ticker'])
-                    response_parts.append(f"📊 **{stock['ticker']} Analysis:**")
-                    if rec: response_parts.append(f"**Recommendation:** {rec['action']} - {rec['reason']}")
-                    response_parts.append(f"Price: ${stock.get('price', 0):.2f} | RSI: {stock.get('rsi', 0):.1f}")
-                    response_parts.append(f"Daily Change: {stock.get('daily_change', 0):.2f}%")
-                    response_parts.append(f"Weekly Change: {stock.get('weekly_change', 0):.2f}%")
-                    response_parts.append(f"Monthly Change: {stock.get('monthly_change', 0):.2f}%")
-                    break
-        
-        if not stock_found:
-            # Check for general questions
-            if 'buy' in question.lower() or 'opportunity' in question.lower():
-                buys = []
-                if latest.get('recommendations', {}).get('final_verdicts'):
-                    for t, v in latest['recommendations']['final_verdicts'].items():
-                        if 'BUY' in v['action']:
-                            buys.append(f"• {t}: {v['action']} ({v['reason']})")
-                response_parts.append("**🟢 Buy Opportunities:**\n" + ("\n".join(buys) if buys else "No strong buy signals currently."))
+                    stocks_mentioned.append(stock)
             
-            elif 'sell' in question.lower() or 'profit' in question.lower():
-                sells = []
-                if latest.get('recommendations', {}).get('final_verdicts'):
-                    for t, v in latest['recommendations']['final_verdicts'].items():
-                        if 'SELL' in v['action'] or 'TRIM' in v['action'] or 'TAKE PROFITS' in v['action']:
-                            sells.append(f"• {t}: {v['action']} ({v['reason']})")
-                response_parts.append("**🔴 Sell/Profit Taking:**\n" + ("\n".join(sells) if sells else "No urgent sell signals."))
-            
-            else:
-                # General market question - use web search
-                response_parts.append("**🔍 Web Research:**\n" + "\n".join(self.search_duckduckgo(question)))
+            if stocks_mentioned:
+                portfolio_context = f"Portfolio stocks mentioned: {json.dumps([{
+                    'ticker': s['ticker'],
+                    'price': s.get('price', 0),
+                    'rsi': s.get('rsi', 0),
+                    'daily_change': s.get('daily_change', 0),
+                    'recommendation': latest.get('recommendations', {}).get('final_verdicts', {}).get(s['ticker'], {})
+                } for s in stocks_mentioned], indent=2)}"
         
-        return "\n".join(response_parts) if response_parts else "I couldn't find specific information about that. Try asking about specific stocks in your portfolio or general buy/sell opportunities."
+        # Step 3: Get latest market intelligence
+        market_context = ""
+        if latest:
+            market_context = f"""
+            Latest Market Analysis:
+            - Macro Score: {latest.get('macro_data', {}).get('overall_macro_score', 'N/A')}
+            - Top Opportunities: {[f"{k}: {v['action']}" for k,v in latest.get('recommendations', {}).get('final_verdicts', {}).items() if 'BUY' in v.get('action', '')][:3]}
+            - Pattern Prediction: {latest.get('pattern_data', {}).get('avg_return_3m', 'N/A')}% expected over 3 months
+            """
+        
+        # Step 4: ALWAYS do DuckDuckGo search for real-time info
+        logging.info("🔍 Searching DuckDuckGo for latest information...")
+        web_results = self.search_duckduckgo_enhanced(question)
+        web_context = f"Latest web information:\n" + "\n".join([f"- {r}" for r in web_results])
+        
+        # Step 5: Check for breaking news if stock-specific
+        breaking_news = ""
+        if any(ticker in question.upper() for ticker in ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'TSLA', 'META']):
+            # Search for recent news
+            ticker_match = re.search(r'\b([A-Z]{2,5})\b', question.upper())
+            if ticker_match:
+                ticker = ticker_match.group(1)
+                news_results = self.search_duckduckgo_enhanced(f"{ticker} stock news today")
+                breaking_news = f"Breaking news for {ticker}:\n" + "\n".join([f"- {n}" for n in news_results[:2]])
+        
+        # Step 6: Use Gemini AI to synthesize everything
+        if GEMINI_API_KEY:
+            try:
+                logging.info("🤖 Calling Gemini AI for intelligent analysis...")
+                genai.configure(api_key=GEMINI_API_KEY)
+                model = genai.GenerativeModel('gemini-1.5-flash')
+                
+                ai_prompt = f"""You are an elite financial advisor responding to a client's question. 
+                Synthesize ALL the following information to give a sharp, actionable answer.
+
+CLIENT QUESTION: {question}
+
+PORTFOLIO CONTEXT:
+{portfolio_context if portfolio_context else "No specific portfolio stocks mentioned"}
+
+CURRENT MARKET INTELLIGENCE:
+{market_context}
+
+REAL-TIME WEB SEARCH RESULTS:
+{web_context}
+
+{breaking_news if breaking_news else ""}
+
+INSTRUCTIONS:
+1. Answer the specific question directly and confidently
+2. Reference the web search results for current context
+3. Include specific numbers, prices, and percentages
+4. Give a clear action recommendation (BUY/SELL/HOLD/WAIT)
+5. Mention any risks or catalysts from the news
+6. Keep it under 250 words but be comprehensive
+7. If the question is about a specific stock, focus heavily on that stock
+8. End with one bold contrarian insight
+
+Be decisive. Be specific. Impress the client with your real-time knowledge."""
+
+                response = model.generate_content(
+                    ai_prompt,
+                    generation_config=genai.types.GenerationConfig(
+                        temperature=0.7,
+                        max_output_tokens=400,
+                    )
+                )
+                
+                ai_response = response.text
+                logging.info("✅ AI response generated successfully")
+                
+                # Add data timestamp
+                ai_response += f"\n\n📅 *Analysis based on data from {latest.get('date', 'today')} + real-time web search*"
+                
+                return ai_response
+                
+            except Exception as e:
+                logging.error(f"Gemini AI failed: {e}, falling back to enhanced rule-based response")
+        
+        # Step 7: Fallback - Enhanced rule-based response with web data
+        logging.info("Using enhanced fallback response with web data...")
+        
+        response_parts = []
+        
+        # Add web search results prominently
+        response_parts.append("📊 **Latest Market Intelligence:**")
+        response_parts.append(web_context)
+        
+        # Add specific recommendations if asking about buying/selling
+        if 'buy' in question.lower() or 'sell' in question.lower() or 'hold' in question.lower():
+            if latest and latest.get('recommendations', {}).get('final_verdicts'):
+                response_parts.append("\n**📈 Current Recommendations:**")
+                for ticker, verdict in list(latest['recommendations']['final_verdicts'].items())[:5]:
+                    if ('buy' in question.lower() and 'BUY' in verdict['action']) or \
+                       ('sell' in question.lower() and ('SELL' in verdict['action'] or 'TRIM' in verdict['action'])):
+                        response_parts.append(f"• {ticker}: {verdict['action']} - {verdict['reason']}")
+        
+        response_parts.append(f"\n💡 *Based on real-time web search + analysis from {latest.get('date', 'today')}*")
+        
+        return "\n".join(response_parts)
+    
+    def search_duckduckgo_enhanced(self, query):
+        """Enhanced DuckDuckGo search with better parsing"""
+        try:
+            logging.info(f"   Searching: {query}")
+            url = f"https://html.duckduckgo.com/html/?q={requests.utils.quote(query)}"
+            response = requests.get(url, headers=REQUEST_HEADERS, timeout=10)
+            soup = BeautifulSoup(response.text, 'html.parser')
+            
+            results = []
+            # Get both snippets and titles for better context
+            for result in soup.find_all('div', class_='result')[:3]:
+                title = result.find('a', class_='result__a')
+                snippet = result.find('a', class_='result__snippet')
+                if title and snippet:
+                    results.append(f"{title.get_text(strip=True)}: {snippet.get_text(strip=True)[:150]}...")
+                elif snippet:
+                    results.append(snippet.get_text(strip=True)[:200] + "...")
+            
+            if not results:
+                # Fallback to simpler parsing
+                for res in soup.find_all('a', class_='result__snippet')[:3]:
+                    results.append(res.get_text(strip=True)[:200] + "...")
+            
+            logging.info(f"   Found {len(results)} search results")
+            return results if results else ["No specific web results found, using historical data"]
+            
+        except Exception as e:
+            logging.error(f"DuckDuckGo search failed: {e}")
+            return [f"Web search temporarily unavailable, using cached analysis"]
+    
+    def search_duckduckgo(self, query):
+        """Original DuckDuckGo search - kept for compatibility"""
+        return self.search_duckduckgo_enhanced(query)
 
     def send_response(self, to_email, question, response):
         """Send email response to user's question"""
@@ -2067,7 +2174,7 @@ class EmailConversationBot:
 {response}
 
 ---
-🤖 Market Intelligence Bot
+🤖 Market Intelligence Bot - Powered by AI + Real-time Web Search
 Reply to this email with more questions anytime!"""
         
         msg.attach(MIMEText(body, 'plain'))
@@ -2077,7 +2184,7 @@ Reply to this email with more questions anytime!"""
                 server.starttls()
                 server.login(self.smtp_user, self.smtp_pass)
                 server.send_message(msg)
-            logging.info(f"✅ Sent response to {to_email}")
+            logging.info(f"✅ Sent AI-powered response to {to_email}")
         except Exception as e:
             logging.error(f"Failed to send response: {e}")
 
@@ -2183,10 +2290,10 @@ async def main(output="print", check_emails=False):
         if ENABLE_EMAIL_BOT:
             bot_section = """
             <div class="section" style="background-color:#e0f2fe;border-left:4px solid #0284c7;">
-                <h2>🤖 ASK ME ANYTHING</h2>
+                <h2>🤖 ASK ME ANYTHING - Powered by AI + Web Search</h2>
                 <p style="font-size:1.1em;">
-                    <b>Have questions about your portfolio? Just reply to this email!</b><br>
-                    I'll analyze the latest data and respond within 30 minutes.
+                    <b>Have questions? Just reply to this email!</b><br>
+                    I use AI + real-time web search to provide intelligent analysis.
                 </p>
                 <p style="color:#666;font-size:0.9em;">
                     <i>Try asking:</i><br>
@@ -2223,7 +2330,7 @@ async def main(output="print", check_emails=False):
 if __name__ == "__main__":
     # Parse command line arguments
     parser = argparse.ArgumentParser(
-        description="Market Intelligence System - Daily Analysis & Email Bot"
+        description="Market Intelligence System - Daily Analysis & Email Bot with AI"
     )
     parser.add_argument(
         "--output", 
@@ -2234,7 +2341,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--check-emails", 
         action="store_true", 
-        help="Email bot mode: Check inbox for questions and auto-respond (no full analysis)"
+        help="Email bot mode: Check inbox for questions and auto-respond with AI + Web Search"
     )
     
     args = parser.parse_args()
@@ -2245,7 +2352,7 @@ if __name__ == "__main__":
     
     # Run the main function with parsed arguments
     logging.info("=" * 60)
-    logging.info("🚀 MARKET INTELLIGENCE SYSTEM v3.0.1")
+    logging.info("🚀 MARKET INTELLIGENCE SYSTEM v3.0.1 - AI Enhanced")
     logging.info("=" * 60)
     
     asyncio.run(main(output=args.output, check_emails=args.check_emails))
