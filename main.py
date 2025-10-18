@@ -1769,7 +1769,7 @@ class MarketIntelligenceDB:
         }
 
 class EmailConversationBot:
-    """v3.0: Interactive email-based Q&A bot"""
+    """v3.0: Interactive email-based Q&A bot with all fixes"""
     def __init__(self):
         self.db = MarketIntelligenceDB()
         self.smtp_user, self.smtp_pass = os.getenv("SMTP_USER"), os.getenv("SMTP_PASS")
@@ -1778,6 +1778,9 @@ class EmailConversationBot:
     def check_for_questions(self):
         try:
             logging.info("📧 Checking for email questions...")
+            
+            # FIX 1: Import datetime at the top to avoid conflicts
+            from datetime import datetime as dt, timedelta
             
             # Add timeout to IMAP connection (15 seconds)
             logging.info("🔐 Connecting to IMAP server...")
@@ -1789,43 +1792,93 @@ class EmailConversationBot:
             logging.info("📬 Selecting inbox...")
             mail.select('inbox')
             
-            # SECURITY: Only check emails from last 300 minutes (5 hours)
-            import datetime
-            since_date = (datetime.datetime.now() - datetime.timedelta(minutes=300)).strftime("%d-%b-%Y")
+            # FIX 2: Debug current date/time
+            current_time = dt.now()
+            logging.info(f"🕐 Current system time: {current_time}")
             
-            logging.info(f"🔍 Searching for 'Your Daily Market Briefing' emails since {since_date}...")
+            # FIX 3: Use a more reliable date calculation
+            # Look back 7 days instead of 300 minutes for better coverage
+            since_date = (current_time - timedelta(days=7)).strftime("%d-%b-%Y")
+            logging.info(f"🔍 Will search for emails since: {since_date}")
             
-            # CRITICAL SECURITY: Only search for emails with exact subject + unread + recent
-            # This prevents the bot from even SEEING other emails
-            _, search_data = mail.search(
-                None, 
-                f'(UNSEEN SINCE {since_date} SUBJECT "Your Daily Market Briefing")'
-            )
+            # FIX 4: First, let's see ALL unread emails for debugging
+            logging.info("📊 DEBUG: Checking ALL unread emails first...")
+            _, debug_data = mail.search(None, 'UNSEEN')
+            all_unread = debug_data[0].split()
+            logging.info(f"📬 Total unread emails in inbox: {len(all_unread)}")
             
-            matching_emails = search_data[0].split()
-            logging.info(f"📨 Found {len(matching_emails)} matching briefing replies in last 300 minutes")
+            # If there are unread emails, check a few subjects for debugging
+            if all_unread and len(all_unread) > 0:
+                logging.info("🔍 Checking subjects of first few unread emails...")
+                for num in all_unread[:5]:  # Check first 5
+                    try:
+                        _, data = mail.fetch(num, '(BODY[HEADER.FIELDS (SUBJECT FROM DATE)])')
+                        header_data = data[0][1].decode('utf-8', errors='ignore')
+                        logging.info(f"   Email #{num.decode()}:")
+                        for line in header_data.split('\n'):
+                            if line.strip():
+                                logging.info(f"      {line.strip()}")
+                    except Exception as e:
+                        logging.warning(f"   Could not fetch header for #{num.decode()}: {e}")
+            
+            # FIX 5: Multiple search strategies
+            logging.info("\n🔍 Searching for 'Your Daily Market Briefing' emails...")
+            
+            # Strategy 1: Exact subject match with SINCE
+            search_query1 = f'(UNSEEN SINCE {since_date} SUBJECT "Your Daily Market Briefing")'
+            logging.info(f"   Query 1: {search_query1}")
+            _, search_data1 = mail.search(None, search_query1)
+            matches1 = search_data1[0].split()
+            logging.info(f"   Found {len(matches1)} matches with exact subject + date filter")
+            
+            # Strategy 2: Just subject match (no date filter)
+            search_query2 = '(UNSEEN SUBJECT "Your Daily Market Briefing")'
+            logging.info(f"   Query 2: {search_query2}")
+            _, search_data2 = mail.search(None, search_query2)
+            matches2 = search_data2[0].split()
+            logging.info(f"   Found {len(matches2)} matches with exact subject (no date filter)")
+            
+            # Strategy 3: Partial subject match
+            search_query3 = '(UNSEEN SUBJECT "Daily Market Briefing")'
+            logging.info(f"   Query 3: {search_query3}")
+            _, search_data3 = mail.search(None, search_query3)
+            matches3 = search_data3[0].split()
+            logging.info(f"   Found {len(matches3)} matches with partial subject")
+            
+            # Strategy 4: Even more relaxed - just "Market Briefing"
+            search_query4 = '(UNSEEN SUBJECT "Market Briefing")'
+            logging.info(f"   Query 4: {search_query4}")
+            _, search_data4 = mail.search(None, search_query4)
+            matches4 = search_data4[0].split()
+            logging.info(f"   Found {len(matches4)} matches with 'Market Briefing'")
+            
+            # Use the first strategy that finds emails
+            matching_emails = matches1 or matches2 or matches3 or matches4
             
             if not matching_emails:
-                logging.info("✅ No briefing replies found - inbox clear")
+                logging.info("\n❓ No matching briefing emails found.")
+                logging.info("💡 Make sure:")
+                logging.info("   1. The email subject contains 'Your Daily Market Briefing'")
+                logging.info("   2. The email is marked as UNREAD")
+                logging.info("   3. You're replying to the daily briefing email")
                 mail.close()
                 mail.logout()
                 return
             
+            logging.info(f"\n✅ Found {len(matching_emails)} matching email(s) to process")
+            
             # Process newest first (reversed order)
-            emails_to_check = list(reversed(matching_emails))
-            logging.info(f"📋 Processing {len(emails_to_check)} briefing reply(ies)...")
+            emails_to_check = list(reversed(matching_emails))[:5]  # Limit to 5 most recent
+            logging.info(f"📋 Processing {len(emails_to_check)} most recent briefing reply(ies)...")
             
             for num in emails_to_check:
                 try:
-                    logging.info(f"📖 Fetching briefing reply #{num.decode()}...")
+                    logging.info(f"\n📖 Processing email #{num.decode()}...")
                     _, data = mail.fetch(num, '(RFC822)')
                     email_message = email.message_from_bytes(data[0][1])
                     
-                    # Double-check subject (defense in depth)
-                    # CRITICAL: Properly decode MIME-encoded subjects
+                    # Decode subject properly
                     subject_raw = email_message.get('Subject', '')
-                    
-                    # Decode MIME-encoded subject (handles =?UTF-8?Q?...?= encoding)
                     try:
                         decoded_parts = email.header.decode_header(subject_raw)
                         subject = ''
@@ -1835,64 +1888,114 @@ class EmailConversationBot:
                             else:
                                 subject += str(part)
                     except Exception as e:
-                        logging.warning(f"Failed to decode subject, using raw: {e}")
                         subject = str(subject_raw)
                     
-                    # SECURITY: Verify subject one more time (handle Re:, Fwd:, etc.)
-                    if 'Daily Market Briefing' not in subject:
-                        logging.warning(f"⚠️ Email #{num.decode()} doesn't match - IMAP filter failed. Skipping for security.")
-                        logging.warning(f"   Decoded subject: '{subject}'")
-                        continue
+                    logging.info(f"   Subject: '{subject[:80]}...'")
                     
-                    logging.info(f"✅ Confirmed briefing reply: '{subject[:80]}...'")
+                    # Extract sender
+                    sender = email.utils.parseaddr(email_message['From'])[1]
+                    logging.info(f"   From: {sender}")
                     
-                    # Extract question from reply
-                    question = self.extract_question(email_message)
+                    # FIX 6: More robust question extraction
+                    question = self.extract_question_improved(email_message)
                     
-                    if question and len(question) > 10:  # At least 10 chars
-                        sender = email.utils.parseaddr(email_message['From'])[1]
-                        logging.info(f"❓ Question from {sender}:")
-                        logging.info(f"   '{question[:150]}...'")
+                    if question and len(question.strip()) > 5:  # At least 5 chars
+                        logging.info(f"❓ Extracted question: '{question[:150]}...'")
                         
                         response = self.generate_response(question)
                         logging.info(f"💬 Generated response ({len(response)} chars)")
                         
                         self.send_response(sender, question, response)
                         
-                        # Mark as read ONLY after successful response
+                        # Mark as read
                         mail.store(num, '+FLAGS', '\\Seen')
                         logging.info(f"✅ Responded and marked #{num.decode()} as read")
                     else:
-                        logging.info("⚠️ Question too short or empty - skipping")
+                        logging.info(f"⚠️ No valid question found in email (extracted: '{question[:50] if question else 'nothing'}')")
                         # Still mark as read to avoid re-processing
                         mail.store(num, '+FLAGS', '\\Seen')
                 
                 except Exception as e:
                     logging.error(f"❌ Error processing email #{num.decode()}: {e}")
-                    continue  # Skip this email, continue with others
+                    import traceback
+                    logging.error(traceback.format_exc())
+                    continue
             
-            logging.info("🔒 Closing connection...")
+            logging.info("\n🔒 Closing connection...")
             mail.close()
             mail.logout()
             logging.info("✅ Email bot check complete")
             
         except imaplib.IMAP4.error as e:
             logging.error(f"❌ IMAP error: {e}")
-            logging.error("💡 Check: 1) Gmail IMAP enabled 2) App password correct 3) Network access")
+            logging.error("💡 Check: 1) Gmail IMAP enabled 2) App password correct 3) 2-factor auth")
         except socket.timeout:
-            logging.error(f"⏱️ Connection timeout - IMAP server not responding after 15 seconds")
+            logging.error(f"⏱️ Connection timeout - IMAP server not responding")
         except Exception as e:
             logging.error(f"❌ Unexpected error: {type(e).__name__}: {e}")
             import traceback
             logging.error(traceback.format_exc())
     
-    def extract_question(self, msg):
+    def extract_question_improved(self, msg):
+        """Improved question extraction that handles replies better"""
         body = ""
+        
+        # Extract body text
         if msg.is_multipart():
             for part in msg.walk():
-                if part.get_content_type() == "text/plain": body = part.get_payload(decode=True).decode(errors='ignore')
-        else: body = msg.get_payload(decode=True).decode(errors='ignore')
-        return ' '.join([line.strip() for line in body.split('\n') if not line.startswith('>') and 'wrote:' not in line.lower() and line.strip()]).strip()
+                content_type = part.get_content_type()
+                if content_type == "text/plain":
+                    try:
+                        body = part.get_payload(decode=True).decode('utf-8', errors='ignore')
+                        break  # Use first text/plain part
+                    except:
+                        continue
+        else:
+            try:
+                body = msg.get_payload(decode=True).decode('utf-8', errors='ignore')
+            except:
+                body = str(msg.get_payload())
+        
+        if not body:
+            logging.warning("No body text found in email")
+            return ""
+        
+        # Clean up the body - remove quoted text and signatures
+        lines = []
+        for line in body.split('\n'):
+            # Stop at common reply markers
+            if any(marker in line.lower() for marker in [
+                'wrote:', 'original message', '----', '____', 
+                'from:', 'sent:', 'to:', 'subject:'
+            ]):
+                break
+            
+            # Skip quoted lines (starting with >)
+            if line.strip().startswith('>'):
+                continue
+            
+            # Skip signature lines
+            if line.strip().startswith('--'):
+                break
+                
+            # Add non-empty lines
+            if line.strip():
+                lines.append(line.strip())
+        
+        question = ' '.join(lines).strip()
+        
+        # Remove common email artifacts
+        question = re.sub(r'\s+', ' ', question)  # Multiple spaces to single
+        question = re.sub(r'^re:\s*', '', question, flags=re.IGNORECASE)  # Remove "Re:"
+        question = re.sub(r'^fwd:\s*', '', question, flags=re.IGNORECASE)  # Remove "Fwd:"
+        
+        logging.info(f"📝 Extracted text ({len(question)} chars): '{question[:100]}...'")
+        
+        return question
+    
+    def extract_question(self, msg):
+        """Original extraction method - kept for compatibility"""
+        return self.extract_question_improved(msg)
     
     def search_duckduckgo(self, query):
         try:
@@ -1904,11 +2007,12 @@ class EmailConversationBot:
 
     def generate_response(self, question):
         latest = self.db.get_latest_analysis()
-        if not latest: return "No analysis data available."
+        if not latest: return "No analysis data available. Please run the daily analysis first."
         
         response_parts = []
         stock_found = False
         
+        # Check if asking about specific stock
         if latest.get('portfolio_data'):
             for stock in latest['portfolio_data'].get('stocks', []):
                 if stock['ticker'].lower() in question.lower() or stock['name'].lower() in question.lower():
@@ -1917,16 +2021,34 @@ class EmailConversationBot:
                     response_parts.append(f"📊 **{stock['ticker']} Analysis:**")
                     if rec: response_parts.append(f"**Recommendation:** {rec['action']} - {rec['reason']}")
                     response_parts.append(f"Price: ${stock.get('price', 0):.2f} | RSI: {stock.get('rsi', 0):.1f}")
+                    response_parts.append(f"Daily Change: {stock.get('daily_change', 0):.2f}%")
+                    response_parts.append(f"Weekly Change: {stock.get('weekly_change', 0):.2f}%")
+                    response_parts.append(f"Monthly Change: {stock.get('monthly_change', 0):.2f}%")
                     break
         
         if not stock_found:
-            if 'buy' in question.lower():
-                buys = [f"• {t}: {v['action']} ({v['reason']})" for t,v in latest.get('recommendations',{}).get('final_verdicts',{}).items() if 'BUY' in v['action']]
-                response_parts.append("**🟢 Buy Opportunities:**\n" + ("\n".join(buys) if buys else "No strong buy signals."))
+            # Check for general questions
+            if 'buy' in question.lower() or 'opportunity' in question.lower():
+                buys = []
+                if latest.get('recommendations', {}).get('final_verdicts'):
+                    for t, v in latest['recommendations']['final_verdicts'].items():
+                        if 'BUY' in v['action']:
+                            buys.append(f"• {t}: {v['action']} ({v['reason']})")
+                response_parts.append("**🟢 Buy Opportunities:**\n" + ("\n".join(buys) if buys else "No strong buy signals currently."))
+            
+            elif 'sell' in question.lower() or 'profit' in question.lower():
+                sells = []
+                if latest.get('recommendations', {}).get('final_verdicts'):
+                    for t, v in latest['recommendations']['final_verdicts'].items():
+                        if 'SELL' in v['action'] or 'TRIM' in v['action'] or 'TAKE PROFITS' in v['action']:
+                            sells.append(f"• {t}: {v['action']} ({v['reason']})")
+                response_parts.append("**🔴 Sell/Profit Taking:**\n" + ("\n".join(sells) if sells else "No urgent sell signals."))
+            
             else:
+                # General market question - use web search
                 response_parts.append("**🔍 Web Research:**\n" + "\n".join(self.search_duckduckgo(question)))
         
-        return "\n".join(response_parts)
+        return "\n".join(response_parts) if response_parts else "I couldn't find specific information about that. Try asking about specific stocks in your portfolio or general buy/sell opportunities."
 
     def send_response(self, to_email, question, response):
         """Send email response to user's question"""
@@ -1946,7 +2068,7 @@ class EmailConversationBot:
 
 ---
 🤖 Market Intelligence Bot
-Reply to this email with more questions anytime!</body>"""
+Reply to this email with more questions anytime!"""
         
         msg.attach(MIMEText(body, 'plain'))
         
