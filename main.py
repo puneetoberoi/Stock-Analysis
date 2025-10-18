@@ -1690,6 +1690,11 @@ def send_email(html_body):
 # Complete implementation with all fixes
 # ========================================
 
+# ========================================
+# 🚀 v3.0.0 - EMAIL CONVERSATION BOT
+# Complete implementation with all fixes
+# ========================================
+
 # v3.0 Feature Flags
 ENABLE_EMAIL_BOT = True
 ENABLE_DATA_PERSISTENCE = True
@@ -1779,50 +1784,81 @@ class EmailConversationBot:
             logging.info("📬 Selecting inbox...")
             mail.select('inbox')
             
-            logging.info("🔍 Searching for unread emails...")
-            _, search_data = mail.search(None, 'UNSEEN')
+            # SECURITY: Only check emails from last 300 minutes (5 hours)
+            import datetime
+            since_date = (datetime.datetime.now() - datetime.timedelta(minutes=300)).strftime("%d-%b-%Y")
             
-            unread_emails = search_data[0].split()
-            logging.info(f"📨 Found {len(unread_emails)} unread emails")
+            logging.info(f"🔍 Searching for 'Your Daily Market Briefing' emails since {since_date}...")
             
-            if not unread_emails:
-                logging.info("✅ No unread emails - inbox is clear")
+            # CRITICAL SECURITY: Only search for emails with exact subject + unread + recent
+            # This prevents the bot from even SEEING other emails
+            _, search_data = mail.search(
+                None, 
+                f'(UNSEEN SINCE {since_date} SUBJECT "Your Daily Market Briefing")'
+            )
+            
+            matching_emails = search_data[0].split()
+            logging.info(f"📨 Found {len(matching_emails)} matching briefing replies in last 300 minutes")
+            
+            if not matching_emails:
+                logging.info("✅ No briefing replies found - inbox clear")
                 mail.close()
                 mail.logout()
                 return
             
-            for num in unread_emails:
-                logging.info(f"📖 Fetching email #{num.decode()}...")
-                _, data = mail.fetch(num, '(RFC822)')
-                email_message = email.message_from_bytes(data[0][1])
-                
-                subject = email_message.get('Subject', '')
-                logging.info(f"📧 Subject: {subject}")
-                
-                if 'Market Briefing' in subject:
-                    logging.info("✅ This is a reply to our briefing - processing...")
+            # Process newest first (reversed order)
+            emails_to_check = list(reversed(matching_emails))
+            logging.info(f"📋 Processing {len(emails_to_check)} briefing reply(ies)...")
+            
+            for num in emails_to_check:
+                try:
+                    logging.info(f"📖 Fetching briefing reply #{num.decode()}...")
+                    _, data = mail.fetch(num, '(RFC822)')
+                    email_message = email.message_from_bytes(data[0][1])
+                    
+                    # Double-check subject (defense in depth)
+                    subject_raw = email_message.get('Subject', '')
+                    if isinstance(subject_raw, email.header.Header):
+                        subject = str(subject_raw)
+                    else:
+                        subject = str(subject_raw)
+                    
+                    # SECURITY: Verify subject one more time
+                    if 'Your Daily Market Briefing' not in subject:
+                        logging.warning(f"⚠️ Email #{num.decode()} doesn't match - IMAP filter failed. Skipping for security.")
+                        continue
+                    
+                    logging.info(f"✅ Confirmed briefing reply: '{subject[:60]}...'")
+                    
+                    # Extract question from reply
                     question = self.extract_question(email_message)
                     
-                    if question:
+                    if question and len(question) > 10:  # At least 10 chars
                         sender = email.utils.parseaddr(email_message['From'])[1]
-                        logging.info(f"❓ Question from {sender}: '{question[:100]}...'")
+                        logging.info(f"❓ Question from {sender}:")
+                        logging.info(f"   '{question[:150]}...'")
                         
                         response = self.generate_response(question)
                         logging.info(f"💬 Generated response ({len(response)} chars)")
                         
                         self.send_response(sender, question, response)
+                        
+                        # Mark as read ONLY after successful response
+                        mail.store(num, '+FLAGS', '\\Seen')
+                        logging.info(f"✅ Responded and marked #{num.decode()} as read")
                     else:
-                        logging.info("⚠️ No valid question found in email body")
-                    
-                    # Mark as read
-                    mail.store(num, '+FLAGS', '\\Seen')
-                else:
-                    logging.info(f"⏭️ Skipping - not a briefing reply")
+                        logging.info("⚠️ Question too short or empty - skipping")
+                        # Still mark as read to avoid re-processing
+                        mail.store(num, '+FLAGS', '\\Seen')
+                
+                except Exception as e:
+                    logging.error(f"❌ Error processing email #{num.decode()}: {e}")
+                    continue  # Skip this email, continue with others
             
             logging.info("🔒 Closing connection...")
             mail.close()
             mail.logout()
-            logging.info("✅ Email check complete")
+            logging.info("✅ Email bot check complete")
             
         except imaplib.IMAP4.error as e:
             logging.error(f"❌ IMAP error: {e}")
