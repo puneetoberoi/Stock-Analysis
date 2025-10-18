@@ -13,6 +13,8 @@ from ta.volatility import BollingerBands, AverageTrueRange
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 from io import StringIO
 import google.generativeai as genai
+
+# FIX 1: ADD THESE IMPORTS FOR THE BOT
 import sqlite3
 import imaplib
 import email
@@ -1699,11 +1701,6 @@ if __name__ == "__main__":
 
 # ========================================
 # 🚀 v3.0.0 - EMAIL CONVERSATION BOT
-# Complete implementation with DuckDuckGo search
-# ========================================
-
-# ========================================
-# 🚀 v3.0.0 - EMAIL CONVERSATION BOT
 # Complete implementation with all fixes
 # ========================================
 
@@ -1724,7 +1721,7 @@ def clean_for_json(obj):
     elif isinstance(obj, dict):
         return {k: clean_for_json(v) for k, v in obj.items()}
     elif isinstance(obj, list):
-        return [clean_for_json(v) for v in obj]
+        return [clean_for_json(i) for i in obj]
     return obj
 
 class MarketIntelligenceDB:
@@ -1735,32 +1732,21 @@ class MarketIntelligenceDB:
         self.init_schema()
     
     def init_schema(self):
-        """Create tables for storing analysis data"""
         self.conn.executescript('''
             CREATE TABLE IF NOT EXISTS daily_analysis (
-                date TEXT PRIMARY KEY,
-                portfolio_data TEXT,
-                pattern_data TEXT,
-                macro_data TEXT,
-                stock_scores TEXT,
-                ai_analysis TEXT,
-                recommendations TEXT,
+                date TEXT PRIMARY KEY, portfolio_data TEXT, pattern_data TEXT, macro_data TEXT,
+                stock_scores TEXT, ai_analysis TEXT, recommendations TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
             CREATE TABLE IF NOT EXISTS conversations (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                date TEXT,
-                user_question TEXT,
-                bot_response TEXT,
-                context TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT, user_question TEXT,
+                bot_response TEXT, context TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         ''')
         self.conn.commit()
     
     def save_daily_analysis(self, date, portfolio_data, pattern_data, macro_data, 
                            stock_scores, ai_analysis, recommendations):
-        """Save complete analysis for the day"""
         try:
             self.conn.execute('''
                 INSERT OR REPLACE INTO daily_analysis 
@@ -1778,32 +1764,29 @@ class MarketIntelligenceDB:
             self.conn.commit()
             logging.info(f"✅ Saved analysis data for {date}")
         except Exception as e:
-            logging.error(f"Failed to save analysis: {e}")
-    
+            logging.error(f"Failed to save analysis to DB: {e}")
+
     def get_latest_analysis(self):
-        """Retrieve the most recent analysis"""
         cursor = self.conn.execute('SELECT * FROM daily_analysis ORDER BY date DESC LIMIT 1')
         row = cursor.fetchone()
-        if row:
-            return {
-                'date': row[0],
-                'portfolio_data': json.loads(row[1]) if row[1] else None,
-                'pattern_data': json.loads(row[2]) if row[2] else None,
-                'macro_data': json.loads(row[3]) if row[3] else None,
-                'stock_scores': json.loads(row[4]) if row[4] else None,
-                'ai_analysis': json.loads(row[5]) if row[5] else None,
-                'recommendations': json.loads(row[6]) if row[6] else None
-            }
-        return None
-    
+        if not row: return None
+        return {
+            'date': row[0],
+            'portfolio_data': json.loads(row[1]) if row[1] else None,
+            'pattern_data': json.loads(row[2]) if row[2] else None,
+            'macro_data': json.loads(row[3]) if row[3] else None,
+            'stock_scores': json.loads(row[4]) if row[4] else None,
+            'ai_analysis': json.loads(row[5]) if row[5] else None,
+            'recommendations': json.loads(row[6]) if row[6] else None
+        }
+
     def save_conversation(self, user_question, bot_response, context=None):
-        """Save Q&A for learning"""
         self.conn.execute('INSERT INTO conversations (date, user_question, bot_response, context) VALUES (?, ?, ?, ?)',
             (datetime.date.today().isoformat(), user_question, bot_response, json.dumps(clean_for_json(context)) if context else None))
         self.conn.commit()
 
 class EmailConversationBot:
-    """v3.0: Interactive email-based Q&A bot with DuckDuckGo search"""
+    """v3.0: Interactive email-based Q&A bot"""
     
     def __init__(self):
         self.db = MarketIntelligenceDB()
@@ -1812,7 +1795,6 @@ class EmailConversationBot:
         self.imap_server = "imap.gmail.com"
         
     def check_for_questions(self):
-        """Monitor inbox for questions about the report"""
         try:
             logging.info("📧 Checking for email questions...")
             mail = imaplib.IMAP4_SSL(self.imap_server)
@@ -1824,25 +1806,22 @@ class EmailConversationBot:
                 _, data = mail.fetch(num, '(RFC822)')
                 _, bytes_data = data[0]
                 email_message = email.message_from_bytes(bytes_data)
-                subject = email_message.get('Subject', '')
                 
-                if 'Market Briefing' in subject or 'Re:' in subject:
+                if 'Market Briefing' in email_message.get('Subject', '') or 'Re:' in email_message.get('Subject', ''):
                     question = self.extract_question(email_message)
-                    sender = email_message['From']
                     if question:
-                        logging.info(f"📧 Received question from {sender}: {question[:50]}...")
+                        sender = email_message['From']
+                        logging.info(f"📧 Received question from {sender}: '{question[:50]}...'")
                         response = self.generate_response(question)
                         self.send_response(sender, question, response)
                     mail.store(num, '+FLAGS', '\\Seen')
             
             mail.close()
             mail.logout()
-            logging.info("✅ Email check complete")
         except Exception as e:
             logging.error(f"Error checking emails: {e}")
     
     def extract_question(self, email_message):
-        """Extract the question from email body"""
         body = ""
         if email_message.is_multipart():
             for part in email_message.walk():
@@ -1851,20 +1830,17 @@ class EmailConversationBot:
                     break
         else:
             body = email_message.get_payload(decode=True).decode(errors='ignore')
-        lines = body.split('\n')
-        question_lines = [line.strip() for line in lines if not line.startswith('>') and 'wrote:' not in line and line.strip()]
-        return ' '.join(question_lines).strip()
+        return ' '.join([line.strip() for line in body.split('\n') if not line.startswith('>') and 'wrote:' not in line and line.strip()]).strip()
     
     def search_duckduckgo(self, query):
-        """Search DuckDuckGo - completely free, no API needed"""
         try:
             url = f"https://html.duckduckgo.com/html/?q={requests.utils.quote(query + ' stock market')}"
             response = requests.get(url, headers=REQUEST_HEADERS, timeout=10)
             soup = BeautifulSoup(response.text, 'html.parser')
             results = []
-            for result in soup.find_all('div', class_='result__body')[:3]:
+            for result in soup.find_all('div', class_='result__body')[:2]:
                 snippet = result.find('a', class_='result__snippet')
-                if snippet: results.append(snippet.get_text(strip=True)[:300] + "...")
+                if snippet: results.append(snippet.get_text(strip=True)[:250] + "...")
             return results if results else ["No web results found."]
         except Exception as e:
             logging.error(f"DuckDuckGo search failed: {e}")
@@ -1872,10 +1848,11 @@ class EmailConversationBot:
 
     def generate_response(self, question):
         latest = self.db.get_latest_analysis()
-        if not latest: return "No analysis data available yet. Please wait for the next daily report."
+        if not latest: return "No analysis data available yet. Please wait for the daily report."
         
         response_parts, question_lower = [], question.lower()
         stock_found = False
+        
         if latest.get('portfolio_data'):
             for stock in latest['portfolio_data'].get('stocks', []):
                 if stock['ticker'].lower() in question_lower or stock['name'].lower() in question_lower:
@@ -1893,35 +1870,27 @@ class EmailConversationBot:
             elif 'sell' in question_lower:
                 sells = [f"• {t}: {v['action']} - {v['reason']}" for t, v in latest.get('recommendations', {}).get('final_verdicts', {}).items() if 'SELL' in v['action'] or 'TRIM' in v['action']]
                 response_parts.append("**🔴 Sell Signals:**\n" + ("\n".join(sells) if sells else "No sell signals today."))
-            elif 'risk' in question_lower:
-                if (macro := latest.get('macro_data')):
-                    response_parts.append(f"**⚠️ Market Risks:** Geo Risk: {macro.get('geopolitical_risk',0)}/100, Trade Risk: {macro.get('trade_risk',0)}/100")
             else:
-                response_parts.append("\n**🔍 Web Research:**\n" + "\n".join(self.search_duckduckgo(question)))
+                response_parts.append("**🔍 Web Research:**\n" + "\n".join(self.search_duckduckgo(question)))
 
         final_response = "\n".join(response_parts)
         self.db.save_conversation(question, final_response)
         return final_response
 
     def send_response(self, to_email, question, response):
-        """Send response back via email"""
         msg = MIMEMultipart()
         msg['Subject'] = f"Re: Your market analysis question"
-        msg['From'] = self.smtp_user
-        msg['To'] = to_email
+        msg['From'], msg['To'] = self.smtp_user, to_email
         body = f"Thank you for your question!\n\n📝 Your Question:\n{question}\n\n💡 My Analysis:\n{response}\n\n---\n🤖 Your Market Intelligence Bot"
         msg.attach(MIMEText(body, 'plain'))
         try:
+            import smtplib
             with smtplib.SMTP('smtp.gmail.com', 587) as server:
                 server.starttls(); server.login(self.smtp_user, self.smtp_pass); server.send_message(msg)
             logging.info(f"✅ Sent response to {to_email}")
         except Exception as e: logging.error(f"Failed to send response: {e}")
 
-# ========================================
-# MAIN FUNCTION - Enhanced with v3.0
-# ========================================
 async def main(output="print", check_emails=False):
-    """Main function with v3.0 data persistence and email bot"""
     if check_emails and ENABLE_EMAIL_BOT:
         bot = EmailConversationBot()
         bot.check_for_questions()
@@ -1934,29 +1903,22 @@ async def main(output="print", check_emails=False):
     throttler, semaphore = Throttler(2), asyncio.Semaphore(10)
     
     async with aiohttp.ClientSession() as session:
-        stock_tasks = [analyze_stock(semaphore, throttler, session, ticker) for ticker in universe]
-        context_task = fetch_context_data(session)
-        news_task = fetch_market_headlines(session)
-        macro_task = fetch_macro_sentiment(session)
+        # Simplified task gathering
+        tasks = [analyze_stock(semaphore, throttler, session, ticker) for ticker in universe]
+        tasks.extend([
+            fetch_context_data(session),
+            fetch_market_headlines(session),
+            fetch_macro_sentiment(session),
+            analyze_portfolio_with_v2_features(session) if ENABLE_V2_FEATURES else analyze_portfolio_watchlist(session)
+        ])
         
-        if ENABLE_V2_FEATURES:
-            portfolio_task = analyze_portfolio_with_v2_features(session)
-        else:
-            portfolio_task = analyze_portfolio_watchlist(session)
-        
-        results = await asyncio.gather(
-            asyncio.gather(*stock_tasks), 
-            context_task, 
-            news_task, 
-            macro_task, 
-            portfolio_task
-        )
-        
-        stock_results_raw, context_data, market_news, macro_data, portfolio_data = results
+        results = await asyncio.gather(*tasks)
+        stock_results_raw = results[:len(universe)]
+        context_data, market_news, macro_data, portfolio_data = results[len(universe):]
         
     stock_results = sorted([r for r in stock_results_raw if r], key=lambda x: x['score'], reverse=True)
     df_stocks = pd.DataFrame(stock_results) if stock_results else pd.DataFrame()
-    pattern_data = await find_historical_patterns(session, macro_data)
+    pattern_data = await find_historical_patterns(None, macro_data)
     portfolio_recommendations = None
     if pattern_data and portfolio_data:
         portfolio_recommendations = await generate_portfolio_recommendations_from_pattern(portfolio_data, pattern_data, macro_data)
@@ -1976,9 +1938,10 @@ async def main(output="print", check_emails=False):
             <div class="section" style="background-color:#e0f2fe;border-left:4px solid #0284c7;padding:25px;">
                 <h2>🤖 ASK ME ANYTHING - NEW!</h2>
                 <p style="font-size:1.1em;margin:10px 0;"><b>Simply reply to this email with any market question!</b></p>
-                <p style="font-size:0.9em;color:#666;"><i>Examples: "Why is NVDA volatile?" • "What are my best stocks?" • "Should I sell AMD?"</i></p>
+                <p style="font-size:0.9em;color:#666;"><i>Examples: "Why is NVDA volatile?" • "What are my best stocks?"</i></p>
             </div>
             """
+            # FIX 4: Use a reliable placeholder replacement
             html_email = html_email.replace("<!-- BOT_INSTRUCTIONS_HERE -->", bot_section)
         
         send_email(html_email)
@@ -1986,32 +1949,15 @@ async def main(output="print", check_emails=False):
     if not df_stocks.empty:
         save_memory({"previous_top_stock_name": df_stocks.iloc[0]['name'], "previous_top_stock_ticker": df_stocks.iloc[0]['ticker'], "previous_macro_score": macro_data.get('overall_macro_score', 0), "date": datetime.date.today().isoformat()})
     
-    logging.info("✅ Analysis complete with v3.0 features.")
+    logging.info("✅ Analysis complete.")
 
 if __name__ == "__main__":
-    # Create a parser that understands both --output and --check-emails
     parser = argparse.ArgumentParser(description="Market Analysis and Email Bot")
-    
-    parser.add_argument(
-        "--output", 
-        default="print", 
-        choices=["print", "email"], 
-        help="Run the full analysis and output to print or email."
-    )
-    
-    # This is the crucial missing line that defines the --check-emails flag
-    parser.add_argument(
-        "--check-emails", 
-        action="store_true", 
-        help="Only check for and respond to emails, skipping the main analysis."
-    )
-    
+    parser.add_argument("--output", default="print", choices=["print", "email"], help="Run the full analysis and output to print or email.")
+    parser.add_argument("--check-emails", action="store_true", help="Only check for and respond to emails.")
     args = parser.parse_args()
     
-    # Set event loop policy for Windows if needed
     if os.name == 'nt':
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     
-    # Call the main function and pass the arguments correctly
-    # If --check-emails is used, args.check_emails will be True
     asyncio.run(main(output=args.output, check_emails=args.check_emails))
