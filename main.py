@@ -1990,9 +1990,13 @@ async def main(output="print", check_emails=False):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--output", default="print", choices=["print", "email"])
-    parser.add_argument("--check-emails", action="store_true", help="Check and respond to emails")
+    parser.add_argument("--output", default="print", choices=["print", "email"], help="Run the full analysis and output to print or email.")
+    # This line tells the script to recognize --check-emails
+    parser.add_argument("--check-emails", action="store_true", help="Only check for and respond to emails.")
     args = parser.parse_args()
+    
     if os.name == 'nt':
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+    
+    # This passes the flag to the main function
     asyncio.run(main(output=args.output, check_emails=args.check_emails))
