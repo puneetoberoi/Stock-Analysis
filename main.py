@@ -1989,14 +1989,29 @@ async def main(output="print", check_emails=False):
     logging.info("✅ Analysis complete with v3.0 features.")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--output", default="print", choices=["print", "email"], help="Run the full analysis and output to print or email.")
-    # This line tells the script to recognize --check-emails
-    parser.add_argument("--check-emails", action="store_true", help="Only check for and respond to emails.")
+    # Create a parser that understands both --output and --check-emails
+    parser = argparse.ArgumentParser(description="Market Analysis and Email Bot")
+    
+    parser.add_argument(
+        "--output", 
+        default="print", 
+        choices=["print", "email"], 
+        help="Run the full analysis and output to print or email."
+    )
+    
+    # This is the crucial missing line that defines the --check-emails flag
+    parser.add_argument(
+        "--check-emails", 
+        action="store_true", 
+        help="Only check for and respond to emails, skipping the main analysis."
+    )
+    
     args = parser.parse_args()
     
+    # Set event loop policy for Windows if needed
     if os.name == 'nt':
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     
-    # This passes the flag to the main function
+    # Call the main function and pass the arguments correctly
+    # If --check-emails is used, args.check_emails will be True
     asyncio.run(main(output=args.output, check_emails=args.check_emails))
