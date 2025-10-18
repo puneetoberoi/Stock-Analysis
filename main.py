@@ -2005,7 +2005,7 @@ class EmailConversationBot:
         # Step 1: Gather all context
         latest = self.db.get_latest_analysis()
         
-        # Step 2: Get relevant portfolio data
+        # Step 2: Get relevant portfolio data (FIXED)
         portfolio_context = ""
         if latest and latest.get('portfolio_data'):
             stocks_mentioned = []
@@ -2014,23 +2014,36 @@ class EmailConversationBot:
                     stocks_mentioned.append(stock)
             
             if stocks_mentioned:
-                portfolio_context = f"Portfolio stocks mentioned: {json.dumps([{
-                    'ticker': s['ticker'],
-                    'price': s.get('price', 0),
-                    'rsi': s.get('rsi', 0),
-                    'daily_change': s.get('daily_change', 0),
-                    'recommendation': latest.get('recommendations', {}).get('final_verdicts', {}).get(s['ticker'], {})
-                } for s in stocks_mentioned], indent=2)}"
+                # Create the portfolio data structure first
+                portfolio_data_list = []
+                for s in stocks_mentioned:
+                    stock_data = {
+                        'ticker': s['ticker'],
+                        'price': s.get('price', 0),
+                        'rsi': s.get('rsi', 0),
+                        'daily_change': s.get('daily_change', 0),
+                        'recommendation': latest.get('recommendations', {}).get('final_verdicts', {}).get(s['ticker'], {})
+                    }
+                    portfolio_data_list.append(stock_data)
+                # Then convert to JSON string
+                portfolio_context = f"Portfolio stocks mentioned: {json.dumps(portfolio_data_list, indent=2)}"
         
-        # Step 3: Get latest market intelligence
+        # Step 3: Get latest market intelligence (FIXED)
         market_context = ""
         if latest:
-            market_context = f"""
-            Latest Market Analysis:
-            - Macro Score: {latest.get('macro_data', {}).get('overall_macro_score', 'N/A')}
-            - Top Opportunities: {[f"{k}: {v['action']}" for k,v in latest.get('recommendations', {}).get('final_verdicts', {}).items() if 'BUY' in v.get('action', '')][:3]}
-            - Pattern Prediction: {latest.get('pattern_data', {}).get('avg_return_3m', 'N/A')}% expected over 3 months
-            """
+            # Build opportunities list first
+            opportunities = []
+            if latest.get('recommendations', {}).get('final_verdicts'):
+                for k, v in latest['recommendations']['final_verdicts'].items():
+                    if 'BUY' in v.get('action', ''):
+                        opportunities.append(f"{k}: {v['action']}")
+                        if len(opportunities) >= 3:
+                            break
+            
+            market_context = f"""Latest Market Analysis:
+- Macro Score: {latest.get('macro_data', {}).get('overall_macro_score', 'N/A')}
+- Top Opportunities: {opportunities[:3]}
+- Pattern Prediction: {latest.get('pattern_data', {}).get('avg_return_3m', 'N/A')}% expected over 3 months"""
         
         # Step 4: ALWAYS do DuckDuckGo search for real-time info
         logging.info("🔍 Searching DuckDuckGo for latest information...")
@@ -2055,7 +2068,7 @@ class EmailConversationBot:
                 model = genai.GenerativeModel('gemini-1.5-flash')
                 
                 ai_prompt = f"""You are an elite financial advisor responding to a client's question. 
-                Synthesize ALL the following information to give a sharp, actionable answer.
+Synthesize ALL the following information to give a sharp, actionable answer.
 
 CLIENT QUESTION: {question}
 
