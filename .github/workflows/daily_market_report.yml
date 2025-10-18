@@ -1,40 +1,48 @@
-name: Daily Market Analysis
+name: Daily Market Report
 
 on:
   schedule:
-    - cron: '0 12 * * 1-5'  # 12 PM UTC, Mon-Fri
-  workflow_dispatch:
+    # Runs at 9:00 AM PST/PDT
+    - cron: "0 17 * * *"   # 17:00 UTC = 9 AM PST
+  workflow_dispatch:       # Manual trigger for testing
 
 jobs:
-  analyze:
-    runs-on: ubuntu-latest
-    
+  run-report:
+    runs-on: ubuntu-22.04
+
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4  # Updated to v4
-      
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
       - name: Set up Python
-        uses: actions/setup-python@v5  # Updated to v5
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      
-      - name: Cache dependencies
-        uses: actions/cache@v4  # Updated to v4
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
-      
+
       - name: Install dependencies
         run: |
-          pip install --upgrade pip
-          pip install yfinance pandas numpy requests python-dateutil PyYAML pandas_ta ta finnhub-pytho newsapi-python lxml beautifulsoup4 scikit-learn vaderSentiment aiohttp asyncio-throttle google-generativeai html5lib
-      
-      - name: Run analysis and send email
+          python -m pip install --upgrade pip
+          pip install pandas yfinance requests numpy aiohttp beautifulsoup4 lxml
+          pip install vaderSentiment ta asyncio-throttle
+          pip install google-generativeai  # For Gemini AI
+          
+      - name: Run daily market report
         env:
           NEWSAPI_KEY: ${{ secrets.NEWSAPI_KEY }}
           FINNHUB_KEY: ${{ secrets.FINNHUB_KEY }}
           ALPHAVANTAGE_KEY: ${{ secrets.ALPHAVANTAGE_KEY }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}  # New!
           SMTP_USER: ${{ secrets.SMTP_USER }}
           SMTP_PASS: ${{ secrets.SMTP_PASS }}
-        run: python main.py --output email
+        run: |
+          python main.py --output email
+
+      - name: Commit memory file
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add market_memory.json sp500_cache.json tsx_cache.json 2>/dev/null || true
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Update market memory and cache [skip ci]" && git push)
