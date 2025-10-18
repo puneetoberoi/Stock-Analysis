@@ -11,15 +11,15 @@ jobs:
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4  # Updated to v4
       
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5  # Updated to v5
         with:
           python-version: '3.11'
       
       - name: Cache dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4  # Updated to v4
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
@@ -29,13 +29,6 @@ jobs:
           pip install --upgrade pip
           pip install -r requirements.txt
       
-      # NEW: Download previous database if exists
-      - name: Download previous database
-        uses: actions/download-artifact@v3
-        with:
-          name: market-intel-db
-        continue-on-error: true
-      
       - name: Run analysis and send email
         env:
           NEWSAPI_KEY: ${{ secrets.NEWSAPI_KEY }}
@@ -44,14 +37,4 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           SMTP_USER: ${{ secrets.SMTP_USER }}
           SMTP_PASS: ${{ secrets.SMTP_PASS }}
-          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
-          GOOGLE_CSE_ID: ${{ secrets.GOOGLE_CSE_ID }}
         run: python main.py --output email
-      
-      # NEW: Upload database for bot to use
-      - name: Upload database
-        uses: actions/upload-artifact@v3
-        with:
-          name: market-intel-db
-          path: market_intel.db
-          retention-days: 7
