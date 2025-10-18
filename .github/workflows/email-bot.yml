@@ -23,6 +23,7 @@ jobs:
           pip install --upgrade pip
           pip install pandas yfinance requests numpy aiohttp beautifulsoup4 lxml
           pip install vaderSentiment ta asyncio-throttle
+          pip install google-generativeai
       
       - name: Check and respond to emails
         env:
