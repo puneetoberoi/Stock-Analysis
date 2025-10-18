@@ -1695,6 +1695,11 @@ def send_email(html_body):
 # Complete implementation with all fixes
 # ========================================
 
+# ========================================
+# 🚀 v3.0.0 - EMAIL CONVERSATION BOT
+# Complete implementation with all fixes
+# ========================================
+
 # v3.0 Feature Flags
 ENABLE_EMAIL_BOT = True
 ENABLE_DATA_PERSISTENCE = True
@@ -1924,15 +1929,35 @@ class EmailConversationBot:
         return "\n".join(response_parts)
 
     def send_response(self, to_email, question, response):
+        """Send email response to user's question"""
+        import smtplib  # Import here for bot's email sending
+        
         msg = MIMEMultipart()
-        msg['Subject'], msg['From'], msg['To'] = "Re: Your market analysis question", self.smtp_user, to_email
-        body = f"Thank you for your question:\n\n> {question}\n\n💡 My Analysis:\n{response}\n\n---\n🤖 Market Intelligence Bot"
+        msg['Subject'] = "Re: Your market analysis question"
+        msg['From'] = self.smtp_user
+        msg['To'] = to_email
+        
+        body = f"""Thank you for your question:
+
+> {question}
+
+💡 My Analysis:
+{response}
+
+---
+🤖 Market Intelligence Bot
+Reply to this email with more questions anytime!</body>"""
+        
         msg.attach(MIMEText(body, 'plain'))
+        
         try:
             with smtplib.SMTP('smtp.gmail.com', 587) as server:
-                server.starttls(); server.login(self.smtp_user, self.smtp_pass); server.send_message(msg)
+                server.starttls()
+                server.login(self.smtp_user, self.smtp_pass)
+                server.send_message(msg)
             logging.info(f"✅ Sent response to {to_email}")
-        except Exception as e: logging.error(f"Failed to send response: {e}")
+        except Exception as e:
+            logging.error(f"Failed to send response: {e}")
 
 
 # ========================================
