@@ -1710,6 +1710,17 @@ def send_email(html_body):
 # Complete replacement from line 1703 onwards
 # ========================================
 
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+import email
+import email.header
+import email.utils
+import imaplib
+import socket
+import re
+import sqlite3
+
 import subprocess
 import sys
 
