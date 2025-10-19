@@ -1707,8 +1707,7 @@ def send_email(html_body):
 
 # ========================================
 # 🚀 ULTRA INTELLIGENCE MODULE v5.0.0
-# Adds FREE web search, charts, rich HTML
-# Place this AFTER line 1703 (stable foundation)
+# Complete replacement from line 1703 onwards
 # ========================================
 
 import subprocess
@@ -2251,7 +2250,8 @@ class EnhancedAIAnalyst:
         # Check company names
         companies = {
             'apple': 'AAPL', 'microsoft': 'MSFT', 'google': 'GOOGL',
-            'amazon': 'AMZN', 'tesla': 'TSLA', 'nvidia': 'NVDA'
+            'amazon': 'AMZN', 'tesla': 'TSLA', 'nvidia': 'NVDA',
+            'meta': 'META', 'facebook': 'META'
         }
         
         q_lower = question.lower()
@@ -2360,18 +2360,192 @@ Provide a clear, actionable response with specific recommendations. Be concise b
         return response
 
 # ========================================
+# v3.0 Feature Flags
+# ========================================
+
+ENABLE_EMAIL_BOT = True
+ENABLE_DATA_PERSISTENCE = True
+
+def clean_for_json(obj):
+    """Convert numpy/pandas types for JSON serialization"""
+    if isinstance(obj, np.bool_):
+        return bool(obj)
+    if isinstance(obj, np.integer):
+        return int(obj)
+    if isinstance(obj, np.floating):
+        return float(obj)
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    if isinstance(obj, dict):
+        return {k: clean_for_json(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [clean_for_json(i) for i in obj]
+    return obj
+
+class MarketIntelligenceDB:
+    """v3.0: Persistent storage for analysis data"""
+    def __init__(self, db_path='market_intel.db'):
+        self.conn = sqlite3.connect(db_path)
+        self.init_schema()
+    
+    def init_schema(self):
+        self.conn.executescript('''
+            CREATE TABLE IF NOT EXISTS daily_analysis (
+                date TEXT PRIMARY KEY, portfolio_data TEXT, pattern_data TEXT, macro_data TEXT,
+                stock_scores TEXT, ai_analysis TEXT, recommendations TEXT
+            );
+            CREATE TABLE IF NOT EXISTS conversations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT, user_question TEXT,
+                bot_response TEXT, context TEXT
+            );
+        ''')
+        self.conn.commit()
+    
+    def save_daily_analysis(self, date, portfolio_data, pattern_data, macro_data, 
+                           stock_scores, ai_analysis, recommendations):
+        try:
+            self.conn.execute('''
+                INSERT OR REPLACE INTO daily_analysis 
+                (date, portfolio_data, pattern_data, macro_data, stock_scores, ai_analysis, recommendations)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                date,
+                json.dumps(clean_for_json(portfolio_data)), json.dumps(clean_for_json(pattern_data)),
+                json.dumps(clean_for_json(macro_data)), json.dumps(clean_for_json(stock_scores)),
+                json.dumps(clean_for_json(ai_analysis)), json.dumps(clean_for_json(recommendations))
+            ))
+            self.conn.commit()
+            logging.info(f"✅ Saved analysis data for {date}")
+        except Exception as e:
+            logging.error(f"Failed to save analysis to DB: {e}")
+
+    def get_latest_analysis(self):
+        cursor = self.conn.execute('SELECT * FROM daily_analysis ORDER BY date DESC LIMIT 1')
+        row = cursor.fetchone()
+        if not row: return None
+        return {
+            'date': row[0], 'portfolio_data': json.loads(row[1]) if row[1] else None,
+            'pattern_data': json.loads(row[2]) if row[2] else None, 'macro_data': json.loads(row[3]) if row[3] else None,
+            'stock_scores': json.loads(row[4]) if row[4] else None, 'ai_analysis': json.loads(row[5]) if row[5] else None,
+            'recommendations': json.loads(row[6]) if row[6] else None
+        }
+
+# ========================================
 # ULTRA PRODUCTION EMAIL BOT
 # ========================================
 
-class UltraProductionEmailBot(ProductionEmailBot):
-    """Enhanced bot with all features"""
-    
+class UltraProductionEmailBot:
+    """v5.0: Ultra bot with all enhancements"""
     def __init__(self):
-        super().__init__()
+        self.db = MarketIntelligenceDB()
+        self.smtp_user = os.getenv("SMTP_USER")
+        self.smtp_pass = os.getenv("SMTP_PASS")
+        self.imap_server = "imap.gmail.com"
         self.ai_analyst = EnhancedAIAnalyst()
     
-    def generate_production_response(self, question):
-        """Override with ultra response"""
+    def check_for_questions(self):
+        """Check emails for questions"""
+        try:
+            logging.info("📧 Checking for email questions...")
+            
+            mail = imaplib.IMAP4_SSL(self.imap_server, timeout=15)
+            mail.login(self.smtp_user, self.smtp_pass)
+            mail.select('inbox')
+            
+            since_date = (datetime.now() - timedelta(days=7)).strftime("%d-%b-%Y")
+            
+            # Search for unread briefing emails
+            _, search_data = mail.search(None, f'(UNSEEN SINCE {since_date} SUBJECT "Daily Market Briefing")')
+            matching_emails = search_data[0].split()
+            
+            if not matching_emails:
+                logging.info("✅ No unread briefing emails")
+                mail.close()
+                mail.logout()
+                return
+            
+            # Process newest 2 emails
+            for num in list(reversed(matching_emails))[:2]:
+                try:
+                    _, data = mail.fetch(num, '(RFC822)')
+                    email_message = email.message_from_bytes(data[0][1])
+                    
+                    # Decode subject
+                    subject_raw = email_message.get('Subject', '')
+                    try:
+                        decoded_parts = email.header.decode_header(subject_raw)
+                        subject = ''
+                        for part, encoding in decoded_parts:
+                            if isinstance(part, bytes):
+                                subject += part.decode(encoding or 'utf-8', errors='ignore')
+                            else:
+                                subject += str(part)
+                    except:
+                        subject = str(subject_raw)
+                    
+                    sender = email.utils.parseaddr(email_message['From'])[1]
+                    
+                    # Extract question
+                    question = self.extract_question(email_message)
+                    
+                    if question and len(question.strip()) > 10:
+                        logging.info(f"❓ Q: '{question[:80]}...'")
+                        
+                        # ULTRA RESPONSE PIPELINE
+                        response = self.generate_ultra_response(question)
+                        
+                        self.send_response(sender, question, response)
+                        mail.store(num, '+FLAGS', '\\Seen')
+                        logging.info(f"✅ Answered and sent")
+                    else:
+                        mail.store(num, '+FLAGS', '\\Seen')
+                
+                except Exception as e:
+                    logging.error(f"Error processing email: {e}")
+                    continue
+            
+            mail.close()
+            mail.logout()
+            logging.info("✅ Email check complete")
+            
+        except Exception as e:
+            logging.error(f"Email bot error: {e}")
+    
+    def extract_question(self, msg):
+        """Extract question from email"""
+        body = ""
+        
+        if msg.is_multipart():
+            for part in msg.walk():
+                if part.get_content_type() == "text/plain":
+                    try:
+                        body = part.get_payload(decode=True).decode('utf-8', errors='ignore')
+                        break
+                    except:
+                        continue
+        else:
+            try:
+                body = msg.get_payload(decode=True).decode('utf-8', errors='ignore')
+            except:
+                body = str(msg.get_payload())
+        
+        # Clean up
+        lines = []
+        for line in body.split('\n'):
+            if any(m in line.lower() for m in ['wrote:', 'from:', 'sent:', '----', 'original message']):
+                break
+            if line.strip().startswith('>') or line.strip().startswith('--'):
+                continue
+            if line.strip():
+                lines.append(line.strip())
+        
+        question = ' '.join(lines).strip()
+        question = re.sub(r'\s+', ' ', question)
+        
+        return question
+    
+    def generate_ultra_response(self, question):
+        """Generate ultra response with all enhancements"""
         logging.info("🚀 ULTRA response generation starting...")
         
         try:
@@ -2387,8 +2561,7 @@ class UltraProductionEmailBot(ProductionEmailBot):
             
         except Exception as e:
             logging.error(f"Ultra generation error: {e}")
-            # Fallback to parent method
-            return super().generate_production_response(question)
+            return f"<html><body><h1>Error generating response</h1><p>{str(e)}</p></body></html>"
     
     def send_response(self, to_email, question, response):
         """Send HTML response"""
@@ -2414,3 +2587,140 @@ class UltraProductionEmailBot(ProductionEmailBot):
             logging.info("✅ Ultra HTML response sent")
         except Exception as e:
             logging.error(f"Send failed: {e}")
+
+# ========================================
+# MAIN EXECUTION FUNCTION
+# ========================================
+
+async def main(output="print", check_emails=False):
+    """
+    Main execution - handles both analysis and email bot modes
+    """
+    
+    # EMAIL BOT MODE - Just check emails and respond
+    if check_emails:
+        if ENABLE_EMAIL_BOT:
+            logging.info("🤖 EMAIL BOT MODE: Checking for questions...")
+            bot = UltraProductionEmailBot()  # ✅ USES ULTRA BOT
+            bot.check_for_questions()
+            logging.info("✅ Email bot check complete")
+        else:
+            logging.warning("❌ Email bot is disabled (ENABLE_EMAIL_BOT=False)")
+        return
+
+    # FULL ANALYSIS MODE - Run complete market analysis
+    logging.info("📊 FULL ANALYSIS MODE: Running market intelligence scan...")
+    previous_day_memory = load_memory()
+    
+    sp500 = get_cached_tickers('sp500_cache.json', fetch_sp500_tickers_sync)
+    tsx = get_cached_tickers('tsx_cache.json', fetch_tsx_tickers_sync)
+    universe = (sp500 or [])[:75] + (tsx or [])[:25]
+    
+    throttler = Throttler(2)
+    semaphore = asyncio.Semaphore(10)
+    
+    async with aiohttp.ClientSession() as session:
+        stock_tasks = [analyze_stock(semaphore, throttler, session, ticker) for ticker in universe]
+        context_task = fetch_context_data(session)
+        news_task = fetch_market_headlines(session)
+        macro_task = fetch_macro_sentiment(session)
+        
+        if ENABLE_V2_FEATURES:
+            portfolio_task = analyze_portfolio_with_v2_features(session)
+        else:
+            portfolio_task = analyze_portfolio_watchlist(session)
+        
+        results = await asyncio.gather(
+            asyncio.gather(*stock_tasks), 
+            context_task, 
+            news_task, 
+            macro_task, 
+            portfolio_task
+        )
+        
+        stock_results_raw, context_data, market_news, macro_data, portfolio_data = results
+        
+        stock_results = sorted([r for r in stock_results_raw if r], key=lambda x: x['score'], reverse=True)
+        df_stocks = pd.DataFrame(stock_results) if stock_results else pd.DataFrame()
+
+        pattern_data = await find_historical_patterns(session, macro_data)
+        
+        portfolio_recommendations = None
+        if pattern_data and portfolio_data:
+            portfolio_recommendations = await generate_portfolio_recommendations_from_pattern(
+                portfolio_data, pattern_data, macro_data
+            )
+        
+        market_summary = {
+            'macro': macro_data,
+            'top_stock': stock_results[0] if stock_results else {},
+            'bottom_stock': stock_results[-1] if stock_results else {}
+        }
+        ai_analysis = await generate_ai_oracle_analysis(market_summary, portfolio_data, pattern_data)
+    
+    # Save analysis to database for email bot
+    if ENABLE_DATA_PERSISTENCE:
+        db = MarketIntelligenceDB()
+        db.save_daily_analysis(
+            datetime.now().date().isoformat(),
+            portfolio_data,
+            pattern_data,
+            macro_data,
+            df_stocks.head(20).to_dict('records') if not df_stocks.empty else [],
+            ai_analysis,
+            portfolio_recommendations
+        )
+        logging.info("💾 Analysis saved to database")
+    
+    # Send email if requested
+    if output == "email":
+        html_email = generate_enhanced_html_email(
+            df_stocks, context_data, market_news, macro_data, 
+            previous_day_memory, portfolio_data, pattern_data, 
+            ai_analysis, portfolio_recommendations
+        )
+        send_email(html_email)
+        logging.info("📧 Daily briefing email sent")
+    
+    # Save memory for next run
+    if not df_stocks.empty:
+        save_memory({
+            "previous_top_stock_name": df_stocks.iloc[0]['name'],
+            "previous_top_stock_ticker": df_stocks.iloc[0]['ticker'],
+            "previous_macro_score": macro_data.get('overall_macro_score', 0),
+            "date": datetime.now().date().isoformat()
+        })
+    
+    logging.info("✅ Analysis complete with v5.0.0 features.")
+
+# ========================================
+# PROGRAM ENTRY POINT
+# ========================================
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Market Intelligence System - Daily Analysis & Email Bot"
+    )
+    parser.add_argument(
+        "--output", 
+        default="print", 
+        choices=["print", "email"], 
+        help="Where to send analysis: 'print' to console or 'email' to inbox"
+    )
+    parser.add_argument(
+        "--check-emails", 
+        action="store_true", 
+        help="Email bot mode: Check inbox for questions and auto-respond"
+    )
+    
+    args = parser.parse_args()
+    
+    # Windows event loop compatibility
+    if os.name == 'nt':
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+    
+    logging.info("=" * 60)
+    logging.info("🚀 MARKET INTELLIGENCE SYSTEM v5.0.0 ULTRA")
+    logging.info("=" * 60)
+    
+    asyncio.run(main(output=args.output, check_emails=args.check_emails))
