@@ -2236,7 +2236,11 @@ Be confident and specific. Use the data provided."""
     def generate_data_driven_response(self, question, data_package, formatted_data):
         """Generate high-quality response from data (no AI needed)"""
         
-        response = f"""Thank you for your question.
+        # Check if question is within bot's capabilities
+        if self.is_question_out_of_scope(question):
+            return self.handle_out_of_scope_question(question, data_package)
+        
+        response = f"""Based on my analysis:
 
 {formatted_data}
 
@@ -2248,47 +2252,116 @@ Be confident and specific. Use the data provided."""
         if data_package['market_prices']:
             # We have price data - provide price analysis
             for asset, info in data_package['market_prices'].items():
-                response += f"\n**{asset.upper()} Analysis:**\n"
-                response += f"Currently trading at ${info['current']:.2f}, "
+                response += f"\n**{asset.upper()} Market Analysis:**\n"
+                response += f"Currently at ${info['current']:.2f}, "
                 
                 if info['monthly_change'] > 15:
-                    response += f"showing strong momentum with a {info['monthly_change']:+.1f}% monthly gain. "
+                    response += f"up {info['monthly_change']:+.1f}% this month - strong bullish momentum. "
+                    response += "This rally has been driven by industrial demand and investment flows. "
                 elif info['monthly_change'] < -15:
-                    response += f"under pressure with a {info['monthly_change']:+.1f}% monthly decline. "
+                    response += f"down {info['monthly_change']:+.1f}% this month - bearish pressure. "
                 else:
-                    response += f"relatively stable with {info['monthly_change']:+.1f}% monthly movement. "
+                    response += f"{info['monthly_change']:+.1f}% monthly - consolidating. "
                 
                 # Position in range
                 range_position = ((info['current'] - info['low_52w']) / (info['high_52w'] - info['low_52w'])) * 100
                 
-                if range_position > 80:
-                    response += "Near 52-week highs - watch for resistance. "
+                if range_position > 85:
+                    response += f"Trading at {range_position:.0f}% of 52-week range - extended territory. "
+                    response += "Consider waiting for pullback before adding positions. "
                 elif range_position < 20:
-                    response += "Near 52-week lows - potential support zone. "
+                    response += f"At {range_position:.0f}% of 52-week range - potential value zone. "
+                    response += "Could be attractive entry point for long-term holders. "
+                else:
+                    response += f"Mid-range at {range_position:.0f}% of 52-week span - balanced risk/reward. "
                 
                 response += "\n"
         
         if data_package['recommendations']:
-            response += "\n**My Portfolio Recommendations:**\n"
+            response += "\n**Portfolio Action Items:**\n"
             for ticker, rec in data_package['recommendations'].items():
                 response += f"• {ticker}: {rec['action']} ({rec['confidence']} confidence)\n"
-                response += f"  Reason: {rec['reason']}\n"
+                response += f"  {rec['reason']}\n"
         
         # Add context-specific advice
         if 'buy' in q_lower or 'invest' in q_lower:
-            response += "\n💡 **Investment Considerations:**\n"
-            response += "Consider dollar-cost averaging to reduce timing risk. "
-            response += "Ensure this fits your overall portfolio allocation and risk tolerance."
+            response += "\n**Investment Strategy:**\n"
+            if data_package['market_prices']:
+                for asset, info in data_package['market_prices'].items():
+                    if info['monthly_change'] > 20:
+                        response += f"⚠️ {asset.upper()} has rallied hard. Consider scaling in gradually rather than lump-sum buying. "
+                    break
+            response += "Use dollar-cost averaging to mitigate timing risk. Set stop-losses to protect capital."
         
         elif 'sell' in q_lower:
-            response += "\n💡 **Exit Strategy:**\n"
-            response += "Review your original thesis and profit targets. "
-            response += "Consider taking partial profits while maintaining exposure if fundamentals remain strong."
+            response += "\n**Exit Considerations:**\n"
+            response += "Review: (1) Are you up from your entry? (2) Has the fundamental thesis changed? (3) Do you need the capital elsewhere? "
+            response += "If unsure, consider taking 25-50% profits and letting the rest run."
         
-        elif 'demand' in q_lower or 'projects' in q_lower:
-            response += "\n💡 **For Detailed Project Data:**\n"
-            response += "Check the Silver Institute's quarterly reports, major mining company investor presentations, "
-            response += "and industry databases like S&P Global Market Intelligence for comprehensive project lists."
+        return response
+    
+    def is_question_out_of_scope(self, question):
+        """Check if question is outside bot's capabilities"""
+        out_of_scope_patterns = [
+            r'top \d+ .*projects',  # "top 50 projects"
+            r'list of.*companies',  # "list of companies"
+            r'which companies',
+            r'name.*projects',
+            r'detailed list',
+            r'give me.*list'
+        ]
+        
+        import re
+        q_lower = question.lower()
+        
+        for pattern in out_of_scope_patterns:
+            if re.search(pattern, q_lower):
+                return True
+        
+        return False
+    
+    def handle_out_of_scope_question(self, question, data_package):
+        """Handle questions that require specialized databases"""
+        
+        response = f"""I appreciate your detailed question, but I need to be honest about my capabilities.
+
+Your question asks for specific project lists/company databases that require specialized industry data sources I don't have access to.
+
+"""
+        
+        # Still provide any relevant data we DO have
+        if data_package['market_prices']:
+            response += "**What I CAN tell you:**\n\n"
+            
+            for asset, info in data_package['market_prices'].items():
+                response += f"{asset.upper()} is currently ${info['current']:.2f} ({info['monthly_change']:+.1f}% this month), "
+                
+                if info['monthly_change'] > 20:
+                    response += "showing exceptional strength driven by:\n"
+                    response += "• Industrial demand (solar panels, EVs, electronics)\n"
+                    response += "• Investment demand (inflation hedge)\n"
+                    response += "• Supply constraints from mining operations\n\n"
+                
+                response += f"**Investment Thesis:**\n"
+                response += f"If you're bullish on {asset}, consider:\n"
+                response += "• Major mining companies (First Majestic, Pan American Silver, Wheaton Precious Metals)\n"
+                response += "• Silver ETFs (SLV, PSLV) for direct exposure\n"
+                response += "• Mining ETFs (SIL, SILJ) for diversified sector play\n\n"
+        
+        response += """**For detailed project lists:**
+I recommend these specialized sources:
+• S&P Global Market Intelligence (paid database)
+• Silver Institute Quarterly Reports (free)
+• Mining company investor presentations
+• Kitco's mining directory
+
+**Questions I CAN answer confidently:**
+• "Should I buy silver at current prices?"
+• "Is NVDA a good investment right now?"
+• "What's your take on my portfolio stocks?"
+• "When should I take profits on XYZ?"
+
+Would you like analysis on any of these instead?"""
         
         return response
     
