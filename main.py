@@ -1209,8 +1209,10 @@ async def generate_portfolio_recommendations_from_pattern(portfolio_data, patter
 # MAIN FUNCTION - Updated for v2.0.0
 # ========================================
 
-async def main(output="print"):
+async def main(output="print", check_emails=False):
     previous_day_memory = load_memory()
+    if check_emails:
+        logging.info("Email checking feature not yet implemented")
     
     sp500 = get_cached_tickers('sp500_cache.json', fetch_sp500_tickers_sync)
     tsx = get_cached_tickers('tsx_cache.json', fetch_tsx_tickers_sync)
