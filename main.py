@@ -1773,8 +1773,8 @@ class MarketIntelligenceDB:
             'recommendations': json.loads(row[6]) if row[6] else None
         }
 
-class EmailConversationBot:
-    """v4.0: Premium email bot with clean responses"""
+class ProductionEmailBot:
+    """v5.0: Production-grade bot with real data + AI enhancement"""
     def __init__(self):
         self.db = MarketIntelligenceDB()
         self.smtp_user = os.getenv("SMTP_USER")
@@ -1795,17 +1795,8 @@ class EmailConversationBot:
             since_date = (dt.now() - timedelta(days=7)).strftime("%d-%b-%Y")
             
             # Search for unread briefing emails
-            searches = [
-                f'(UNSEEN SINCE {since_date} SUBJECT "Daily Market Briefing")',
-                '(UNSEEN SUBJECT "Market Briefing")',
-            ]
-            
-            matching_emails = []
-            for search_query in searches:
-                _, search_data = mail.search(None, search_query)
-                matching_emails = search_data[0].split()
-                if matching_emails:
-                    break
+            _, search_data = mail.search(None, f'(UNSEEN SINCE {since_date} SUBJECT "Daily Market Briefing")')
+            matching_emails = search_data[0].split()
             
             if not matching_emails:
                 logging.info("✅ No unread briefing emails")
@@ -1838,26 +1829,29 @@ class EmailConversationBot:
                     question = self.extract_question(email_message)
                     
                     if question and len(question.strip()) > 10:
-                        logging.info(f"❓ Question: '{question[:80]}...'")
+                        logging.info(f"❓ Q: '{question[:80]}...'")
                         
-                        # Generate premium response
-                        response = self.generate_premium_response(question)
+                        # PRODUCTION RESPONSE PIPELINE
+                        response = self.generate_production_response(question)
                         
                         self.send_response(sender, question, response)
                         mail.store(num, '+FLAGS', '\\Seen')
-                        logging.info(f"✅ Answered")
+                        logging.info(f"✅ Answered and sent")
                     else:
                         mail.store(num, '+FLAGS', '\\Seen')
                 
                 except Exception as e:
-                    logging.error(f"Error: {e}")
+                    logging.error(f"Error processing email: {e}")
                     continue
             
             mail.close()
             mail.logout()
+            logging.info("✅ Email check complete")
             
         except Exception as e:
             logging.error(f"Email bot error: {e}")
+            import traceback
+            logging.error(traceback.format_exc())
     
     def extract_question(self, msg):
         """Extract question from email"""
@@ -1880,245 +1874,434 @@ class EmailConversationBot:
         # Clean up
         lines = []
         for line in body.split('\n'):
-            if any(m in line.lower() for m in ['wrote:', 'from:', 'sent:', '----']):
+            if any(m in line.lower() for m in ['wrote:', 'from:', 'sent:', '----', 'original message']):
                 break
             if line.strip().startswith('>') or line.strip().startswith('--'):
                 continue
             if line.strip():
                 lines.append(line.strip())
         
-        return ' '.join(lines).strip()
+        question = ' '.join(lines).strip()
+        question = re.sub(r'\s+', ' ', question)
+        
+        return question
     
-    def generate_premium_response(self, question):
-        """Generate PREMIUM AI-powered response"""
-        logging.info("🎯 Generating premium response...")
+    def generate_production_response(self, question):
+        """PRODUCTION: Real data → AI enhancement"""
+        logging.info("🏭 Production response pipeline starting...")
         
-        # STEP 1: Get market data (ticker info)
-        market_data = self.get_market_data(question)
+        # STAGE 1: Gather ALL real data
+        data_package = self.gather_real_data(question)
         
-        # STEP 2: Get web intelligence (clean)
-        web_intel = self.get_web_intelligence(question)
+        # STAGE 2: Format data cleanly
+        formatted_data = self.format_data_package(data_package)
         
-        # STEP 3: Get portfolio context
-        portfolio_context = self.get_portfolio_context(question)
-        
-        # STEP 4: Use Gemini AI for synthesis
+        # STAGE 3: Try AI enhancement (with graceful degradation)
         if GEMINI_API_KEY:
-            try:
-                genai.configure(api_key=GEMINI_API_KEY)
-                
-                # Use the correct Gemini model
-                model = genai.GenerativeModel('gemini-1.5-flash-002')
-                
-                prompt = f"""You are an elite financial advisor at a top hedge fund. A client asks:
-
-"{question}"
-
-Context you have:
-{market_data}
-{web_intel}
-{portfolio_context}
-
-Provide a premium, professional response that:
-1. Directly answers their question with confidence
-2. Uses specific data and numbers
-3. Gives clear actionable recommendations
-4. Explains the "why" behind your advice
-5. Mentions 2-3 key risks or opportunities
-6. Ends with a bold, contrarian insight
-
-Tone: Professional, confident, data-driven
-Length: 200-250 words
-Format: Clear paragraphs, no bullet points unless listing specific items"""
-
-                response = model.generate_content(
-                    prompt,
-                    generation_config=genai.types.GenerationConfig(
-                        temperature=0.75,
-                        max_output_tokens=500,
-                    )
-                )
-                
-                logging.info("✅ Premium AI response generated")
-                return response.text
-                
-            except Exception as e:
-                logging.warning(f"AI failed: {str(e)[:100]}, using enhanced fallback")
+            ai_response = self.try_ai_enhancement(question, formatted_data)
+            if ai_response:
+                logging.info("✅ AI enhancement successful")
+                return ai_response
         
-        # STEP 5: Premium fallback (no AI)
-        return self.generate_premium_fallback(question, market_data, web_intel, portfolio_context)
+        # STAGE 4: High-quality fallback (data-driven, not templated)
+        logging.info("📊 Using data-driven fallback")
+        return self.generate_data_driven_response(question, data_package, formatted_data)
     
-    def get_market_data(self, question):
-        """Get real-time market data"""
+    def gather_real_data(self, question):
+        """Gather all available real data"""
+        logging.info("📊 Gathering real data from multiple sources...")
+        
+        data = {
+            'market_prices': {},
+            'portfolio_data': {},
+            'news': [],
+            'macro_context': {},
+            'recommendations': {}
+        }
+        
+        # 1. Market prices (yfinance)
+        data['market_prices'] = self.get_market_prices(question)
+        
+        # 2. Portfolio context (database)
+        data['portfolio_data'] = self.get_portfolio_data(question)
+        
+        # 3. News (Finnhub if available)
+        data['news'] = self.get_financial_news(question)
+        
+        # 4. Macro context (from database)
+        data['macro_context'] = self.get_macro_context()
+        
+        # 5. Recommendations (from database)
+        data['recommendations'] = self.get_recommendations(question)
+        
+        logging.info(f"✅ Data gathered: {len([k for k,v in data.items() if v])} sources")
+        
+        return data
+    
+    def get_market_prices(self, question):
+        """Get real-time market prices"""
         try:
             import yfinance as yf
             
-            # Map keywords to tickers
             ticker_map = {
-                'silver': ('SI=F', 'Silver Futures'),
-                'gold': ('GC=F', 'Gold Futures'),
-                'oil': ('CL=F', 'Crude Oil'),
-                'bitcoin': ('BTC-USD', 'Bitcoin'),
-                'nvda': ('NVDA', 'NVIDIA'),
-                'nvidia': ('NVDA', 'NVIDIA'),
-                'aapl': ('AAPL', 'Apple'),
-                'apple': ('AAPL', 'Apple'),
-                'tsla': ('TSLA', 'Tesla'),
-                'tesla': ('TSLA', 'Tesla'),
+                'silver': 'SI=F',
+                'gold': 'GC=F',
+                'oil': 'CL=F',
+                'crude': 'CL=F',
+                'bitcoin': 'BTC-USD',
+                'btc': 'BTC-USD',
+                'ethereum': 'ETH-USD',
+                'eth': 'ETH-USD',
+                'spy': 'SPY',
+                's&p': 'SPY',
+                'nasdaq': 'QQQ',
+                'nvda': 'NVDA',
+                'nvidia': 'NVDA',
+                'aapl': 'AAPL',
+                'apple': 'AAPL',
+                'msft': 'MSFT',
+                'microsoft': 'MSFT',
+                'tsla': 'TSLA',
+                'tesla': 'TSLA',
+                'googl': 'GOOGL',
+                'google': 'GOOGL',
+                'amzn': 'AMZN',
+                'amazon': 'AMZN'
             }
             
             q_lower = question.lower()
+            prices = {}
             
-            for keyword, (ticker, name) in ticker_map.items():
+            for keyword, ticker in ticker_map.items():
                 if keyword in q_lower:
-                    stock = yf.Ticker(ticker)
-                    hist = stock.history(period='1mo')
-                    
-                    if not hist.empty:
-                        current = hist['Close'].iloc[-1]
-                        month_ago = hist['Close'].iloc[0]
-                        monthly_change = ((current - month_ago) / month_ago) * 100
+                    try:
+                        stock = yf.Ticker(ticker)
+                        hist = stock.history(period='3mo')
                         
-                        # Get 52-week range
-                        year_hist = stock.history(period='1y')
-                        if not year_hist.empty:
-                            high_52w = year_hist['High'].max()
-                            low_52w = year_hist['Low'].min()
+                        if not hist.empty:
+                            current = hist['Close'].iloc[-1]
+                            day_ago = hist['Close'].iloc[-2] if len(hist) > 1 else current
+                            week_ago = hist['Close'].iloc[-5] if len(hist) >= 5 else current
+                            month_ago = hist['Close'].iloc[0]
                             
-                            return f"""MARKET DATA: {name} trading at ${current:.2f} (
-{monthly_change:+.1f}% this month). 52-week range: ${low_52w:.2f}-${high_52w:.2f}."""
+                            daily_change = ((current - day_ago) / day_ago) * 100
+                            weekly_change = ((current - week_ago) / week_ago) * 100
+                            monthly_change = ((current - month_ago) / month_ago) * 100
+                            
+                            # 52-week range
+                            year_hist = stock.history(period='1y')
+                            high_52w = year_hist['High'].max() if not year_hist.empty else current
+                            low_52w = year_hist['Low'].min() if not year_hist.empty else current
+                            
+                            prices[keyword] = {
+                                'ticker': ticker,
+                                'current': current,
+                                'daily_change': daily_change,
+                                'weekly_change': weekly_change,
+                                'monthly_change': monthly_change,
+                                'high_52w': high_52w,
+                                'low_52w': low_52w
+                            }
+                            
+                            logging.info(f"   ✅ Got {keyword}: ${current:.2f}")
+                    except Exception as e:
+                        logging.debug(f"   ⚠️ Failed to get {keyword}: {e}")
+                        continue
             
-            return ""
-        except Exception as e:
-            logging.debug(f"Market data error: {e}")
-            return ""
-    
-    def get_web_intelligence(self, question):
-        """Get clean web intelligence"""
-        try:
-            # Use Finnhub for financial news (if available)
-            if FINNHUB_KEY:
-                import requests
-                url = f"https://finnhub.io/api/v1/news?category=general&token={FINNHUB_KEY}"
-                response = requests.get(url, timeout=10)
-                
-                if response.status_code == 200:
-                    articles = response.json()[:5]
-                    intel = "RECENT MARKET NEWS: "
-                    for article in articles:
-                        headline = article.get('headline', '')
-                        if any(word in headline.lower() for word in question.lower().split()[:3]):
-                            intel += f"{headline}. "
-                    
-                    if intel != "RECENT MARKET NEWS: ":
-                        return intel
-            
-            # Fallback: Use yfinance news
-            keywords = [w for w in question.lower().split() if len(w) > 4][:2]
-            if keywords:
-                return f"WEB CONTEXT: Current focus on {', '.join(keywords)} in financial markets."
-            
-            return ""
+            return prices
             
         except Exception as e:
-            logging.debug(f"Web intel error: {e}")
-            return ""
+            logging.error(f"Market prices error: {e}")
+            return {}
     
-    def get_portfolio_context(self, question):
-        """Get portfolio-specific context"""
+    def get_portfolio_data(self, question):
+        """Get portfolio-specific data"""
         try:
             latest = self.db.get_latest_analysis()
             
-            if not latest:
-                return ""
+            if not latest or not latest.get('portfolio_data'):
+                return {}
             
-            # Check if any portfolio stocks are mentioned
-            if latest.get('portfolio_data'):
-                for stock in latest['portfolio_data'].get('stocks', []):
-                    if stock['ticker'].lower() in question.lower():
-                        rec = latest.get('recommendations', {}).get('final_verdicts', {}).get(stock['ticker'])
-                        
-                        if rec:
-                            return f"""PORTFOLIO INSIGHT: {stock['ticker']} currently ${stock.get('price', 0):.2f}, 
-RSI {stock.get('rsi', 0):.0f}. My recommendation: {rec.get('action')} - {rec.get('reason')}"""
+            q_lower = question.lower()
+            relevant_stocks = []
             
-            return ""
+            for stock in latest['portfolio_data'].get('stocks', []):
+                ticker = stock['ticker']
+                if ticker.lower() in q_lower or stock.get('name', '').lower() in q_lower:
+                    relevant_stocks.append({
+                        'ticker': ticker,
+                        'name': stock.get('name'),
+                        'price': stock.get('price'),
+                        'rsi': stock.get('rsi'),
+                        'daily_change': stock.get('daily_change'),
+                        'monthly_change': stock.get('monthly_change')
+                    })
+            
+            if relevant_stocks:
+                logging.info(f"   ✅ Found {len(relevant_stocks)} portfolio stocks")
+            
+            return {'stocks': relevant_stocks}
+            
         except Exception as e:
-            logging.debug(f"Portfolio context error: {e}")
-            return ""
+            logging.debug(f"Portfolio data error: {e}")
+            return {}
     
-    def generate_premium_fallback(self, question, market_data, web_intel, portfolio_context):
-        """Premium fallback when AI is unavailable"""
+    def get_financial_news(self, question):
+        """Get financial news from Finnhub"""
+        try:
+            if not FINNHUB_KEY:
+                return []
+            
+            url = f"https://finnhub.io/api/v1/news?category=general&token={FINNHUB_KEY}"
+            response = requests.get(url, timeout=10)
+            
+            if response.status_code == 200:
+                articles = response.json()[:20]
+                
+                # Filter relevant articles
+                keywords = [w.lower() for w in question.split() if len(w) > 4][:5]
+                relevant = []
+                
+                for article in articles:
+                    headline = article.get('headline', '').lower()
+                    if any(keyword in headline for keyword in keywords):
+                        relevant.append({
+                            'headline': article.get('headline'),
+                            'summary': article.get('summary', '')[:200],
+                            'source': article.get('source')
+                        })
+                        
+                        if len(relevant) >= 3:
+                            break
+                
+                if relevant:
+                    logging.info(f"   ✅ Found {len(relevant)} relevant news articles")
+                
+                return relevant
+            
+            return []
+            
+        except Exception as e:
+            logging.debug(f"News fetch error: {e}")
+            return []
+    
+    def get_macro_context(self):
+        """Get macro market context"""
+        try:
+            latest = self.db.get_latest_analysis()
+            
+            if not latest or not latest.get('macro_data'):
+                return {}
+            
+            macro = latest['macro_data']
+            
+            return {
+                'macro_score': macro.get('overall_macro_score'),
+                'geo_risk': macro.get('geopolitical_risk'),
+                'trade_risk': macro.get('trade_risk'),
+                'economic_sentiment': macro.get('economic_sentiment')
+            }
+            
+        except Exception as e:
+            logging.debug(f"Macro context error: {e}")
+            return {}
+    
+    def get_recommendations(self, question):
+        """Get recommendations from database"""
+        try:
+            latest = self.db.get_latest_analysis()
+            
+            if not latest or not latest.get('recommendations'):
+                return {}
+            
+            recs = latest['recommendations'].get('final_verdicts', {})
+            
+            q_lower = question.lower()
+            relevant = {}
+            
+            for ticker, rec in recs.items():
+                if ticker.lower() in q_lower:
+                    relevant[ticker] = {
+                        'action': rec.get('action'),
+                        'reason': rec.get('reason'),
+                        'confidence': rec.get('confidence')
+                    }
+            
+            return relevant
+            
+        except Exception as e:
+            logging.debug(f"Recommendations error: {e}")
+            return {}
+    
+    def format_data_package(self, data):
+        """Format data into clean text for AI or fallback"""
+        sections = []
         
-        response = f"""Thank you for your question about {self.extract_topic(question)}.
+        # Market Prices
+        if data['market_prices']:
+            price_text = "MARKET DATA:\n"
+            for asset, info in data['market_prices'].items():
+                price_text += f"• {asset.upper()}: ${info['current']:.2f} "
+                price_text += f"({info['daily_change']:+.1f}% today, {info['monthly_change']:+.1f}% month)\n"
+                price_text += f"  52-week range: ${info['low_52w']:.2f} - ${info['high_52w']:.2f}\n"
+            sections.append(price_text)
+        
+        # Portfolio Data
+        if data['portfolio_data'].get('stocks'):
+            port_text = "YOUR PORTFOLIO:\n"
+            for stock in data['portfolio_data']['stocks']:
+                port_text += f"• {stock['ticker']}: ${stock['price']:.2f}, RSI {stock['rsi']:.0f}\n"
+            sections.append(port_text)
+        
+        # News
+        if data['news']:
+            news_text = "RECENT NEWS:\n"
+            for article in data['news']:
+                news_text += f"• {article['headline']}\n"
+            sections.append(news_text)
+        
+        # Macro Context
+        if data['macro_context']:
+            macro = data['macro_context']
+            macro_text = f"MARKET ENVIRONMENT: Macro score {macro.get('macro_score', 'N/A')}/30"
+            sections.append(macro_text)
+        
+        # Recommendations
+        if data['recommendations']:
+            rec_text = "MY RECOMMENDATIONS:\n"
+            for ticker, rec in data['recommendations'].items():
+                rec_text += f"• {ticker}: {rec['action']} - {rec['reason']}\n"
+            sections.append(rec_text)
+        
+        return "\n\n".join(sections)
+    
+    def try_ai_enhancement(self, question, formatted_data):
+        """Try to enhance with AI"""
+        try:
+            logging.info("🤖 Attempting AI enhancement...")
+            
+            genai.configure(api_key=GEMINI_API_KEY)
+            
+            # Try models in order of preference
+            models_to_try = [
+                'gemini-1.5-flash-latest',
+                'gemini-1.5-flash',
+                'gemini-1.5-pro-latest',
+                'gemini-pro'
+            ]
+            
+            for model_name in models_to_try:
+                try:
+                    model = genai.GenerativeModel(model_name)
+                    
+                    prompt = f"""You are a professional financial advisor. A client asks:
 
-{market_data}
+"{question}"
 
-{web_intel}
+Here is ALL the real data I've gathered:
 
-{portfolio_context}
+{formatted_data}
 
-Based on current market conditions, here's my analysis:
+Based ONLY on this data, provide a professional, actionable response that:
+1. Directly answers their question
+2. References specific numbers from the data above
+3. Gives clear recommendations
+4. Explains risks/opportunities
+5. Is 150-200 words
+
+Be confident and specific. Use the data provided."""
+
+                    response = model.generate_content(
+                        prompt,
+                        generation_config=genai.types.GenerationConfig(
+                            temperature=0.7,
+                            max_output_tokens=400,
+                        )
+                    )
+                    
+                    logging.info(f"✅ AI success with {model_name}")
+                    return response.text
+                    
+                except Exception as e:
+                    logging.warning(f"   {model_name} failed: {str(e)[:80]}")
+                    continue
+            
+            logging.warning("All AI models failed")
+            return None
+            
+        except Exception as e:
+            logging.error(f"AI enhancement error: {e}")
+            return None
+    
+    def generate_data_driven_response(self, question, data_package, formatted_data):
+        """Generate high-quality response from data (no AI needed)"""
+        
+        response = f"""Thank you for your question.
+
+{formatted_data}
 
 """
         
-        # Add specific guidance based on question type
+        # Add intelligent analysis based on what data we have
         q_lower = question.lower()
         
-        if 'demand' in q_lower or 'projects' in q_lower:
-            response += """The demand landscape is driven by industrial applications, technology sector growth, and 
-investment interest. Key sectors include solar energy, electronics, and EV infrastructure. 
-
-For project-specific information, I recommend checking industry reports from the Silver Institute 
-and major mining companies' quarterly disclosures for detailed project lists."""
+        if data_package['market_prices']:
+            # We have price data - provide price analysis
+            for asset, info in data_package['market_prices'].items():
+                response += f"\n**{asset.upper()} Analysis:**\n"
+                response += f"Currently trading at ${info['current']:.2f}, "
+                
+                if info['monthly_change'] > 15:
+                    response += f"showing strong momentum with a {info['monthly_change']:+.1f}% monthly gain. "
+                elif info['monthly_change'] < -15:
+                    response += f"under pressure with a {info['monthly_change']:+.1f}% monthly decline. "
+                else:
+                    response += f"relatively stable with {info['monthly_change']:+.1f}% monthly movement. "
+                
+                # Position in range
+                range_position = ((info['current'] - info['low_52w']) / (info['high_52w'] - info['low_52w'])) * 100
+                
+                if range_position > 80:
+                    response += "Near 52-week highs - watch for resistance. "
+                elif range_position < 20:
+                    response += "Near 52-week lows - potential support zone. "
+                
+                response += "\n"
         
-        elif 'buy' in q_lower or 'invest' in q_lower:
-            response += """Consider these factors before investing:
-1. Current price relative to historical ranges
-2. Macroeconomic trends (inflation, USD strength)
-3. Industrial demand outlook
-4. Your portfolio allocation and risk tolerance
-
-I recommend dollar-cost averaging if entering a new position."""
+        if data_package['recommendations']:
+            response += "\n**My Portfolio Recommendations:**\n"
+            for ticker, rec in data_package['recommendations'].items():
+                response += f"• {ticker}: {rec['action']} ({rec['confidence']} confidence)\n"
+                response += f"  Reason: {rec['reason']}\n"
+        
+        # Add context-specific advice
+        if 'buy' in q_lower or 'invest' in q_lower:
+            response += "\n💡 **Investment Considerations:**\n"
+            response += "Consider dollar-cost averaging to reduce timing risk. "
+            response += "Ensure this fits your overall portfolio allocation and risk tolerance."
         
         elif 'sell' in q_lower:
-            response += """Review your position against these criteria:
-1. Has it met your profit target?
-2. Has the fundamental thesis changed?
-3. Do you need rebalancing?
-
-Consider taking partial profits if you're up significantly while maintaining core exposure."""
+            response += "\n💡 **Exit Strategy:**\n"
+            response += "Review your original thesis and profit targets. "
+            response += "Consider taking partial profits while maintaining exposure if fundamentals remain strong."
         
-        else:
-            response += """The current market environment presents both opportunities and risks. 
-Focus on assets with strong fundamentals and diversify across uncorrelated holdings."""
-        
-        response += "\n\n💡 For detailed project lists and specific investment recommendations, "
-        response += "I can provide more targeted analysis if you narrow down your specific interest area."
+        elif 'demand' in q_lower or 'projects' in q_lower:
+            response += "\n💡 **For Detailed Project Data:**\n"
+            response += "Check the Silver Institute's quarterly reports, major mining company investor presentations, "
+            response += "and industry databases like S&P Global Market Intelligence for comprehensive project lists."
         
         return response
     
-    def extract_topic(self, question):
-        """Extract main topic from question"""
-        # Remove common words
-        stopwords = {'what', 'is', 'the', 'are', 'a', 'an', 'how', 'why', 'when', 'where', 'should', 'i'}
-        words = [w.lower() for w in question.split() if w.lower() not in stopwords and len(w) > 3]
-        
-        return ' '.join(words[:3]) if words else "the market"
-    
     def send_response(self, to_email, question, response):
-        """Send premium email response"""
+        """Send professional email response"""
         import smtplib
         
         msg = MIMEMultipart()
-        msg['Subject'] = "Market Intelligence: Your Question Answered"
+        msg['Subject'] = "Your Market Intelligence Analysis"
         msg['From'] = self.smtp_user
         msg['To'] = to_email
         
-        body = f"""Dear Client,
-
-Thank you for your question:
-
+        body = f"""Your Question:
 "{question}"
 
 ---
@@ -2127,11 +2310,11 @@ Thank you for your question:
 
 ---
 
-Best regards,
-Your AI Market Intelligence Advisor
+📊 Analysis based on real-time market data
+💬 Reply with follow-up questions anytime
 
-📊 Powered by real-time market data and AI analysis
-💬 Reply with follow-up questions anytime"""
+Best regards,
+Market Intelligence Bot"""
         
         msg.attach(MIMEText(body, 'plain'))
         
@@ -2140,7 +2323,7 @@ Your AI Market Intelligence Advisor
                 server.starttls()
                 server.login(self.smtp_user, self.smtp_pass)
                 server.send_message(msg)
-            logging.info(f"✅ Premium response sent to {to_email}")
+            logging.info(f"✅ Response sent")
         except Exception as e:
             logging.error(f"Email send failed: {e}")
 
@@ -2162,7 +2345,7 @@ async def main(output="print", check_emails=False):
     if check_emails:
         if ENABLE_EMAIL_BOT:
             logging.info("🤖 EMAIL BOT MODE: Checking for questions...")
-            bot = EmailConversationBot()
+            bot = ProductionEmailBot()
             bot.check_for_questions()
             logging.info("✅ Email bot check complete")
         else:
