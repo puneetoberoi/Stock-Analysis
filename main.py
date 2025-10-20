@@ -2196,179 +2196,214 @@ class ProfessionalEmailFormatter:
 # ENHANCED AI ANALYST
 # ========================================
 
+# ========================================
+# ENHANCED AI ANALYST
+# ========================================
+
+# ========================================
+# ENHANCED AI ANALYST v5.1 (AI-DRIVEN)
+# This class REPLACES the previous EnhancedAIAnalyst class in its entirety.
+# ========================================
+
+# Add this new dependency to your installer loop
+install_if_missing('duckduckgo-search')
+from duckduckgo_search import DDGS
+
 class EnhancedAIAnalyst:
-    """AI analyst with all enhancements"""
-    
+    """
+    An advanced, AI-driven analyst that uses AI for topic extraction
+    and live web search for data retrieval.
+    """
+
     def __init__(self):
         self.web_intel = FreeWebIntelligence()
         self.data_enhancer = FreeDataEnhancer()
         self.formatter = ProfessionalEmailFormatter()
         self.chart_gen = FreeChartGenerator()
-    
-    async def generate_ultra_response(self, question, cached_data=None):
-        """Generate ultra-enhanced response"""
-        logging.info("🚀 Generating ULTRA response...")
-        
-        # Extract ticker
-        ticker = self._extract_ticker(question)
-        
-        # Gather all data
-        analysis_data = await self._gather_all_data(question, ticker, cached_data)
-        
-        # Get web intelligence
-        web_data = await self.web_intel.search_market_intelligence(question, ticker)
-        
-        # Generate charts
-        charts = {}
-        if ticker:
-            try:
-                stock = yf.Ticker(ticker)
-                hist = stock.history(period='3mo')
-                if not hist.empty:
-                    charts['price_chart'] = self.chart_gen.create_price_chart_html(ticker, hist)
-                    
-                    # Calculate sentiment score
-                    sentiment_score = 50
-                    if analysis_data.get('options_flow'):
-                        pc_ratio = analysis_data['options_flow'].get('put_call_ratio', 1)
-                        sentiment_score = min(90, max(10, 50 + (1 - pc_ratio) * 40))
-                    
-                    charts['sentiment_gauge'] = self.chart_gen.create_sentiment_gauge(sentiment_score)
-            except Exception as e:
-                logging.error(f"Chart generation error: {e}")
-        
-        # Generate AI response
-        ai_response = await self._generate_ai_response(question, analysis_data, web_data)
-        analysis_data['ai_response'] = ai_response
-        
-        # Generate HTML email
-        html_response = self.formatter.generate_html_response(
-            question, analysis_data, web_data, charts
-        )
-        
-        return html_response
-    
-    def _extract_ticker(self, question):
-        """Extract ticker from question"""
-        import re
-        
-        # Try to find ticker symbols
-        matches = re.findall(r'\b([A-Z]{1,5})\b', question)
-        for match in matches:
-            if 2 <= len(match) <= 5:
-                return match
-        
-        # Check company names
-        companies = {
-            'apple': 'AAPL', 'microsoft': 'MSFT', 'google': 'GOOGL',
-            'amazon': 'AMZN', 'tesla': 'TSLA', 'nvidia': 'NVDA',
-            'meta': 'META', 'facebook': 'META'
-        }
-        
-        q_lower = question.lower()
-        for company, ticker in companies.items():
-            if company in q_lower:
-                return ticker
-        
-        return None
-    
-    async def _gather_all_data(self, question, ticker, cached_data):
-        """Gather comprehensive data"""
-        data = {'question': question, 'ticker': ticker}
-        
-        if ticker:
-            try:
-                stock = yf.Ticker(ticker)
-                hist = stock.history(period='3mo')
-                
-                if not hist.empty:
-                    current = hist['Close'].iloc[-1]
-                    prev = hist['Close'].iloc[-2] if len(hist) > 1 else current
-                    
-                    data['price'] = current
-                    data['daily_change'] = ((current - prev) / prev) * 100
-                    data['rsi'] = RSIIndicator(hist['Close']).rsi().iloc[-1]
-                    
-                    # Get enhanced data
-                    data['options_flow'] = await self.data_enhancer.get_options_flow(ticker)
-                    data['short_interest'] = await self.data_enhancer.get_short_interest(ticker)
-            except Exception as e:
-                logging.error(f"Data gathering error: {e}")
-        
-        return data
-    
-    async def _generate_ai_response(self, question, analysis_data, web_data):
-        """Generate AI response"""
-        if not GEMINI_API_KEY:
-            return self._generate_fallback_response(question, analysis_data, web_data)
-        
+
+    async def _extract_topics_with_ai(self, question):
+        """
+        FIX: Uses Gemini to dynamically identify all topics in a question.
+        This replaces the brittle, hardcoded dictionary.
+        """
+        logging.info("🧠 Using AI to extract topics from question...")
+        prompt = f"""
+        Analyze the following user question and identify all financial assets, stocks, cryptocurrencies, or commodities mentioned.
+        For each identified topic, determine its type (stock, crypto, commodity) and its corresponding ticker symbol.
+        Provide the output ONLY as a valid JSON object, following this exact format:
+        {{
+          "topic_name_1": {{"type": "stock|crypto|commodity", "ticker": "TICKER_SYMBOL"}},
+          "topic_name_2": {{"type": "stock|crypto|commodity", "ticker": "TICKER_SYMBOL"}}
+        }}
+
+        Example: for the question "Why is gold rising and what about Apple stock?", the output should be:
+        {{
+          "gold": {{"type": "commodity", "ticker": "GC=F"}},
+          "apple": {{"type": "stock", "ticker": "AAPL"}}
+        }}
+
+        User Question: "{question}"
+        """
         try:
             genai.configure(api_key=GEMINI_API_KEY)
+            model = genai.GenerativeModel('gemini-1.5-flash')
+            response = await model.generate_content_async(prompt)
             
-            # Build context
-            context = self._build_context(analysis_data, web_data)
-            
-            prompt = f"""You are a professional financial analyst. Answer this question:
-"{question}"
+            # Clean the response to get only the JSON
+            json_text = response.text.strip().replace('```json', '').replace('```', '').strip()
+            topics = json.loads(json_text)
+            logging.info(f"🤖 AI identified topics: {topics}")
+            return topics
+        except Exception as e:
+            logging.error(f"AI topic extraction failed: {e}. Falling back to manual extraction.")
+            # Fallback to the old manual method if AI fails
+            return self._extract_ticker_manual(question)
 
-Market Data:
-{context}
+    def _extract_ticker_manual(self, question):
+        """Fallback manual topic extraction."""
+        topics = {}
+        # Your previous _extract_ticker logic can go here as a fallback
+        keyword_map = {
+            'bitcoin': ('crypto', 'BTC-USD'), 'gold': ('commodity', 'GC=F'), 
+            'silver': ('commodity', 'SI=F'), 'apple': ('stock', 'AAPL')
+        }
+        q_lower = question.lower()
+        for keyword, (asset_type, ticker) in keyword_map.items():
+            if keyword in q_lower:
+                topics[keyword] = {'type': asset_type, 'ticker': ticker}
+        return topics
 
-Provide a clear, actionable response with specific recommendations. Be concise but thorough.
-"""
+    async def _perform_web_search(self, query, num_results=3):
+        """
+        FIX: Performs a live DuckDuckGo web search to get real-time context.
+        """
+        logging.info(f"🦆 Performing live web search for: '{query}'")
+        try:
+            results_str = ""
+            with DDGS() as ddgs:
+                results = list(itertools.islice(ddgs.text(query, region='wt-wt', safesearch='off', timelimit='w'), num_results))
+                if not results:
+                    return "No web search results found."
+                
+                for i, result in enumerate(results):
+                    results_str += f"Source [{i+1}]: {result['title']}\n"
+                    results_str += f"Snippet: {result['body']}\n\n"
+            return results_str
+        except Exception as e:
+            logging.error(f"DuckDuckGo search failed: {e}")
+            return "Web search could not be completed."
+
+    async def generate_ultra_response(self, question, cached_data=None):
+        """
+        The main orchestration method, now fully AI-driven.
+        """
+        logging.info("🚀 Orchestrating AI-driven response...")
+
+        # 1. Use AI to find out what the user is asking about.
+        topics = await self._extract_topics_with_ai(question)
+
+        if not topics:
+            return self._generate_generic_response("I couldn't identify a specific financial topic in your question. Could you please rephrase it? For example, ask about 'Apple stock' or 'the price of gold'.")
+
+        full_context = ""
+        charts = {}
+        
+        # 2. For each topic, gather data and perform a live web search.
+        for name, info in topics.items():
+            ticker = info['ticker']
+            asset_type = info['type']
             
-            # Try Gemini models
-            for model_name in ['gemini-1.5-flash', 'gemini-pro']:
+            # Create a smart search query
+            search_query = f"Why is {name} price moving"
+            if asset_type == 'commodity':
+                search_query += " commercial uses and demand"
+
+            # Gather yfinance data and web search results in parallel
+            price_context, search_results = await asyncio.gather(
+                self._get_price_context(ticker),
+                self._perform_web_search(search_query)
+            )
+
+            # Build the context block for this topic
+            full_context += f"--- CONTEXT FOR {name.upper()} ({ticker}) ---\n"
+            full_context += price_context
+            full_context += f"\n--- LIVE WEB SEARCH RESULTS for '{search_query}' ---\n"
+            full_context += search_results
+            full_context += "---\n\n"
+
+            # Generate a chart for the first valid topic found
+            if not charts.get('price_chart') and ticker:
                 try:
-                    model = genai.GenerativeModel(model_name)
-                    response = model.generate_content(prompt)
-                    return response.text
-                except:
-                    continue
-        except:
-            pass
+                    hist = yf.Ticker(ticker).history(period='3mo')
+                    if not hist.empty:
+                        charts['price_chart'] = self.chart_gen.create_price_chart_html(ticker, hist)
+                except Exception as e:
+                    logging.warning(f"Could not generate chart for {ticker}: {e}")
+
+        # 3. Feed everything to the master AI to synthesize the final answer.
+        final_response_html = await self._generate_ai_master_response(question, full_context, charts)
         
-        return self._generate_fallback_response(question, analysis_data, web_data)
-    
-    def _build_context(self, analysis_data, web_data):
-        """Build context for AI"""
-        lines = []
+        return final_response_html
+
+    async def _get_price_context(self, ticker):
+        """Gathers price data from yfinance."""
+        try:
+            data = yf.Ticker(ticker)
+            hist = data.history(period="1mo")
+            if not hist.empty:
+                price = hist['Close'].iloc[-1]
+                change = (price / hist['Close'].iloc[-2] - 1) * 100 if len(hist) > 1 else 0
+                return f"Current Price: ${price:,.2f} ({change:+.2f}% today)\n"
+        except Exception:
+            return "Price data could not be retrieved.\n"
+        return "Price data not available.\n"
         
-        if analysis_data.get('price'):
-            lines.append(f"Price: ${analysis_data['price']:.2f} ({analysis_data.get('daily_change', 0):+.2f}%)")
-        
-        if analysis_data.get('options_flow'):
-            lines.append(f"Options: P/C Ratio {analysis_data['options_flow'].get('put_call_ratio', 'N/A')}")
-        
-        if web_data.get('reddit'):
-            lines.append(f"Reddit: {web_data['reddit'].get('overall_sentiment', 'neutral')}")
-        
-        return '\n'.join(lines)
-    
-    def _generate_fallback_response(self, question, analysis_data, web_data):
-        """Generate response without AI"""
-        response = "Based on my analysis:\n\n"
-        
-        if analysis_data.get('price'):
-            response += f"**Price**: ${analysis_data['price']:.2f} ({analysis_data.get('daily_change', 0):+.2f}% today)\n\n"
-        
-        if analysis_data.get('options_flow'):
-            opt = analysis_data['options_flow']
-            response += f"**Options Flow**: {opt.get('sentiment', 'neutral').upper()} (P/C: {opt.get('put_call_ratio', 'N/A')})\n\n"
-        
-        if web_data.get('reddit'):
-            response += f"**Social Sentiment**: {web_data['reddit'].get('overall_sentiment', 'neutral').upper()}\n\n"
-        
-        # Add recommendation
-        if 'buy' in question.lower():
-            if analysis_data.get('rsi', 50) < 35:
-                response += "**Recommendation**: Good entry point - RSI oversold\n"
-            elif analysis_data.get('rsi', 50) > 70:
-                response += "**Recommendation**: Wait for pullback - RSI overbought\n"
-            else:
-                response += "**Recommendation**: Neutral setup - consider scaling in\n"
-        
-        return response
+    async def _generate_ai_master_response(self, question, context, charts):
+        """Uses AI to synthesize all gathered context into a professional answer."""
+        logging.info("🤖 Synthesizing final answer with master AI prompt...")
+        prompt = f"""
+        You are a world-class financial analyst at a top-tier investment firm, writing a premium, client-ready email newsletter. Your tone is sharp, insightful, and professional.
+
+        THE CLIENT'S QUESTION:
+        "{question}"
+
+        YOUR COMPREHENSIVE DATA BRIEFING (Use this data EXCLUSIVELY to form your answer):
+        {context}
+
+        INSTRUCTIONS:
+        1.  Create a full, beautifully formatted HTML email response. Start with `<!DOCTYPE html>`. Use professional inline CSS for styling.
+        2.  Directly address every part of the client's question. If the question has multiple parts, create a separate `<h2>` section for each.
+        3.  Synthesize the "LIVE WEB SEARCH RESULTS" to explain the 'why' behind market movements. Quote or paraphrase snippets to support your analysis.
+        4.  Incorporate the price data naturally into your text.
+        5.  Structure your answer with a high-level summary in a styled 'metric-card' div, followed by detailed sections. Use `<h2>`, `<h3>`, `<strong>`, and `<ul><li>` for clarity.
+        6.  If the question asks for something you cannot answer from the provided data (e.g., a list of 50 projects), professionally explain the limitation and provide high-level, intelligent alternatives (e.g., "While a specific list of 50 projects is proprietary, the key demand comes from these three sectors...").
+        7.  Do not add any charts yourself. I will add them separately. Just focus on creating the text and HTML structure.
+        """
+
+        try:
+            genai.configure(api_key=GEMINI_API_KEY)
+            model = genai.GenerativeModel('gemini-1.5-flash')
+            response = await model.generate_content_async(prompt, generation_config=genai.types.GenerationConfig(
+                response_mime_type="text/html",
+            ))
+            # Prepend charts to the AI-generated HTML body
+            html_body = response.text
+            chart_html = "".join(charts.values())
+            if chart_html:
+                # Inject charts after the first <h2> tag
+                html_body = re.sub(r'(<h2.*?>)', chart_html + r'\1', html_body, 1)
+
+            return html_body
+        except Exception as e:
+            logging.error(f"AI master response generation failed: {e}")
+            return self._generate_generic_response(f"An error occurred during AI analysis. Here is the raw data I gathered:<br><pre>{context}</pre>")
+
+    def _generate_generic_response(self, content):
+        """Creates a simple HTML shell for error or basic messages."""
+        return f"""
+        <!DOCTYPE html><html><head><style>body {{font-family: sans-serif; padding: 20px;}} .card {{background: #f0f0f0; border-left: 4px solid #ccc; padding: 15px;}} pre {{white-space: pre-wrap;}}</style></head>
+        <body><div class="card"><h2>Analysis Report</h2><p>{content.replace(chr(10), '<br>')}</p></div></body></html>
+        """
 
 # ========================================
 # v3.0 Feature Flags
@@ -2465,7 +2500,9 @@ class UltraProductionEmailBot:
             
             since_date = (datetime.now() - timedelta(days=7)).strftime("%d-%b-%Y")
             
-            _, search_data = mail.search(None, f'(UNSEEN SINCE {since_date} SUBJECT "Daily Market Briefing")')
+            # FIX: Broaden the email search to include replies to both briefing and analysis emails.
+            search_query = f'(UNSEEN SINCE {since_date} OR (SUBJECT "Daily Market Briefing") (SUBJECT "Re: Market Analysis"))'
+            _, search_data = mail.search('UTF-8', search_query)
             matching_emails = search_data[0].split()
             
             if not matching_emails:
