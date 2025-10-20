@@ -744,7 +744,7 @@ async def generate_ai_oracle_analysis(market_data, portfolio_data, pattern_data)
         
         for model_name in model_names:
             try:
-                model = genai.GenerativeModel(model_name)
+                model = genai.GenerativeModel('gemini-2.5-flash')
                 logging.info(f"✅ Successfully loaded Gemini model: {model_name}")
                 break
             except Exception as e:
