@@ -725,7 +725,7 @@ def generate_fallback_analysis(market_data, portfolio_data, pattern_data):
     
     return {
         'analysis': final_text,
-        'generated_at': datetime.datetime.now().isoformat()
+        'generated_at': datetime.now().isoformat()
     }
 
 async def generate_ai_oracle_analysis(market_data, portfolio_data, pattern_data):
