@@ -2598,9 +2598,14 @@ class UltraProductionEmailBot:
 # MAIN EXECUTION
 # ========================================
 
+# ========================================
+# MAIN EXECUTION
+# ========================================
+
 async def main(output="print", check_emails=False):
-    """Main execution"""
+    """Main execution - handles both analysis and email bot modes"""
     
+    # EMAIL BOT MODE - Just check emails and respond
     if check_emails:
         if ENABLE_EMAIL_BOT:
             logging.info("🤖 EMAIL BOT MODE")
@@ -2611,9 +2616,90 @@ async def main(output="print", check_emails=False):
             logging.warning("❌ Email bot disabled")
         return
 
-    # Your existing analysis code here...
-    logging.info("📊 FULL ANALYSIS MODE")
-    # ... rest of your analysis code ...
+    # FULL ANALYSIS MODE - Run complete market analysis (YOUR ORIGINAL CODE)
+    logging.info("📊 FULL ANALYSIS MODE: Running market intelligence scan...")
+    previous_day_memory = load_memory()
+    
+    sp500 = get_cached_tickers('sp500_cache.json', fetch_sp500_tickers_sync)
+    tsx = get_cached_tickers('tsx_cache.json', fetch_tsx_tickers_sync)
+    universe = (sp500 or [])[:75] + (tsx or [])[:25]
+    
+    throttler = Throttler(2)
+    semaphore = asyncio.Semaphore(10)
+    
+    async with aiohttp.ClientSession() as session:
+        stock_tasks = [analyze_stock(semaphore, throttler, session, ticker) for ticker in universe]
+        context_task = fetch_context_data(session)
+        news_task = fetch_market_headlines(session)
+        macro_task = fetch_macro_sentiment(session)
+        
+        if ENABLE_V2_FEATURES:
+            portfolio_task = analyze_portfolio_with_v2_features(session)
+        else:
+            portfolio_task = analyze_portfolio_watchlist(session)
+        
+        results = await asyncio.gather(
+            asyncio.gather(*stock_tasks), 
+            context_task, 
+            news_task, 
+            macro_task, 
+            portfolio_task
+        )
+        
+        stock_results_raw, context_data, market_news, macro_data, portfolio_data = results
+        
+        stock_results = sorted([r for r in stock_results_raw if r], key=lambda x: x['score'], reverse=True)
+        df_stocks = pd.DataFrame(stock_results) if stock_results else pd.DataFrame()
+
+        pattern_data = await find_historical_patterns(session, macro_data)
+        
+        portfolio_recommendations = None
+        if pattern_data and portfolio_data:
+            portfolio_recommendations = await generate_portfolio_recommendations_from_pattern(
+                portfolio_data, pattern_data, macro_data
+            )
+        
+        market_summary = {
+            'macro': macro_data,
+            'top_stock': stock_results[0] if stock_results else {},
+            'bottom_stock': stock_results[-1] if stock_results else {}
+        }
+        ai_analysis = await generate_ai_oracle_analysis(market_summary, portfolio_data, pattern_data)
+    
+    # Save analysis to database for email bot
+    if ENABLE_DATA_PERSISTENCE:
+        db = MarketIntelligenceDB()
+        db.save_daily_analysis(
+            datetime.now().date().isoformat(),
+            portfolio_data,
+            pattern_data,
+            macro_data,
+            df_stocks.head(20).to_dict('records') if not df_stocks.empty else [],
+            ai_analysis,
+            portfolio_recommendations
+        )
+        logging.info("💾 Analysis saved to database")
+    
+    # Send email if requested
+    if output == "email":
+        html_email = generate_enhanced_html_email(
+            df_stocks, context_data, market_news, macro_data, 
+            previous_day_memory, portfolio_data, pattern_data, 
+            ai_analysis, portfolio_recommendations
+        )
+        send_email(html_email)
+        logging.info("📧 Daily briefing email sent")
+    
+    # Save memory for next run
+    if not df_stocks.empty:
+        save_memory({
+            "previous_top_stock_name": df_stocks.iloc[0]['name'],
+            "previous_top_stock_ticker": df_stocks.iloc[0]['ticker'],
+            "previous_macro_score": macro_data.get('overall_macro_score', 0),
+            "date": datetime.now().date().isoformat()
+        })
+    
+    logging.info("✅ Analysis complete.")
 
 # ========================================
 # ENTRY POINT
