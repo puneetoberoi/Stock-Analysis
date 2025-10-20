@@ -725,7 +725,7 @@ def generate_fallback_analysis(market_data, portfolio_data, pattern_data):
     
     return {
         'analysis': final_text,
-        'generated_at': datetime.now().isoformat()
+        'generated_at': datetime.datetime.now().isoformat()
     }
 
 async def generate_ai_oracle_analysis(market_data, portfolio_data, pattern_data):
@@ -744,7 +744,7 @@ async def generate_ai_oracle_analysis(market_data, portfolio_data, pattern_data)
         
         for model_name in model_names:
             try:
-                model = genai.GenerativeModel('gemini-2.5-flash')
+                model = genai.GenerativeModel(model_name)
                 logging.info(f"✅ Successfully loaded Gemini model: {model_name}")
                 break
             except Exception as e:
@@ -1684,5 +1684,3 @@ def send_email(html_body):
         logging.info("✅ Email sent successfully.")
     except Exception as e:
         logging.error(f"Failed to send email: {e}")
-
-
