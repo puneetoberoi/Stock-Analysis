@@ -2556,28 +2556,28 @@ class UltraProductionEmailBot:
         return question
     
     def generate_ultra_response(self, question):
-    """Generate ultra response with all enhancements"""
-    logging.info("🚀 ULTRA response generation starting...")
+        """Generate ultra response with all enhancements"""
+        logging.info("🚀 ULTRA response generation starting...")
     
-    try:
-        # Get cached data
-        cached_data = self.db.get_latest_analysis()
+        try:
+            # Get cached data
+            cached_data = self.db.get_latest_analysis()
         
-        # FIX: Change this line
-        # OLD: html_response = asyncio.run(self.ai_analyst.generate_ultra_response(question, cached_data))
-        # NEW:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        html_response = loop.run_until_complete(
-            self.ai_analyst.generate_ultra_response(question, cached_data)
-        )
-        loop.close()
+            # FIX: Change this line
+            # OLD: html_response = asyncio.run(self.ai_analyst.generate_ultra_response(question, cached_data))
+            # NEW:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            html_response = loop.run_until_complete(
+                self.ai_analyst.generate_ultra_response(question, cached_data)
+            )
+            loop.close()
         
-        return html_response
+            return html_response
         
-    except Exception as e:
-        logging.error(f"Ultra generation error: {e}")
-        return f"<html><body><h1>Error generating response</h1><p>{str(e)}</p></body></html>"
+        except Exception as e:
+            logging.error(f"Ultra generation error: {e}")
+            return f"<html><body><h1>Error generating response</h1><p>{str(e)}</p></body></html>"
     
     def send_response(self, to_email, question, response):
         """Send HTML response"""
