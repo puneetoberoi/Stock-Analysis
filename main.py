@@ -1921,9 +1921,12 @@ class EmailConversationBot:
         """MAIN RESPONSE GENERATOR - AI + Web Search"""
         logging.info(f"🤖 Generating AI response for: {question[:80]}...")
         
-        # STEP 1: Web search (ALWAYS)
+        # STEP 1: Web search (ALWAYS) with multiple sources
         logging.info("🔍 Searching web...")
         web_results = self.search_duckduckgo(question)
+        
+        # STEP 1.5: If question is about commodities/stocks, get yfinance data
+        ticker_data = self.get_ticker_info(question)
         
         if not web_results or len(web_results) == 0:
             web_results = ["No specific web results found"]
@@ -1944,33 +1947,43 @@ class EmailConversationBot:
                         if rec:
                             db_context += f"\nRecommendation: {rec.get('action')} - {rec.get('reason')}"
         
-        # STEP 3: Try Gemini AI (with fallback)
+        # STEP 3: Build comprehensive context
+        full_context = f"""WEB SEARCH RESULTS:
+{web_context}
+
+{ticker_data if ticker_data else ""}
+{f"PORTFOLIO DATA:{db_context}" if db_context else ""}"""
+        
+        # STEP 4: Try Gemini AI (with fallback)
         if GEMINI_API_KEY:
             try:
                 logging.info("🧠 Calling Gemini AI...")
                 genai.configure(api_key=GEMINI_API_KEY)
                 
-                # Try multiple models
-                for model_name in ['gemini-1.5-flash', 'gemini-pro']:
+                # Fix: Use correct API version
+                for model_name in ['gemini-1.5-flash-latest', 'gemini-1.5-pro-latest', 'gemini-pro']:
                     try:
                         model = genai.GenerativeModel(model_name)
                         
-                        prompt = f"""You are a financial advisor. Answer this question concisely.
+                        prompt = f"""You are a financial advisor. Answer this question using ALL the information provided below.
 
 QUESTION: {question}
 
-WEB SEARCH RESULTS:
-{web_context}
+{full_context}
 
-{f"PORTFOLIO DATA:{db_context}" if db_context else ""}
+Provide a comprehensive, actionable answer. Include:
+1. Direct answer to the question
+2. Key data points from the search results
+3. Specific recommendations if applicable
+4. Any relevant context or warnings
 
-Provide a clear, actionable answer in under 200 words. Be specific with recommendations."""
+Keep under 250 words but be thorough."""
 
                         response = model.generate_content(
                             prompt,
                             generation_config=genai.types.GenerationConfig(
                                 temperature=0.7,
-                                max_output_tokens=300,
+                                max_output_tokens=400,
                             )
                         )
                         
@@ -1981,55 +1994,175 @@ Provide a clear, actionable answer in under 200 words. Be specific with recommen
                         logging.warning(f"{model_name} failed: {str(e)[:100]}")
                         continue
                 
-                logging.warning("All AI models failed, using web-only response")
+                logging.warning("All AI models failed, using enhanced fallback")
             
             except Exception as e:
                 logging.error(f"Gemini API error: {e}")
         
-        # STEP 4: Fallback - Web search only
-        logging.info("Using web-search-only response")
+        # STEP 5: Enhanced fallback - format the data nicely
+        logging.info("Using enhanced web-search response")
         
-        response = f"""Based on latest web search:
+        response = f"""Based on my research:
 
+🔍 **Web Search Findings:**
 {web_context}
 
+{ticker_data if ticker_data else ""}
 {db_context if db_context else ""}
 
-💡 This analysis is based on real-time web data."""
+💡 **Bottom Line:**
+I've gathered the latest information from multiple sources above. {self.generate_simple_recommendation(question, web_results)}
+
+📅 *Data from real-time web search*"""
         
         return response
     
+    def get_ticker_info(self, question):
+        """Get real-time ticker data for commodities/stocks mentioned"""
+        try:
+            # Check for common tickers
+            tickers = {
+                'silver': 'SI=F',
+                'gold': 'GC=F',
+                'oil': 'CL=F',
+                'bitcoin': 'BTC-USD',
+                'nvda': 'NVDA',
+                'aapl': 'AAPL',
+                'tsla': 'TSLA',
+                'msft': 'MSFT'
+            }
+            
+            question_lower = question.lower()
+            
+            for name, ticker in tickers.items():
+                if name in question_lower:
+                    import yfinance as yf
+                    stock = yf.Ticker(ticker)
+                    hist = stock.history(period='5d')
+                    
+                    if not hist.empty:
+                        current = hist['Close'].iloc[-1]
+                        prev = hist['Close'].iloc[-2] if len(hist) > 1 else current
+                        change = ((current - prev) / prev) * 100
+                        
+                        return f"""
+📊 **Live {name.upper()} Data:**
+• Current Price: ${current:.2f}
+• Change: {change:+.2f}%
+• 5-Day Range: ${hist['Low'].min():.2f} - ${hist['High'].max():.2f}
+"""
+        except Exception as e:
+            logging.debug(f"Could not fetch ticker data: {e}")
+        
+        return ""
+    
+    def generate_simple_recommendation(self, question, web_results):
+        """Generate a simple recommendation based on question type"""
+        q_lower = question.lower()
+        
+        if 'buy' in q_lower or 'invest' in q_lower:
+            return "Consider the demand trends and price momentum before making investment decisions."
+        elif 'sell' in q_lower:
+            return "Review your entry price and current market conditions before selling."
+        elif 'demand' in q_lower or 'projects' in q_lower:
+            return "The information above shows key demand drivers and major projects."
+        else:
+            return "Review the data above for insights relevant to your question."
+    
     def search_duckduckgo(self, query):
-        """DuckDuckGo search"""
+        """DuckDuckGo search with multiple fallback strategies"""
         try:
             import urllib.parse
-            search_query = urllib.parse.quote(query + " stock market latest news")
-            url = f"https://html.duckduckgo.com/html/?q={search_query}"
+            
+            # Strategy 1: Try DuckDuckGo Lite (more reliable)
+            logging.info(f"   Trying DuckDuckGo Lite for: {query[:50]}...")
+            search_query = urllib.parse.quote(query)
+            url = f"https://lite.duckduckgo.com/lite/?q={search_query}"
             
             response = requests.get(url, headers=REQUEST_HEADERS, timeout=10)
             soup = BeautifulSoup(response.text, 'html.parser')
             
             results = []
-            for result in soup.find_all('div', class_='result')[:5]:
-                snippet = result.find('a', class_='result__snippet')
+            
+            # Parse lite version
+            for tr in soup.find_all('tr'):
+                snippet = tr.find('td', class_='result-snippet')
                 if snippet:
-                    text = snippet.get_text(strip=True)[:200]
-                    if text:
-                        results.append(text)
+                    text = snippet.get_text(strip=True)
+                    if len(text) > 50:  # Meaningful text only
+                        results.append(text[:250])
+                        if len(results) >= 3:
+                            break
             
-            if not results:
-                # Fallback parsing
-                for snippet in soup.find_all('a', class_='result__snippet')[:5]:
-                    text = snippet.get_text(strip=True)[:200]
-                    if text:
-                        results.append(text)
+            if results:
+                logging.info(f"   ✅ Found {len(results)} results from DuckDuckGo Lite")
+                return results
             
-            logging.info(f"   Found {len(results)} web results")
-            return results if results else ["Web search returned no results"]
+            # Strategy 2: Try regular DuckDuckGo with different parsing
+            logging.info("   Trying regular DuckDuckGo...")
+            url = f"https://html.duckduckgo.com/html/?q={search_query}"
+            response = requests.get(url, headers=REQUEST_HEADERS, timeout=10)
+            soup = BeautifulSoup(response.text, 'html.parser')
+            
+            # Try multiple selectors
+            for selector in ['.result__snippet', '.result-snippet', 'a.result__a']:
+                elements = soup.find_all(class_='result__snippet') or soup.find_all('a', class_='result__snippet')
+                for elem in elements[:3]:
+                    text = elem.get_text(strip=True)
+                    if len(text) > 50:
+                        results.append(text[:250])
+                
+                if results:
+                    logging.info(f"   ✅ Found {len(results)} results from regular DDG")
+                    return results
+            
+            # Strategy 3: Use Wikipedia as fallback
+            logging.info("   DDG failed, trying Wikipedia...")
+            wiki_query = query.replace(' ', '_')
+            wiki_url = f"https://en.wikipedia.org/wiki/{wiki_query}"
+            response = requests.get(wiki_url, headers=REQUEST_HEADERS, timeout=10)
+            
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.text, 'html.parser')
+                # Get first few paragraphs
+                paragraphs = soup.find_all('p', limit=3)
+                for p in paragraphs:
+                    text = p.get_text(strip=True)
+                    if len(text) > 100:
+                        results.append(text[:300])
+                
+                if results:
+                    logging.info(f"   ✅ Found {len(results)} results from Wikipedia")
+                    return results
+            
+            # Strategy 4: Use Google News RSS (no API key needed)
+            logging.info("   Trying Google News RSS...")
+            rss_query = urllib.parse.quote(query)
+            rss_url = f"https://news.google.com/rss/search?q={rss_query}&hl=en-US&gl=US&ceid=US:en"
+            
+            response = requests.get(rss_url, headers=REQUEST_HEADERS, timeout=10)
+            soup = BeautifulSoup(response.text, 'xml')
+            
+            items = soup.find_all('item', limit=3)
+            for item in items:
+                title = item.find('title')
+                description = item.find('description')
+                if title:
+                    result_text = title.get_text(strip=True)
+                    if description:
+                        result_text += ": " + description.get_text(strip=True)[:150]
+                    results.append(result_text[:250])
+            
+            if results:
+                logging.info(f"   ✅ Found {len(results)} results from Google News")
+                return results
+            
+            logging.warning("   ⚠️ All search strategies failed")
+            return [f"Unable to fetch web results for '{query[:50]}'. Please check news sources manually."]
         
         except Exception as e:
-            logging.error(f"Web search failed: {e}")
-            return ["Web search temporarily unavailable"]
+            logging.error(f"   ❌ Web search error: {e}")
+            return [f"Web search encountered an error: {str(e)[:100]}"]
     
     def send_response(self, to_email, question, response):
         """Send email response"""
