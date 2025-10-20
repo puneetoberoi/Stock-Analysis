@@ -2446,7 +2446,7 @@ class MarketIntelligenceDB:
 # ========================================
 
 class UltraProductionEmailBot:
-    """v5.0: Ultra bot with all enhancements"""
+    """v5.0: Ultra bot with all enhancements - ASYNC VERSION"""
     def __init__(self):
         self.db = MarketIntelligenceDB()
         self.smtp_user = os.getenv("SMTP_USER")
@@ -2454,7 +2454,7 @@ class UltraProductionEmailBot:
         self.imap_server = "imap.gmail.com"
         self.ai_analyst = EnhancedAIAnalyst()
     
-    def check_for_questions(self):
+    async def check_for_questions(self):  # Changed to async
         """Check emails for questions"""
         try:
             logging.info("📧 Checking for email questions...")
@@ -2465,7 +2465,6 @@ class UltraProductionEmailBot:
             
             since_date = (datetime.now() - timedelta(days=7)).strftime("%d-%b-%Y")
             
-            # Search for unread briefing emails
             _, search_data = mail.search(None, f'(UNSEEN SINCE {since_date} SUBJECT "Daily Market Briefing")')
             matching_emails = search_data[0].split()
             
@@ -2475,35 +2474,19 @@ class UltraProductionEmailBot:
                 mail.logout()
                 return
             
-            # Process newest 2 emails
             for num in list(reversed(matching_emails))[:2]:
                 try:
                     _, data = mail.fetch(num, '(RFC822)')
                     email_message = email.message_from_bytes(data[0][1])
                     
-                    # Decode subject
-                    subject_raw = email_message.get('Subject', '')
-                    try:
-                        decoded_parts = email.header.decode_header(subject_raw)
-                        subject = ''
-                        for part, encoding in decoded_parts:
-                            if isinstance(part, bytes):
-                                subject += part.decode(encoding or 'utf-8', errors='ignore')
-                            else:
-                                subject += str(part)
-                    except:
-                        subject = str(subject_raw)
-                    
                     sender = email.utils.parseaddr(email_message['From'])[1]
-                    
-                    # Extract question
                     question = self.extract_question(email_message)
                     
                     if question and len(question.strip()) > 10:
                         logging.info(f"❓ Q: '{question[:80]}...'")
                         
-                        # ULTRA RESPONSE PIPELINE
-                        response = self.generate_ultra_response(question)
+                        # Now we can await directly
+                        response = await self.generate_ultra_response(question)
                         
                         self.send_response(sender, question, response)
                         mail.store(num, '+FLAGS', '\\Seen')
@@ -2523,7 +2506,7 @@ class UltraProductionEmailBot:
             logging.error(f"Email bot error: {e}")
     
     def extract_question(self, msg):
-        """Extract question from email"""
+        """Extract question from email - stays the same"""
         body = ""
         
         if msg.is_multipart():
@@ -2540,7 +2523,6 @@ class UltraProductionEmailBot:
             except:
                 body = str(msg.get_payload())
         
-        # Clean up
         lines = []
         for line in body.split('\n'):
             if any(m in line.lower() for m in ['wrote:', 'from:', 'sent:', '----', 'original message']):
@@ -2555,41 +2537,38 @@ class UltraProductionEmailBot:
         
         return question
     
-    def generate_ultra_response(self, question):
+    async def generate_ultra_response(self, question):  # Changed to async
         """Generate ultra response with all enhancements"""
         logging.info("🚀 ULTRA response generation starting...")
-    
+        
         try:
-            # Get cached data
             cached_data = self.db.get_latest_analysis()
-        
-            # FIX: Change this line
-            # OLD: html_response = asyncio.run(self.ai_analyst.generate_ultra_response(question, cached_data))
-            # NEW:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            html_response = loop.run_until_complete(
-                self.ai_analyst.generate_ultra_response(question, cached_data)
-            )
-            loop.close()
-        
+            
+            # Now we can await directly
+            html_response = await self.ai_analyst.generate_ultra_response(question, cached_data)
+            
             return html_response
-        
+            
         except Exception as e:
             logging.error(f"Ultra generation error: {e}")
-            return f"<html><body><h1>Error generating response</h1><p>{str(e)}</p></body></html>"
+            return f"""
+            <html>
+            <body>
+                <h2>Analysis Error</h2>
+                <p>Question: {question}</p>
+                <p>Error: {str(e)}</p>
+            </body>
+            </html>
+            """
     
     def send_response(self, to_email, question, response):
-        """Send HTML response"""
+        """Send HTML response - stays the same"""
         msg = MIMEMultipart('alternative')
         msg['Subject'] = f"Re: Market Analysis - {datetime.now().strftime('%b %d')}"
         msg['From'] = self.smtp_user
         msg['To'] = to_email
         
-        # Plain text fallback
         text_part = MIMEText("Please view in HTML format", 'plain')
-        
-        # HTML version
         html_part = MIMEText(response, 'html')
         
         msg.attach(text_part)
