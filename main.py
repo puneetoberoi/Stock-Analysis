@@ -2596,8 +2596,8 @@ async def main(output="print", check_emails=False):
     if check_emails:
         if ENABLE_EMAIL_BOT:
             logging.info("🤖 EMAIL BOT MODE: Checking for questions...")
-            bot = UltraProductionEmailBot()  # ✅ USES ULTRA BOT
-            bot.check_for_questions()
+            bot = UltraProductionEmailBot()
+            await bot.check_for_questions()  # Add await here
             logging.info("✅ Email bot check complete")
         else:
             logging.warning("❌ Email bot is disabled (ENABLE_EMAIL_BOT=False)")
