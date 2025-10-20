@@ -1715,17 +1715,6 @@ def send_email(html_body):
 # Complete replacement from line 1703 onwards
 # FIXES ALL BUGS - Guaranteed to work
 # ========================================
-import google.generativeai as genai
-
-def list_available_models():
-    """Find what Gemini models actually exist"""
-    genai.configure(api_key=GEMINI_API_KEY)
-    for m in genai.list_models():
-        if 'generateContent' in m.supported_generation_methods:
-            print(f"Available model: {m.name}")
-
-# Run this to see what models you have
-list_available_models()
 
 import smtplib
 from email.mime.text import MIMEText
