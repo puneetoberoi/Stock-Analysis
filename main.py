@@ -725,7 +725,7 @@ def generate_fallback_analysis(market_data, portfolio_data, pattern_data):
     
     return {
         'analysis': final_text,
-        'generated_at': datetime.datetime.now().isoformat()
+        'generated_at': datetime.now().isoformat()
     }
 
 async def generate_ai_oracle_analysis(market_data, portfolio_data, pattern_data):
@@ -744,7 +744,7 @@ async def generate_ai_oracle_analysis(market_data, portfolio_data, pattern_data)
         
         for model_name in model_names:
             try:
-                model = genai.GenerativeModel(model_name)
+                model = genai.GenerativeModel('gemini-2.5-flash')
                 logging.info(f"✅ Successfully loaded Gemini model: {model_name}")
                 break
             except Exception as e:
@@ -1209,11 +1209,8 @@ async def generate_portfolio_recommendations_from_pattern(portfolio_data, patter
 # MAIN FUNCTION - Updated for v2.0.0
 # ========================================
 
-async def main(output="print", check_emails=False):
+async def main(output="print"):
     previous_day_memory = load_memory()
-    if check_emails:
-        # Implement email checking functionality
-        logging.info("Email checking not yet implemented")
     
     sp500 = get_cached_tickers('sp500_cache.json', fetch_sp500_tickers_sync)
     tsx = get_cached_tickers('tsx_cache.json', fetch_tsx_tickers_sync)
@@ -1699,10 +1696,36 @@ def send_email(html_body):
 # ========================================
 
 # ========================================
+# 🚀 v3.0.0 - EMAIL CONVERSATION BOT
+# Complete implementation with all fixes
+# ========================================
+
+# ========================================
+# 🚀 v3.0.0 - EMAIL CONVERSATION BOT
+# Complete implementation with all fixes
+# ========================================
+
+# ========================================
+# 🚀 ULTRA INTELLIGENCE MODULE v5.0.0
+# Complete replacement from line 1703 onwards
+# ========================================
+
+# ========================================
 # 🚀 ULTRA INTELLIGENCE MODULE v5.2.0 (PRODUCTION-READY)
 # Complete replacement from line 1703 onwards
 # FIXES ALL BUGS - Guaranteed to work
 # ========================================
+import google.generativeai as genai
+
+def list_available_models():
+    """Find what Gemini models actually exist"""
+    genai.configure(api_key=GEMINI_API_KEY)
+    for m in genai.list_models():
+        if 'generateContent' in m.supported_generation_methods:
+            print(f"Available model: {m.name}")
+
+# Run this to see what models you have
+list_available_models()
 
 import smtplib
 from email.mime.text import MIMEText
@@ -2677,7 +2700,6 @@ async def main(output="print", check_emails=False):
         })
     
     logging.info("✅ Analysis complete.")
-
 
 # ========================================
 # ENTRY POINT
