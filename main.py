@@ -725,7 +725,7 @@ def generate_fallback_analysis(market_data, portfolio_data, pattern_data):
     
     return {
         'analysis': final_text,
-        'generated_at': datetime.now().isoformat()
+        'generated_at': datetime.datetime.now().isoformat()
     }
 
 async def generate_ai_oracle_analysis(market_data, portfolio_data, pattern_data):
@@ -744,7 +744,7 @@ async def generate_ai_oracle_analysis(market_data, portfolio_data, pattern_data)
         
         for model_name in model_names:
             try:
-                model = genai.GenerativeModel('gemini-2.5-flash')
+                model = genai.GenerativeModel(model_name)
                 logging.info(f"✅ Successfully loaded Gemini model: {model_name}")
                 break
             except Exception as e:
@@ -1209,10 +1209,8 @@ async def generate_portfolio_recommendations_from_pattern(portfolio_data, patter
 # MAIN FUNCTION - Updated for v2.0.0
 # ========================================
 
-async def main(output="print", check_emails=False):
+async def main(output="print"):
     previous_day_memory = load_memory()
-    if check_emails:
-        logging.info("Email checking feature not yet implemented")
     
     sp500 = get_cached_tickers('sp500_cache.json', fetch_sp500_tickers_sync)
     tsx = get_cached_tickers('tsx_cache.json', fetch_tsx_tickers_sync)
@@ -1692,24 +1690,1032 @@ def send_email(html_body):
 # Complete implementation with all fixes
 # ========================================
 
-
+# ========================================
+# 🚀 v3.0.0 - EMAIL CONVERSATION BOT
+# Complete implementation with all fixes
+# ========================================
 
 # ========================================
-# ENTRY POINT
+# 🚀 v3.0.0 - EMAIL CONVERSATION BOT
+# Complete implementation with all fixes
+# ========================================
+
+# ========================================
+# 🚀 v3.0.0 - EMAIL CONVERSATION BOT
+# Complete implementation with all fixes
+# ========================================
+
+# ========================================
+# 🚀 ULTRA INTELLIGENCE MODULE v5.0.0
+# Complete replacement from line 1703 onwards
+# ========================================
+
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+import email
+import email.header
+import email.utils
+import imaplib
+import socket
+import re
+import sqlite3
+
+import subprocess
+import sys
+
+# Auto-install required packages if missing
+def install_if_missing(package):
+    try:
+        __import__(package)
+    except ImportError:
+        print(f"Installing {package}...")
+        subprocess.check_call([sys.executable, "-m", "pip", "install", package])
+
+# Install free visualization and scraping packages
+for pkg in ['matplotlib', 'seaborn', 'pytrends']:
+    try:
+        install_if_missing(pkg.replace('-', '_'))
+    except:
+        pass
+
+import matplotlib
+matplotlib.use('Agg')  # Non-interactive backend
+import matplotlib.pyplot as plt
+import seaborn as sns
+from io import BytesIO
+import base64
+from datetime import datetime, timedelta
+import hashlib
+
+# ========================================
+# WEB INTELLIGENCE (100% FREE)
+# ========================================
+
+class FreeWebIntelligence:
+    """Free web scraping - no API keys needed"""
+    
+    def __init__(self):
+        self.session = requests.Session()
+        self.session.headers.update({
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        })
+    
+    async def search_market_intelligence(self, query, ticker=None):
+        """Comprehensive free web search"""
+        logging.info(f"🔍 Searching web for: {query[:50]}...")
+        
+        results = {
+            'news': await self.scrape_financial_news(ticker or query),
+            'reddit': await self.scrape_reddit_sentiment(ticker or query),
+            'yahoo_data': await self.scrape_yahoo_finance(ticker) if ticker else {},
+            'fear_greed': await self.get_fear_greed_index()
+        }
+        
+        return results
+    
+    async def scrape_financial_news(self, query):
+        """Scrape news from Yahoo Finance"""
+        try:
+            clean_query = query.replace('$', '').split()[0] if query else ''
+            url = f"https://finance.yahoo.com/quote/{clean_query}/news"
+            response = await asyncio.to_thread(self.session.get, url, timeout=10)
+            
+            if response.status_code != 200:
+                return []
+            
+            news_items = []
+            soup = BeautifulSoup(response.text, 'html.parser')
+            
+            # Find news articles
+            for article in soup.find_all('h3')[:5]:
+                if article.text:
+                    news_items.append({
+                        'title': article.text.strip()[:200],
+                        'url': '#',
+                        'source': 'Yahoo Finance'
+                    })
+            
+            return news_items[:3]
+            
+        except Exception as e:
+            logging.debug(f"News scrape error: {e}")
+            return []
+    
+    async def scrape_reddit_sentiment(self, ticker):
+        """Get Reddit sentiment"""
+        try:
+            clean_ticker = ticker.replace('$', '').split()[0] if ticker else ''
+            url = f"https://www.reddit.com/r/wallstreetbets/search.json?q={clean_ticker}&sort=new&limit=5"
+            
+            response = await asyncio.to_thread(self.session.get, url, timeout=10)
+            
+            if response.status_code == 200:
+                data = response.json()
+                posts = data.get('data', {}).get('children', [])
+                
+                bullish_count = 0
+                bearish_count = 0
+                
+                for post in posts:
+                    title = post.get('data', {}).get('title', '').lower()
+                    if any(word in title for word in ['call', 'moon', 'buy', 'long', 'bull']):
+                        bullish_count += 1
+                    if any(word in title for word in ['put', 'short', 'sell', 'bear', 'dump']):
+                        bearish_count += 1
+                
+                if bullish_count > bearish_count:
+                    return {'overall_sentiment': 'bullish', 'posts': len(posts)}
+                elif bearish_count > bullish_count:
+                    return {'overall_sentiment': 'bearish', 'posts': len(posts)}
+                else:
+                    return {'overall_sentiment': 'neutral', 'posts': len(posts)}
+        except:
+            pass
+        
+        return {'overall_sentiment': 'neutral', 'posts': 0}
+    
+    async def scrape_yahoo_finance(self, ticker):
+        """Get Yahoo Finance data"""
+        try:
+            clean_ticker = ticker.replace('$', '').split()[0]
+            url = f"https://finance.yahoo.com/quote/{clean_ticker}"
+            response = await asyncio.to_thread(self.session.get, url, timeout=10)
+            
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.text, 'html.parser')
+                
+                # Try to find price target
+                for elem in soup.find_all('span'):
+                    if '1y Target' in elem.text:
+                        next_elem = elem.find_next('span')
+                        if next_elem:
+                            return {'price_target': next_elem.text}
+                
+            return {}
+        except:
+            return {}
+    
+    async def get_fear_greed_index(self):
+        """Get Fear & Greed Index"""
+        try:
+            response = await asyncio.to_thread(
+                self.session.get,
+                "https://api.alternative.me/fng/",
+                timeout=10
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                return {
+                    'value': int(data['data'][0]['value']),
+                    'text': data['data'][0]['value_classification']
+                }
+        except:
+            pass
+        
+        return {'value': 50, 'text': 'Neutral'}
+
+# ========================================
+# CHART GENERATOR (FREE)
+# ========================================
+
+class FreeChartGenerator:
+    """Generate charts with matplotlib"""
+    
+    def __init__(self):
+        sns.set_style("whitegrid")
+        self.colors = {
+            'green': '#16a34a',
+            'red': '#dc2626',
+            'blue': '#2563eb',
+            'purple': '#7c3aed'
+        }
+    
+    def create_price_chart_html(self, ticker, hist_data):
+        """Create embeddable price chart"""
+        try:
+            fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 6), 
+                                           gridspec_kw={'height_ratios': [3, 1]})
+            
+            # Price chart
+            close_prices = hist_data['Close'][-60:]  # Last 60 days
+            dates = hist_data.index[-60:]
+            
+            ax1.plot(dates, close_prices, color=self.colors['blue'], linewidth=2)
+            ax1.fill_between(dates, close_prices, alpha=0.1, color=self.colors['blue'])
+            
+            # Add MA20
+            if len(close_prices) >= 20:
+                ma20 = close_prices.rolling(20).mean()
+                ax1.plot(dates, ma20, color=self.colors['purple'], 
+                        linewidth=1, alpha=0.7, label='MA20')
+            
+            ax1.set_title(f'{ticker} - 60 Day Price Action', fontsize=14, fontweight='bold')
+            ax1.set_ylabel('Price ($)', fontsize=10)
+            ax1.legend(loc='upper left')
+            ax1.grid(True, alpha=0.3)
+            
+            # Volume
+            volumes = hist_data['Volume'][-60:]
+            colors = ['g' if close_prices.iloc[i] >= close_prices.iloc[i-1] else 'r' 
+                     for i in range(1, len(close_prices))]
+            colors.insert(0, 'g')
+            
+            ax2.bar(dates, volumes, color=colors, alpha=0.5)
+            ax2.set_ylabel('Volume', fontsize=10)
+            ax2.grid(True, alpha=0.3)
+            
+            plt.tight_layout()
+            
+            # Convert to base64
+            buffer = BytesIO()
+            plt.savefig(buffer, format='png', dpi=100, bbox_inches='tight')
+            buffer.seek(0)
+            image_base64 = base64.b64encode(buffer.getvalue()).decode()
+            plt.close()
+            
+            return f'<img src="data:image/png;base64,{image_base64}" style="width:100%; max-width:600px;">'
+            
+        except Exception as e:
+            logging.error(f"Chart error: {e}")
+            return ""
+    
+    def create_sentiment_gauge(self, sentiment_score):
+        """Create sentiment gauge"""
+        try:
+            fig, ax = plt.subplots(figsize=(6, 3))
+            
+            # Create gauge arc
+            theta = np.linspace(np.pi, 0, 100)
+            r = np.ones_like(theta)
+            
+            # Color zones
+            colors = ['#dc2626', '#f59e0b', '#eab308', '#84cc16', '#16a34a']
+            segments = np.array_split(theta, 5)
+            
+            for i, segment in enumerate(segments):
+                ax.fill_between(segment, 0, 1, color=colors[i], alpha=0.3)
+            
+            # Add needle
+            angle = np.pi - (sentiment_score / 100 * np.pi)
+            ax.arrow(0, 0, 0.8 * np.cos(angle), 0.8 * np.sin(angle),
+                    head_width=0.05, head_length=0.05, fc='black', ec='black')
+            
+            # Labels
+            ax.text(0, 0.5, f'Market Sentiment: {sentiment_score}', 
+                   fontsize=12, ha='center', fontweight='bold')
+            ax.text(-1, -0.2, 'Fear', fontsize=8)
+            ax.text(1, -0.2, 'Greed', fontsize=8)
+            
+            ax.set_xlim(-1.2, 1.2)
+            ax.set_ylim(-0.3, 1)
+            ax.axis('off')
+            
+            # Convert to base64
+            buffer = BytesIO()
+            plt.savefig(buffer, format='png', dpi=100, bbox_inches='tight')
+            buffer.seek(0)
+            image_base64 = base64.b64encode(buffer.getvalue()).decode()
+            plt.close()
+            
+            return f'<img src="data:image/png;base64,{image_base64}" style="width:100%; max-width:400px;">'
+            
+        except Exception as e:
+            logging.error(f"Gauge error: {e}")
+            return ""
+
+# ========================================
+# DATA ENHANCER (FREE SOURCES)
+# ========================================
+
+class FreeDataEnhancer:
+    """Enhanced data from free sources"""
+    
+    async def get_options_flow(self, ticker):
+        """Get options data from yfinance"""
+        try:
+            stock = yf.Ticker(ticker)
+            options_dates = stock.options
+            
+            if not options_dates:
+                return {}
+            
+            # Get nearest expiry
+            opt_chain = stock.option_chain(options_dates[0])
+            
+            calls = opt_chain.calls
+            puts = opt_chain.puts
+            
+            call_volume = calls['volume'].sum()
+            put_volume = puts['volume'].sum()
+            pc_ratio = put_volume / call_volume if call_volume > 0 else 1
+            
+            return {
+                'put_call_ratio': round(pc_ratio, 2),
+                'call_volume': int(call_volume),
+                'put_volume': int(put_volume),
+                'sentiment': 'bullish' if pc_ratio < 0.7 else 'bearish' if pc_ratio > 1.3 else 'neutral'
+            }
+        except:
+            return {}
+    
+    async def get_short_interest(self, ticker):
+        """Get short data from yfinance"""
+        try:
+            stock = yf.Ticker(ticker)
+            info = stock.info
+            
+            return {
+                'short_percent': info.get('shortPercentOfFloat', 0) * 100 if info.get('shortPercentOfFloat') else 0,
+                'short_ratio': info.get('shortRatio', 0),
+                'squeeze_potential': 'high' if info.get('shortPercentOfFloat', 0) > 0.2 else 'low'
+            }
+        except:
+            return {}
+
+# ========================================
+# PROFESSIONAL HTML EMAIL FORMATTER
+# ========================================
+
+class ProfessionalEmailFormatter:
+    """Create beautiful HTML emails"""
+    
+    def __init__(self):
+        self.chart_gen = FreeChartGenerator()
+    
+    def generate_html_response(self, question, analysis_data, web_data, charts):
+        """Generate professional HTML email"""
+        
+        css = """
+        <style>
+            body { font-family: -apple-system, 'Segoe UI', Arial, sans-serif; margin: 0; background: #f5f5f5; }
+            .container { max-width: 700px; margin: 0 auto; background: white; }
+            .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px; color: white; text-align: center; }
+            .section { padding: 30px; border-bottom: 1px solid #e5e7eb; }
+            .metric-card { background: #f9fafb; padding: 20px; border-radius: 8px; border-left: 4px solid #667eea; margin: 15px 0; }
+            .alert { background: #fef3c7; padding: 15px; border-left: 4px solid #f59e0b; border-radius: 5px; margin: 20px 0; }
+            .success { background: #d1fae5; padding: 15px; border-left: 4px solid #10b981; border-radius: 5px; margin: 20px 0; }
+            .danger { background: #fee2e2; padding: 15px; border-left: 4px solid #ef4444; border-radius: 5px; margin: 20px 0; }
+            .news-item { background: white; padding: 15px; border: 1px solid #e5e7eb; border-radius: 5px; margin: 10px 0; }
+            table { width: 100%; border-collapse: collapse; }
+            th { background: #f9fafb; padding: 12px; text-align: left; font-weight: 600; }
+            td { padding: 12px; border-bottom: 1px solid #e5e7eb; }
+        </style>
+        """
+        
+        html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>{css}</head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1 style="margin: 0;">Market Intelligence Report</h1>
+                    <p style="margin: 10px 0 0 0; opacity: 0.9;">AI-Powered Analysis</p>
+                </div>
+                
+                <div class="section">
+                    <h2 style="color: #1f2937;">Your Question</h2>
+                    <div class="metric-card">
+                        <p style="margin: 0; font-size: 16px;">"{question}"</p>
+                    </div>
+                </div>
+        """
+        
+        # Add charts if available
+        if charts.get('price_chart'):
+            html += f"""
+                <div class="section">
+                    <h2 style="color: #1f2937;">📊 Technical Analysis</h2>
+                    <div style="text-align: center; margin: 20px 0;">
+                        {charts['price_chart']}
+                    </div>
+                </div>
+            """
+        
+        # Add sentiment gauge
+        if charts.get('sentiment_gauge'):
+            html += f"""
+                <div class="section">
+                    <h2 style="color: #1f2937;">🎯 Market Sentiment</h2>
+                    <div style="text-align: center; margin: 20px 0;">
+                        {charts['sentiment_gauge']}
+                    </div>
+                </div>
+            """
+        
+        # Add data insights
+        if analysis_data:
+            html += self._create_data_section(analysis_data)
+        
+        # Add web intelligence
+        if web_data:
+            html += self._create_web_section(web_data)
+        
+        # AI Analysis
+        if analysis_data.get('ai_response'):
+            html += f"""
+                <div class="section">
+                    <h2 style="color: #1f2937;">🤖 AI Analysis</h2>
+                    <div style="background: #f0f9ff; padding: 20px; border-radius: 8px; border-left: 4px solid #0369a1;">
+                        {analysis_data['ai_response'].replace(chr(10), '<br>')}
+                    </div>
+                </div>
+            """
+        
+        html += """
+                <div style="background: #1f2937; color: #9ca3af; padding: 30px; text-align: center;">
+                    <p>Reply with follow-up questions anytime</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        
+        return html
+    
+    def _create_data_section(self, data):
+        """Create data insights section"""
+        html = '<div class="section"><h2 style="color: #1f2937;">📈 Market Data</h2>'
+        
+        if data.get('price'):
+            color = '#10b981' if data.get('daily_change', 0) > 0 else '#ef4444'
+            html += f"""
+                <div class="metric-card">
+                    <h4 style="margin: 0; color: #6b7280;">Current Price</h4>
+                    <p style="margin: 5px 0; font-size: 24px; font-weight: bold; color: {color};">
+                        ${data['price']:.2f} ({data.get('daily_change', 0):+.2f}%)
+                    </p>
+                </div>
+            """
+        
+        if data.get('options_flow'):
+            opt = data['options_flow']
+            html += f"""
+                <div class="metric-card">
+                    <h4 style="margin: 0; color: #6b7280;">Options Flow</h4>
+                    <p>Put/Call Ratio: <strong>{opt.get('put_call_ratio', 'N/A')}</strong></p>
+                    <p>Sentiment: <strong>{opt.get('sentiment', 'neutral').upper()}</strong></p>
+                </div>
+            """
+        
+        html += '</div>'
+        return html
+    
+    def _create_web_section(self, web_data):
+        """Create web intelligence section"""
+        html = '<div class="section"><h2 style="color: #1f2937;">🌐 Web Intelligence</h2>'
+        
+        if web_data.get('reddit'):
+            sentiment = web_data['reddit'].get('overall_sentiment', 'neutral')
+            color = '#10b981' if sentiment == 'bullish' else '#ef4444' if sentiment == 'bearish' else '#6b7280'
+            html += f"""
+                <div class="metric-card">
+                    <h4>Reddit Sentiment</h4>
+                    <p style="color: {color}; font-weight: bold;">{sentiment.upper()}</p>
+                </div>
+            """
+        
+        if web_data.get('news'):
+            html += '<h3>Latest News</h3>'
+            for item in web_data['news'][:3]:
+                html += f"""
+                    <div class="news-item">
+                        <p style="margin: 0;"><strong>{item.get('title', 'No title')}</strong></p>
+                        <p style="margin: 5px 0 0 0; color: #6b7280; font-size: 14px;">
+                            Source: {item.get('source', 'Unknown')}
+                        </p>
+                    </div>
+                """
+        
+        html += '</div>'
+        return html
+
+# ========================================
+# ENHANCED AI ANALYST
+# ========================================
+
+class EnhancedAIAnalyst:
+    """AI analyst with all enhancements"""
+    
+    def __init__(self):
+        self.web_intel = FreeWebIntelligence()
+        self.data_enhancer = FreeDataEnhancer()
+        self.formatter = ProfessionalEmailFormatter()
+        self.chart_gen = FreeChartGenerator()
+    
+    async def generate_ultra_response(self, question, cached_data=None):
+        """Generate ultra-enhanced response"""
+        logging.info("🚀 Generating ULTRA response...")
+        
+        # Extract ticker
+        ticker = self._extract_ticker(question)
+        
+        # Gather all data
+        analysis_data = await self._gather_all_data(question, ticker, cached_data)
+        
+        # Get web intelligence
+        web_data = await self.web_intel.search_market_intelligence(question, ticker)
+        
+        # Generate charts
+        charts = {}
+        if ticker:
+            try:
+                stock = yf.Ticker(ticker)
+                hist = stock.history(period='3mo')
+                if not hist.empty:
+                    charts['price_chart'] = self.chart_gen.create_price_chart_html(ticker, hist)
+                    
+                    # Calculate sentiment score
+                    sentiment_score = 50
+                    if analysis_data.get('options_flow'):
+                        pc_ratio = analysis_data['options_flow'].get('put_call_ratio', 1)
+                        sentiment_score = min(90, max(10, 50 + (1 - pc_ratio) * 40))
+                    
+                    charts['sentiment_gauge'] = self.chart_gen.create_sentiment_gauge(sentiment_score)
+            except Exception as e:
+                logging.error(f"Chart generation error: {e}")
+        
+        # Generate AI response
+        ai_response = await self._generate_ai_response(question, analysis_data, web_data)
+        analysis_data['ai_response'] = ai_response
+        
+        # Generate HTML email
+        html_response = self.formatter.generate_html_response(
+            question, analysis_data, web_data, charts
+        )
+        
+        return html_response
+    
+    def _extract_ticker(self, question):
+        """Extract ticker from question"""
+        import re
+        
+        # Try to find ticker symbols
+        matches = re.findall(r'\b([A-Z]{1,5})\b', question)
+        for match in matches:
+            if 2 <= len(match) <= 5:
+                return match
+        
+        # Check company names
+        companies = {
+            'apple': 'AAPL', 'microsoft': 'MSFT', 'google': 'GOOGL',
+            'amazon': 'AMZN', 'tesla': 'TSLA', 'nvidia': 'NVDA',
+            'meta': 'META', 'facebook': 'META'
+        }
+        
+        q_lower = question.lower()
+        for company, ticker in companies.items():
+            if company in q_lower:
+                return ticker
+        
+        return None
+    
+    async def _gather_all_data(self, question, ticker, cached_data):
+        """Gather comprehensive data"""
+        data = {'question': question, 'ticker': ticker}
+        
+        if ticker:
+            try:
+                stock = yf.Ticker(ticker)
+                hist = stock.history(period='3mo')
+                
+                if not hist.empty:
+                    current = hist['Close'].iloc[-1]
+                    prev = hist['Close'].iloc[-2] if len(hist) > 1 else current
+                    
+                    data['price'] = current
+                    data['daily_change'] = ((current - prev) / prev) * 100
+                    data['rsi'] = RSIIndicator(hist['Close']).rsi().iloc[-1]
+                    
+                    # Get enhanced data
+                    data['options_flow'] = await self.data_enhancer.get_options_flow(ticker)
+                    data['short_interest'] = await self.data_enhancer.get_short_interest(ticker)
+            except Exception as e:
+                logging.error(f"Data gathering error: {e}")
+        
+        return data
+    
+    async def _generate_ai_response(self, question, analysis_data, web_data):
+        """Generate AI response"""
+        if not GEMINI_API_KEY:
+            return self._generate_fallback_response(question, analysis_data, web_data)
+        
+        try:
+            genai.configure(api_key=GEMINI_API_KEY)
+            
+            # Build context
+            context = self._build_context(analysis_data, web_data)
+            
+            prompt = f"""You are a professional financial analyst. Answer this question:
+"{question}"
+
+Market Data:
+{context}
+
+Provide a clear, actionable response with specific recommendations. Be concise but thorough.
+"""
+            
+            # Try Gemini models
+            for model_name in ['gemini-1.5-flash', 'gemini-pro']:
+                try:
+                    model = genai.GenerativeModel(model_name)
+                    response = model.generate_content(prompt)
+                    return response.text
+                except:
+                    continue
+        except:
+            pass
+        
+        return self._generate_fallback_response(question, analysis_data, web_data)
+    
+    def _build_context(self, analysis_data, web_data):
+        """Build context for AI"""
+        lines = []
+        
+        if analysis_data.get('price'):
+            lines.append(f"Price: ${analysis_data['price']:.2f} ({analysis_data.get('daily_change', 0):+.2f}%)")
+        
+        if analysis_data.get('options_flow'):
+            lines.append(f"Options: P/C Ratio {analysis_data['options_flow'].get('put_call_ratio', 'N/A')}")
+        
+        if web_data.get('reddit'):
+            lines.append(f"Reddit: {web_data['reddit'].get('overall_sentiment', 'neutral')}")
+        
+        return '\n'.join(lines)
+    
+    def _generate_fallback_response(self, question, analysis_data, web_data):
+        """Generate response without AI"""
+        response = "Based on my analysis:\n\n"
+        
+        if analysis_data.get('price'):
+            response += f"**Price**: ${analysis_data['price']:.2f} ({analysis_data.get('daily_change', 0):+.2f}% today)\n\n"
+        
+        if analysis_data.get('options_flow'):
+            opt = analysis_data['options_flow']
+            response += f"**Options Flow**: {opt.get('sentiment', 'neutral').upper()} (P/C: {opt.get('put_call_ratio', 'N/A')})\n\n"
+        
+        if web_data.get('reddit'):
+            response += f"**Social Sentiment**: {web_data['reddit'].get('overall_sentiment', 'neutral').upper()}\n\n"
+        
+        # Add recommendation
+        if 'buy' in question.lower():
+            if analysis_data.get('rsi', 50) < 35:
+                response += "**Recommendation**: Good entry point - RSI oversold\n"
+            elif analysis_data.get('rsi', 50) > 70:
+                response += "**Recommendation**: Wait for pullback - RSI overbought\n"
+            else:
+                response += "**Recommendation**: Neutral setup - consider scaling in\n"
+        
+        return response
+
+# ========================================
+# v3.0 Feature Flags
+# ========================================
+
+ENABLE_EMAIL_BOT = True
+ENABLE_DATA_PERSISTENCE = True
+
+def clean_for_json(obj):
+    """Convert numpy/pandas types for JSON serialization"""
+    if isinstance(obj, np.bool_):
+        return bool(obj)
+    if isinstance(obj, np.integer):
+        return int(obj)
+    if isinstance(obj, np.floating):
+        return float(obj)
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    if isinstance(obj, dict):
+        return {k: clean_for_json(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [clean_for_json(i) for i in obj]
+    return obj
+
+class MarketIntelligenceDB:
+    """v3.0: Persistent storage for analysis data"""
+    def __init__(self, db_path='market_intel.db'):
+        self.conn = sqlite3.connect(db_path)
+        self.init_schema()
+    
+    def init_schema(self):
+        self.conn.executescript('''
+            CREATE TABLE IF NOT EXISTS daily_analysis (
+                date TEXT PRIMARY KEY, portfolio_data TEXT, pattern_data TEXT, macro_data TEXT,
+                stock_scores TEXT, ai_analysis TEXT, recommendations TEXT
+            );
+            CREATE TABLE IF NOT EXISTS conversations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT, user_question TEXT,
+                bot_response TEXT, context TEXT
+            );
+        ''')
+        self.conn.commit()
+    
+    def save_daily_analysis(self, date, portfolio_data, pattern_data, macro_data, 
+                           stock_scores, ai_analysis, recommendations):
+        try:
+            self.conn.execute('''
+                INSERT OR REPLACE INTO daily_analysis 
+                (date, portfolio_data, pattern_data, macro_data, stock_scores, ai_analysis, recommendations)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                date,
+                json.dumps(clean_for_json(portfolio_data)), json.dumps(clean_for_json(pattern_data)),
+                json.dumps(clean_for_json(macro_data)), json.dumps(clean_for_json(stock_scores)),
+                json.dumps(clean_for_json(ai_analysis)), json.dumps(clean_for_json(recommendations))
+            ))
+            self.conn.commit()
+            logging.info(f"✅ Saved analysis data for {date}")
+        except Exception as e:
+            logging.error(f"Failed to save analysis to DB: {e}")
+
+    def get_latest_analysis(self):
+        cursor = self.conn.execute('SELECT * FROM daily_analysis ORDER BY date DESC LIMIT 1')
+        row = cursor.fetchone()
+        if not row: return None
+        return {
+            'date': row[0], 'portfolio_data': json.loads(row[1]) if row[1] else None,
+            'pattern_data': json.loads(row[2]) if row[2] else None, 'macro_data': json.loads(row[3]) if row[3] else None,
+            'stock_scores': json.loads(row[4]) if row[4] else None, 'ai_analysis': json.loads(row[5]) if row[5] else None,
+            'recommendations': json.loads(row[6]) if row[6] else None
+        }
+
+# ========================================
+# ULTRA PRODUCTION EMAIL BOT
+# ========================================
+
+class UltraProductionEmailBot:
+    """v5.0: Ultra bot with all enhancements - ASYNC VERSION"""
+    def __init__(self):
+        self.db = MarketIntelligenceDB()
+        self.smtp_user = os.getenv("SMTP_USER")
+        self.smtp_pass = os.getenv("SMTP_PASS")
+        self.imap_server = "imap.gmail.com"
+        self.ai_analyst = EnhancedAIAnalyst()
+    
+    async def check_for_questions(self):  # Changed to async
+        """Check emails for questions"""
+        try:
+            logging.info("📧 Checking for email questions...")
+            
+            mail = imaplib.IMAP4_SSL(self.imap_server, timeout=15)
+            mail.login(self.smtp_user, self.smtp_pass)
+            mail.select('inbox')
+            
+            since_date = (datetime.now() - timedelta(days=7)).strftime("%d-%b-%Y")
+            
+            _, search_data = mail.search(None, f'(UNSEEN SINCE {since_date} SUBJECT "Daily Market Briefing")')
+            matching_emails = search_data[0].split()
+            
+            if not matching_emails:
+                logging.info("✅ No unread briefing emails")
+                mail.close()
+                mail.logout()
+                return
+            
+            for num in list(reversed(matching_emails))[:2]:
+                try:
+                    _, data = mail.fetch(num, '(RFC822)')
+                    email_message = email.message_from_bytes(data[0][1])
+                    
+                    sender = email.utils.parseaddr(email_message['From'])[1]
+                    question = self.extract_question(email_message)
+                    
+                    if question and len(question.strip()) > 10:
+                        logging.info(f"❓ Q: '{question[:80]}...'")
+                        
+                        # Now we can await directly
+                        response = await self.generate_ultra_response(question)
+                        
+                        self.send_response(sender, question, response)
+                        mail.store(num, '+FLAGS', '\\Seen')
+                        logging.info(f"✅ Answered and sent")
+                    else:
+                        mail.store(num, '+FLAGS', '\\Seen')
+                
+                except Exception as e:
+                    logging.error(f"Error processing email: {e}")
+                    continue
+            
+            mail.close()
+            mail.logout()
+            logging.info("✅ Email check complete")
+            
+        except Exception as e:
+            logging.error(f"Email bot error: {e}")
+    
+    def extract_question(self, msg):
+        """Extract question from email - stays the same"""
+        body = ""
+        
+        if msg.is_multipart():
+            for part in msg.walk():
+                if part.get_content_type() == "text/plain":
+                    try:
+                        body = part.get_payload(decode=True).decode('utf-8', errors='ignore')
+                        break
+                    except:
+                        continue
+        else:
+            try:
+                body = msg.get_payload(decode=True).decode('utf-8', errors='ignore')
+            except:
+                body = str(msg.get_payload())
+        
+        lines = []
+        for line in body.split('\n'):
+            if any(m in line.lower() for m in ['wrote:', 'from:', 'sent:', '----', 'original message']):
+                break
+            if line.strip().startswith('>') or line.strip().startswith('--'):
+                continue
+            if line.strip():
+                lines.append(line.strip())
+        
+        question = ' '.join(lines).strip()
+        question = re.sub(r'\s+', ' ', question)
+        
+        return question
+    
+    async def generate_ultra_response(self, question):  # Changed to async
+        """Generate ultra response with all enhancements"""
+        logging.info("🚀 ULTRA response generation starting...")
+        
+        try:
+            cached_data = self.db.get_latest_analysis()
+            
+            # Now we can await directly
+            html_response = await self.ai_analyst.generate_ultra_response(question, cached_data)
+            
+            return html_response
+            
+        except Exception as e:
+            logging.error(f"Ultra generation error: {e}")
+            return f"""
+            <html>
+            <body>
+                <h2>Analysis Error</h2>
+                <p>Question: {question}</p>
+                <p>Error: {str(e)}</p>
+            </body>
+            </html>
+            """
+    
+    def send_response(self, to_email, question, response):
+        """Send HTML response - stays the same"""
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = f"Re: Market Analysis - {datetime.now().strftime('%b %d')}"
+        msg['From'] = self.smtp_user
+        msg['To'] = to_email
+        
+        text_part = MIMEText("Please view in HTML format", 'plain')
+        html_part = MIMEText(response, 'html')
+        
+        msg.attach(text_part)
+        msg.attach(html_part)
+        
+        try:
+            with smtplib.SMTP('smtp.gmail.com', 587) as server:
+                server.starttls()
+                server.login(self.smtp_user, self.smtp_pass)
+                server.send_message(msg)
+            logging.info("✅ Ultra HTML response sent")
+        except Exception as e:
+            logging.error(f"Send failed: {e}")
+
+# ========================================
+# MAIN EXECUTION FUNCTION
+# ========================================
+
+async def main(output="print", check_emails=False):
+    """
+    Main execution - handles both analysis and email bot modes
+    """
+    
+    # EMAIL BOT MODE - Just check emails and respond
+    if check_emails:
+        if ENABLE_EMAIL_BOT:
+            logging.info("🤖 EMAIL BOT MODE: Checking for questions...")
+            bot = UltraProductionEmailBot()
+            await bot.check_for_questions()  # Add await here
+            logging.info("✅ Email bot check complete")
+        else:
+            logging.warning("❌ Email bot is disabled (ENABLE_EMAIL_BOT=False)")
+        return
+
+    # FULL ANALYSIS MODE - Run complete market analysis
+    logging.info("📊 FULL ANALYSIS MODE: Running market intelligence scan...")
+    previous_day_memory = load_memory()
+    
+    sp500 = get_cached_tickers('sp500_cache.json', fetch_sp500_tickers_sync)
+    tsx = get_cached_tickers('tsx_cache.json', fetch_tsx_tickers_sync)
+    universe = (sp500 or [])[:75] + (tsx or [])[:25]
+    
+    throttler = Throttler(2)
+    semaphore = asyncio.Semaphore(10)
+    
+    async with aiohttp.ClientSession() as session:
+        stock_tasks = [analyze_stock(semaphore, throttler, session, ticker) for ticker in universe]
+        context_task = fetch_context_data(session)
+        news_task = fetch_market_headlines(session)
+        macro_task = fetch_macro_sentiment(session)
+        
+        if ENABLE_V2_FEATURES:
+            portfolio_task = analyze_portfolio_with_v2_features(session)
+        else:
+            portfolio_task = analyze_portfolio_watchlist(session)
+        
+        results = await asyncio.gather(
+            asyncio.gather(*stock_tasks), 
+            context_task, 
+            news_task, 
+            macro_task, 
+            portfolio_task
+        )
+        
+        stock_results_raw, context_data, market_news, macro_data, portfolio_data = results
+        
+        stock_results = sorted([r for r in stock_results_raw if r], key=lambda x: x['score'], reverse=True)
+        df_stocks = pd.DataFrame(stock_results) if stock_results else pd.DataFrame()
+
+        pattern_data = await find_historical_patterns(session, macro_data)
+        
+        portfolio_recommendations = None
+        if pattern_data and portfolio_data:
+            portfolio_recommendations = await generate_portfolio_recommendations_from_pattern(
+                portfolio_data, pattern_data, macro_data
+            )
+        
+        market_summary = {
+            'macro': macro_data,
+            'top_stock': stock_results[0] if stock_results else {},
+            'bottom_stock': stock_results[-1] if stock_results else {}
+        }
+        ai_analysis = await generate_ai_oracle_analysis(market_summary, portfolio_data, pattern_data)
+    
+    # Save analysis to database for email bot
+    if ENABLE_DATA_PERSISTENCE:
+        db = MarketIntelligenceDB()
+        db.save_daily_analysis(
+            datetime.now().date().isoformat(),
+            portfolio_data,
+            pattern_data,
+            macro_data,
+            df_stocks.head(20).to_dict('records') if not df_stocks.empty else [],
+            ai_analysis,
+            portfolio_recommendations
+        )
+        logging.info("💾 Analysis saved to database")
+    
+    # Send email if requested
+    if output == "email":
+        html_email = generate_enhanced_html_email(
+            df_stocks, context_data, market_news, macro_data, 
+            previous_day_memory, portfolio_data, pattern_data, 
+            ai_analysis, portfolio_recommendations
+        )
+        send_email(html_email)
+        logging.info("📧 Daily briefing email sent")
+    
+    # Save memory for next run
+    if not df_stocks.empty:
+        save_memory({
+            "previous_top_stock_name": df_stocks.iloc[0]['name'],
+            "previous_top_stock_ticker": df_stocks.iloc[0]['ticker'],
+            "previous_macro_score": macro_data.get('overall_macro_score', 0),
+            "date": datetime.now().date().isoformat()
+        })
+    
+    logging.info("✅ Analysis complete with v5.0.0 features.")
+
+# ========================================
+# PROGRAM ENTRY POINT
 # ========================================
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Market Intelligence System")
-    parser.add_argument("--output", default="print", choices=["print", "email"])
-    parser.add_argument("--check-emails", action="store_true")
+    parser = argparse.ArgumentParser(
+        description="Market Intelligence System - Daily Analysis & Email Bot"
+    )
+    parser.add_argument(
+        "--output", 
+        default="print", 
+        choices=["print", "email"], 
+        help="Where to send analysis: 'print' to console or 'email' to inbox"
+    )
+    parser.add_argument(
+        "--check-emails", 
+        action="store_true", 
+        help="Email bot mode: Check inbox for questions and auto-respond"
+    )
     
     args = parser.parse_args()
     
+    # Windows event loop compatibility
     if os.name == 'nt':
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     
     logging.info("=" * 60)
-    logging.info("🚀 MARKET INTELLIGENCE SYSTEM v5.2.0")
+    logging.info("🚀 MARKET INTELLIGENCE SYSTEM v5.0.0 ULTRA")
     logging.info("=" * 60)
     
     asyncio.run(main(output=args.output, check_emails=args.check_emails))
