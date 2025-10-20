@@ -1705,1741 +1705,418 @@ def send_email(html_body):
 # Complete implementation with all fixes
 # ========================================
 
-# v3.0 Feature Flags
-ENABLE_EMAIL_BOT = True
-ENABLE_DATA_PERSISTENCE = True
-
-def clean_for_json(obj):
-    """FIX 2: Convert numpy/pandas types for JSON serialization"""
-    if isinstance(obj, np.bool_):
-        return bool(obj)
-    if isinstance(obj, np.integer):
-        return int(obj)
-    if isinstance(obj, np.floating):
-        return float(obj)
-    if isinstance(obj, np.ndarray):
-        return obj.tolist()
-    if isinstance(obj, dict):
-        return {k: clean_for_json(v) for k, v in obj.items()}
-    if isinstance(obj, list):
-        return [clean_for_json(i) for i in obj]
-    return obj
-
-class MarketIntelligenceDB:
-    """v3.0: Persistent storage for analysis data"""
-    def __init__(self, db_path='market_intel.db'):
-        self.conn = sqlite3.connect(db_path)
-        self.init_schema()
-    
-    def init_schema(self):
-        self.conn.executescript('''
-            CREATE TABLE IF NOT EXISTS daily_analysis (
-                date TEXT PRIMARY KEY, portfolio_data TEXT, pattern_data TEXT, macro_data TEXT,
-                stock_scores TEXT, ai_analysis TEXT, recommendations TEXT
-            );
-            CREATE TABLE IF NOT EXISTS conversations (
-                id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT, user_question TEXT,
-                bot_response TEXT, context TEXT
-            );
-        ''')
-        self.conn.commit()
-    
-    def save_daily_analysis(self, date, portfolio_data, pattern_data, macro_data, 
-                           stock_scores, ai_analysis, recommendations):
-        try:
-            self.conn.execute('''
-                INSERT OR REPLACE INTO daily_analysis 
-                (date, portfolio_data, pattern_data, macro_data, stock_scores, ai_analysis, recommendations)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            ''', (
-                date,
-                json.dumps(clean_for_json(portfolio_data)), json.dumps(clean_for_json(pattern_data)),
-                json.dumps(clean_for_json(macro_data)), json.dumps(clean_for_json(stock_scores)),
-                json.dumps(clean_for_json(ai_analysis)), json.dumps(clean_for_json(recommendations))
-            ))
-            self.conn.commit()
-            logging.info(f"✅ Saved analysis data for {date}")
-        except Exception as e:
-            logging.error(f"Failed to save analysis to DB: {e}")
-
-    def get_latest_analysis(self):
-        cursor = self.conn.execute('SELECT * FROM daily_analysis ORDER BY date DESC LIMIT 1')
-        row = cursor.fetchone()
-        if not row: return None
-        return {
-            'date': row[0], 'portfolio_data': json.loads(row[1]) if row[1] else None,
-            'pattern_data': json.loads(row[2]) if row[2] else None, 'macro_data': json.loads(row[3]) if row[3] else None,
-            'stock_scores': json.loads(row[4]) if row[4] else None, 'ai_analysis': json.loads(row[5]) if row[5] else None,
-            'recommendations': json.loads(row[6]) if row[6] else None
-        }
-
-class ProductionEmailBot:
-    """v5.0: Production-grade bot with real data + AI enhancement"""
-    def __init__(self):
-        self.db = MarketIntelligenceDB()
-        self.smtp_user = os.getenv("SMTP_USER")
-        self.smtp_pass = os.getenv("SMTP_PASS")
-        self.imap_server = "imap.gmail.com"
-    
-    def check_for_questions(self):
-        """Check emails for questions"""
-        try:
-            logging.info("📧 Checking for email questions...")
-            
-            from datetime import datetime as dt, timedelta
-            
-            mail = imaplib.IMAP4_SSL(self.imap_server, timeout=15)
-            mail.login(self.smtp_user, self.smtp_pass)
-            mail.select('inbox')
-            
-            since_date = (dt.now() - timedelta(days=7)).strftime("%d-%b-%Y")
-            
-            # Search for unread briefing emails
-            _, search_data = mail.search(None, f'(UNSEEN SINCE {since_date} SUBJECT "Daily Market Briefing")')
-            matching_emails = search_data[0].split()
-            
-            if not matching_emails:
-                logging.info("✅ No unread briefing emails")
-                mail.close()
-                mail.logout()
-                return
-            
-            # Process newest 2 emails
-            for num in list(reversed(matching_emails))[:2]:
-                try:
-                    _, data = mail.fetch(num, '(RFC822)')
-                    email_message = email.message_from_bytes(data[0][1])
-                    
-                    # Decode subject
-                    subject_raw = email_message.get('Subject', '')
-                    try:
-                        decoded_parts = email.header.decode_header(subject_raw)
-                        subject = ''
-                        for part, encoding in decoded_parts:
-                            if isinstance(part, bytes):
-                                subject += part.decode(encoding or 'utf-8', errors='ignore')
-                            else:
-                                subject += str(part)
-                    except:
-                        subject = str(subject_raw)
-                    
-                    sender = email.utils.parseaddr(email_message['From'])[1]
-                    
-                    # Extract question
-                    question = self.extract_question(email_message)
-                    
-                    if question and len(question.strip()) > 10:
-                        logging.info(f"❓ Q: '{question[:80]}...'")
-                        
-                        # PRODUCTION RESPONSE PIPELINE
-                        response = self.generate_production_response(question)
-                        
-                        self.send_response(sender, question, response)
-                        mail.store(num, '+FLAGS', '\\Seen')
-                        logging.info(f"✅ Answered and sent")
-                    else:
-                        mail.store(num, '+FLAGS', '\\Seen')
-                
-                except Exception as e:
-                    logging.error(f"Error processing email: {e}")
-                    continue
-            
-            mail.close()
-            mail.logout()
-            logging.info("✅ Email check complete")
-            
-        except Exception as e:
-            logging.error(f"Email bot error: {e}")
-            import traceback
-            logging.error(traceback.format_exc())
-    
-    def extract_question(self, msg):
-        """Extract question from email"""
-        body = ""
-        
-        if msg.is_multipart():
-            for part in msg.walk():
-                if part.get_content_type() == "text/plain":
-                    try:
-                        body = part.get_payload(decode=True).decode('utf-8', errors='ignore')
-                        break
-                    except:
-                        continue
-        else:
-            try:
-                body = msg.get_payload(decode=True).decode('utf-8', errors='ignore')
-            except:
-                body = str(msg.get_payload())
-        
-        # Clean up
-        lines = []
-        for line in body.split('\n'):
-            if any(m in line.lower() for m in ['wrote:', 'from:', 'sent:', '----', 'original message']):
-                break
-            if line.strip().startswith('>') or line.strip().startswith('--'):
-                continue
-            if line.strip():
-                lines.append(line.strip())
-        
-        question = ' '.join(lines).strip()
-        question = re.sub(r'\s+', ' ', question)
-        
-        return question
-    
-    def generate_production_response(self, question):
-        """PRODUCTION: Real data → AI enhancement"""
-        logging.info("🏭 Production response pipeline starting...")
-        
-        # STAGE 1: Gather ALL real data
-        data_package = self.gather_real_data(question)
-        
-        # STAGE 2: Format data cleanly
-        formatted_data = self.format_data_package(data_package)
-        
-        # STAGE 3: Try AI enhancement (with graceful degradation)
-        if GEMINI_API_KEY:
-            ai_response = self.try_ai_enhancement(question, formatted_data)
-            if ai_response:
-                logging.info("✅ AI enhancement successful")
-                return ai_response
-        
-        # STAGE 4: High-quality fallback (data-driven, not templated)
-        logging.info("📊 Using data-driven fallback")
-        return self.generate_data_driven_response(question, data_package, formatted_data)
-    
-    def gather_real_data(self, question):
-        """Gather all available real data"""
-        logging.info("📊 Gathering real data from multiple sources...")
-        
-        data = {
-            'market_prices': {},
-            'portfolio_data': {},
-            'news': [],
-            'macro_context': {},
-            'recommendations': {}
-        }
-        
-        # 1. Market prices (yfinance)
-        data['market_prices'] = self.get_market_prices(question)
-        
-        # 2. Portfolio context (database)
-        data['portfolio_data'] = self.get_portfolio_data(question)
-        
-        # 3. News (Finnhub if available)
-        data['news'] = self.get_financial_news(question)
-        
-        # 4. Macro context (from database)
-        data['macro_context'] = self.get_macro_context()
-        
-        # 5. Recommendations (from database)
-        data['recommendations'] = self.get_recommendations(question)
-        
-        logging.info(f"✅ Data gathered: {len([k for k,v in data.items() if v])} sources")
-        
-        return data
-    
-    def get_market_prices(self, question):
-        """Get real-time market prices"""
-        try:
-            import yfinance as yf
-            
-            ticker_map = {
-                'silver': 'SI=F',
-                'gold': 'GC=F',
-                'oil': 'CL=F',
-                'crude': 'CL=F',
-                'bitcoin': 'BTC-USD',
-                'btc': 'BTC-USD',
-                'ethereum': 'ETH-USD',
-                'eth': 'ETH-USD',
-                'spy': 'SPY',
-                's&p': 'SPY',
-                'nasdaq': 'QQQ',
-                'nvda': 'NVDA',
-                'nvidia': 'NVDA',
-                'aapl': 'AAPL',
-                'apple': 'AAPL',
-                'msft': 'MSFT',
-                'microsoft': 'MSFT',
-                'tsla': 'TSLA',
-                'tesla': 'TSLA',
-                'googl': 'GOOGL',
-                'google': 'GOOGL',
-                'amzn': 'AMZN',
-                'amazon': 'AMZN'
-            }
-            
-            q_lower = question.lower()
-            prices = {}
-            
-            for keyword, ticker in ticker_map.items():
-                if keyword in q_lower:
-                    try:
-                        stock = yf.Ticker(ticker)
-                        hist = stock.history(period='3mo')
-                        
-                        if not hist.empty:
-                            current = hist['Close'].iloc[-1]
-                            day_ago = hist['Close'].iloc[-2] if len(hist) > 1 else current
-                            week_ago = hist['Close'].iloc[-5] if len(hist) >= 5 else current
-                            month_ago = hist['Close'].iloc[0]
-                            
-                            daily_change = ((current - day_ago) / day_ago) * 100
-                            weekly_change = ((current - week_ago) / week_ago) * 100
-                            monthly_change = ((current - month_ago) / month_ago) * 100
-                            
-                            # 52-week range
-                            year_hist = stock.history(period='1y')
-                            high_52w = year_hist['High'].max() if not year_hist.empty else current
-                            low_52w = year_hist['Low'].min() if not year_hist.empty else current
-                            
-                            prices[keyword] = {
-                                'ticker': ticker,
-                                'current': current,
-                                'daily_change': daily_change,
-                                'weekly_change': weekly_change,
-                                'monthly_change': monthly_change,
-                                'high_52w': high_52w,
-                                'low_52w': low_52w
-                            }
-                            
-                            logging.info(f"   ✅ Got {keyword}: ${current:.2f}")
-                    except Exception as e:
-                        logging.debug(f"   ⚠️ Failed to get {keyword}: {e}")
-                        continue
-            
-            return prices
-            
-        except Exception as e:
-            logging.error(f"Market prices error: {e}")
-            return {}
-    
-    def get_portfolio_data(self, question):
-        """Get portfolio-specific data"""
-        try:
-            latest = self.db.get_latest_analysis()
-            
-            if not latest or not latest.get('portfolio_data'):
-                return {}
-            
-            q_lower = question.lower()
-            relevant_stocks = []
-            
-            for stock in latest['portfolio_data'].get('stocks', []):
-                ticker = stock['ticker']
-                if ticker.lower() in q_lower or stock.get('name', '').lower() in q_lower:
-                    relevant_stocks.append({
-                        'ticker': ticker,
-                        'name': stock.get('name'),
-                        'price': stock.get('price'),
-                        'rsi': stock.get('rsi'),
-                        'daily_change': stock.get('daily_change'),
-                        'monthly_change': stock.get('monthly_change')
-                    })
-            
-            if relevant_stocks:
-                logging.info(f"   ✅ Found {len(relevant_stocks)} portfolio stocks")
-            
-            return {'stocks': relevant_stocks}
-            
-        except Exception as e:
-            logging.debug(f"Portfolio data error: {e}")
-            return {}
-    
-    def get_financial_news(self, question):
-        """Get financial news from Finnhub"""
-        try:
-            if not FINNHUB_KEY:
-                return []
-            
-            url = f"https://finnhub.io/api/v1/news?category=general&token={FINNHUB_KEY}"
-            response = requests.get(url, timeout=10)
-            
-            if response.status_code == 200:
-                articles = response.json()[:20]
-                
-                # Filter relevant articles
-                keywords = [w.lower() for w in question.split() if len(w) > 4][:5]
-                relevant = []
-                
-                for article in articles:
-                    headline = article.get('headline', '').lower()
-                    if any(keyword in headline for keyword in keywords):
-                        relevant.append({
-                            'headline': article.get('headline'),
-                            'summary': article.get('summary', '')[:200],
-                            'source': article.get('source')
-                        })
-                        
-                        if len(relevant) >= 3:
-                            break
-                
-                if relevant:
-                    logging.info(f"   ✅ Found {len(relevant)} relevant news articles")
-                
-                return relevant
-            
-            return []
-            
-        except Exception as e:
-            logging.debug(f"News fetch error: {e}")
-            return []
-    
-    def get_macro_context(self):
-        """Get macro market context"""
-        try:
-            latest = self.db.get_latest_analysis()
-            
-            if not latest or not latest.get('macro_data'):
-                return {}
-            
-            macro = latest['macro_data']
-            
-            return {
-                'macro_score': macro.get('overall_macro_score'),
-                'geo_risk': macro.get('geopolitical_risk'),
-                'trade_risk': macro.get('trade_risk'),
-                'economic_sentiment': macro.get('economic_sentiment')
-            }
-            
-        except Exception as e:
-            logging.debug(f"Macro context error: {e}")
-            return {}
-    
-    def get_recommendations(self, question):
-        """Get recommendations from database"""
-        try:
-            latest = self.db.get_latest_analysis()
-            
-            if not latest or not latest.get('recommendations'):
-                return {}
-            
-            recs = latest['recommendations'].get('final_verdicts', {})
-            
-            q_lower = question.lower()
-            relevant = {}
-            
-            for ticker, rec in recs.items():
-                if ticker.lower() in q_lower:
-                    relevant[ticker] = {
-                        'action': rec.get('action'),
-                        'reason': rec.get('reason'),
-                        'confidence': rec.get('confidence')
-                    }
-            
-            return relevant
-            
-        except Exception as e:
-            logging.debug(f"Recommendations error: {e}")
-            return {}
-    
-    def format_data_package(self, data):
-        """Format data into clean text for AI or fallback"""
-        sections = []
-        
-        # Market Prices
-        if data['market_prices']:
-            price_text = "MARKET DATA:\n"
-            for asset, info in data['market_prices'].items():
-                price_text += f"• {asset.upper()}: ${info['current']:.2f} "
-                price_text += f"({info['daily_change']:+.1f}% today, {info['monthly_change']:+.1f}% month)\n"
-                price_text += f"  52-week range: ${info['low_52w']:.2f} - ${info['high_52w']:.2f}\n"
-            sections.append(price_text)
-        
-        # Portfolio Data
-        if data['portfolio_data'].get('stocks'):
-            port_text = "YOUR PORTFOLIO:\n"
-            for stock in data['portfolio_data']['stocks']:
-                port_text += f"• {stock['ticker']}: ${stock['price']:.2f}, RSI {stock['rsi']:.0f}\n"
-            sections.append(port_text)
-        
-        # News
-        if data['news']:
-            news_text = "RECENT NEWS:\n"
-            for article in data['news']:
-                news_text += f"• {article['headline']}\n"
-            sections.append(news_text)
-        
-        # Macro Context
-        if data['macro_context']:
-            macro = data['macro_context']
-            macro_text = f"MARKET ENVIRONMENT: Macro score {macro.get('macro_score', 'N/A')}/30"
-            sections.append(macro_text)
-        
-        # Recommendations
-        if data['recommendations']:
-            rec_text = "MY RECOMMENDATIONS:\n"
-            for ticker, rec in data['recommendations'].items():
-                rec_text += f"• {ticker}: {rec['action']} - {rec['reason']}\n"
-            sections.append(rec_text)
-        
-        return "\n\n".join(sections)
-    
-    def try_ai_enhancement(self, question, formatted_data):
-        """Try to enhance with AI"""
-        try:
-            logging.info("🤖 Attempting AI enhancement...")
-            
-            genai.configure(api_key=GEMINI_API_KEY)
-            
-            # Try models in order of preference
-            models_to_try = [
-                'gemini-1.5-flash-latest',
-                'gemini-1.5-flash',
-                'gemini-1.5-pro-latest',
-                'gemini-pro'
-            ]
-            
-            for model_name in models_to_try:
-                try:
-                    model = genai.GenerativeModel(model_name)
-                    
-                    prompt = f"""You are a professional financial advisor. A client asks:
-
-"{question}"
-
-Here is ALL the real data I've gathered:
-
-{formatted_data}
-
-Based ONLY on this data, provide a professional, actionable response that:
-1. Directly answers their question
-2. References specific numbers from the data above
-3. Gives clear recommendations
-4. Explains risks/opportunities
-5. Is 150-200 words
-
-Be confident and specific. Use the data provided."""
-
-                    response = model.generate_content(
-                        prompt,
-                        generation_config=genai.types.GenerationConfig(
-                            temperature=0.7,
-                            max_output_tokens=400,
-                        )
-                    )
-                    
-                    logging.info(f"✅ AI success with {model_name}")
-                    return response.text
-                    
-                except Exception as e:
-                    logging.warning(f"   {model_name} failed: {str(e)[:80]}")
-                    continue
-            
-            logging.warning("All AI models failed")
-            return None
-            
-        except Exception as e:
-            logging.error(f"AI enhancement error: {e}")
-            return None
-    
-    def generate_data_driven_response(self, question, data_package, formatted_data):
-        """Generate high-quality response from data (no AI needed)"""
-        
-        # Check if question is within bot's capabilities
-        if self.is_question_out_of_scope(question):
-            return self.handle_out_of_scope_question(question, data_package)
-        
-        response = f"""Based on my analysis:
-
-{formatted_data}
-
-"""
-        
-        # Add intelligent analysis based on what data we have
-        q_lower = question.lower()
-        
-        if data_package['market_prices']:
-            # We have price data - provide price analysis
-            for asset, info in data_package['market_prices'].items():
-                response += f"\n**{asset.upper()} Market Analysis:**\n"
-                response += f"Currently at ${info['current']:.2f}, "
-                
-                if info['monthly_change'] > 15:
-                    response += f"up {info['monthly_change']:+.1f}% this month - strong bullish momentum. "
-                    response += "This rally has been driven by industrial demand and investment flows. "
-                elif info['monthly_change'] < -15:
-                    response += f"down {info['monthly_change']:+.1f}% this month - bearish pressure. "
-                else:
-                    response += f"{info['monthly_change']:+.1f}% monthly - consolidating. "
-                
-                # Position in range
-                range_position = ((info['current'] - info['low_52w']) / (info['high_52w'] - info['low_52w'])) * 100
-                
-                if range_position > 85:
-                    response += f"Trading at {range_position:.0f}% of 52-week range - extended territory. "
-                    response += "Consider waiting for pullback before adding positions. "
-                elif range_position < 20:
-                    response += f"At {range_position:.0f}% of 52-week range - potential value zone. "
-                    response += "Could be attractive entry point for long-term holders. "
-                else:
-                    response += f"Mid-range at {range_position:.0f}% of 52-week span - balanced risk/reward. "
-                
-                response += "\n"
-        
-        if data_package['recommendations']:
-            response += "\n**Portfolio Action Items:**\n"
-            for ticker, rec in data_package['recommendations'].items():
-                response += f"• {ticker}: {rec['action']} ({rec['confidence']} confidence)\n"
-                response += f"  {rec['reason']}\n"
-        
-        # Add context-specific advice
-        if 'buy' in q_lower or 'invest' in q_lower:
-            response += "\n**Investment Strategy:**\n"
-            if data_package['market_prices']:
-                for asset, info in data_package['market_prices'].items():
-                    if info['monthly_change'] > 20:
-                        response += f"⚠️ {asset.upper()} has rallied hard. Consider scaling in gradually rather than lump-sum buying. "
-                    break
-            response += "Use dollar-cost averaging to mitigate timing risk. Set stop-losses to protect capital."
-        
-        elif 'sell' in q_lower:
-            response += "\n**Exit Considerations:**\n"
-            response += "Review: (1) Are you up from your entry? (2) Has the fundamental thesis changed? (3) Do you need the capital elsewhere? "
-            response += "If unsure, consider taking 25-50% profits and letting the rest run."
-        
-        return response
-    
-    def is_question_out_of_scope(self, question):
-        """Check if question is outside bot's capabilities"""
-        out_of_scope_patterns = [
-            r'top \d+ .*projects',  # "top 50 projects"
-            r'list of.*companies',  # "list of companies"
-            r'which companies',
-            r'name.*projects',
-            r'detailed list',
-            r'give me.*list'
-        ]
-        
-        import re
-        q_lower = question.lower()
-        
-        for pattern in out_of_scope_patterns:
-            if re.search(pattern, q_lower):
-                return True
-        
-        return False
-    
-    def handle_out_of_scope_question(self, question, data_package):
-        """Handle questions that require specialized databases"""
-        
-        response = f"""I appreciate your detailed question, but I need to be honest about my capabilities.
-
-Your question asks for specific project lists/company databases that require specialized industry data sources I don't have access to.
-
-"""
-        
-        # Still provide any relevant data we DO have
-        if data_package['market_prices']:
-            response += "**What I CAN tell you:**\n\n"
-            
-            for asset, info in data_package['market_prices'].items():
-                response += f"{asset.upper()} is currently ${info['current']:.2f} ({info['monthly_change']:+.1f}% this month), "
-                
-                if info['monthly_change'] > 20:
-                    response += "showing exceptional strength driven by:\n"
-                    response += "• Industrial demand (solar panels, EVs, electronics)\n"
-                    response += "• Investment demand (inflation hedge)\n"
-                    response += "• Supply constraints from mining operations\n\n"
-                
-                response += f"**Investment Thesis:**\n"
-                response += f"If you're bullish on {asset}, consider:\n"
-                response += "• Major mining companies (First Majestic, Pan American Silver, Wheaton Precious Metals)\n"
-                response += "• Silver ETFs (SLV, PSLV) for direct exposure\n"
-                response += "• Mining ETFs (SIL, SILJ) for diversified sector play\n\n"
-        
-        response += """**For detailed project lists:**
-I recommend these specialized sources:
-• S&P Global Market Intelligence (paid database)
-• Silver Institute Quarterly Reports (free)
-• Mining company investor presentations
-• Kitco's mining directory
-
-**Questions I CAN answer confidently:**
-• "Should I buy silver at current prices?"
-• "Is NVDA a good investment right now?"
-• "What's your take on my portfolio stocks?"
-• "When should I take profits on XYZ?"
-
-Would you like analysis on any of these instead?"""
-        
-        return response
-    
-    def send_response(self, to_email, question, response):
-        """Send professional email response"""
-        import smtplib
-        
-        msg = MIMEMultipart()
-        msg['Subject'] = "Your Market Intelligence Analysis"
-        msg['From'] = self.smtp_user
-        msg['To'] = to_email
-        
-        body = f"""Your Question:
-"{question}"
-
----
-
-{response}
-
----
-
-📊 Analysis based on real-time market data
-💬 Reply with follow-up questions anytime
-
-Best regards,
-Market Intelligence Bot"""
-        
-        msg.attach(MIMEText(body, 'plain'))
-        
-        try:
-            with smtplib.SMTP('smtp.gmail.com', 587) as server:
-                server.starttls()
-                server.login(self.smtp_user, self.smtp_pass)
-                server.send_message(msg)
-            logging.info(f"✅ Response sent")
-        except Exception as e:
-            logging.error(f"Email send failed: {e}")
-
-
 # ========================================
-# 🚀 v4.0 - PROFESSIONAL INTELLIGENCE LAYER
-# All components: Web Search + Rich HTML + Enhanced Data + Charts + Smart AI
-# 100% FREE FOREVER - No paid APIs
+# 🚀 ULTRA INTELLIGENCE MODULE v5.0.0
+# Adds FREE web search, charts, rich HTML
+# Place this AFTER line 1703 (stable foundation)
 # ========================================
 
-# Additional imports for v4.0
-import re
-import hashlib
+import subprocess
+import sys
+
+# Auto-install required packages if missing
+def install_if_missing(package):
+    try:
+        __import__(package)
+    except ImportError:
+        print(f"Installing {package}...")
+        subprocess.check_call([sys.executable, "-m", "pip", "install", package])
+
+# Install free visualization and scraping packages
+for pkg in ['matplotlib', 'seaborn', 'pytrends']:
+    try:
+        install_if_missing(pkg.replace('-', '_'))
+    except:
+        pass
+
+import matplotlib
+matplotlib.use('Agg')  # Non-interactive backend
+import matplotlib.pyplot as plt
+import seaborn as sns
+from io import BytesIO
+import base64
 from datetime import datetime, timedelta
-from urllib.parse import quote
-from bs4 import BeautifulSoup
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
-import warnings
-warnings.filterwarnings('ignore')
+import hashlib
 
 # ========================================
-# 1. WEB SEARCH INTEGRATION (FREE)
+# WEB INTELLIGENCE (100% FREE)
 # ========================================
 
 class FreeWebIntelligence:
-    """Free web scraping for market intelligence"""
+    """Free web scraping - no API keys needed"""
     
     def __init__(self):
-        self.session = None
-        self.cache = {}  # Simple in-memory cache
-        
-    async def search_market_context(self, query, session):
-        """Search and scrape web for market context"""
-        self.session = session
+        self.session = requests.Session()
+        self.session.headers.update({
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        })
+    
+    async def search_market_intelligence(self, query, ticker=None):
+        """Comprehensive free web search"""
+        logging.info(f"🔍 Searching web for: {query[:50]}...")
         
         results = {
-            'news': [],
-            'analysis': [],
-            'reddit': [],
-            'key_points': [],
-            'sentiment': 'neutral'
+            'news': await self.scrape_financial_news(ticker or query),
+            'reddit': await self.scrape_reddit_sentiment(ticker or query),
+            'yahoo_data': await self.scrape_yahoo_finance(ticker) if ticker else {},
+            'fear_greed': await self.get_fear_greed_index()
         }
-        
-        # Search Google (via scraping)
-        google_results = await self.scrape_google_search(query)
-        
-        # Scrape Finviz for ticker-specific data
-        if any(word.isupper() and len(word) <= 5 for word in query.split()):
-            ticker = [word for word in query.split() if word.isupper() and len(word) <= 5][0]
-            finviz_data = await self.scrape_finviz_details(ticker)
-            if finviz_data:
-                results.update(finviz_data)
-        
-        # Scrape Yahoo Finance news
-        yahoo_news = await self.scrape_yahoo_finance_news(query)
-        results['news'].extend(yahoo_news)
-        
-        # Aggregate and analyze
-        results['key_points'] = self.extract_key_points(results)
-        results['sentiment'] = self.analyze_aggregate_sentiment(results)
         
         return results
     
-    async def scrape_google_search(self, query):
-        """Scrape Google search results"""
+    async def scrape_financial_news(self, query):
+        """Scrape news from Yahoo Finance"""
         try:
-            # Use DuckDuckGo HTML version as Google blocks automated requests
-            encoded_query = quote(query + " stock market analysis")
-            url = f"https://html.duckduckgo.com/html/?q={encoded_query}"
+            clean_query = query.replace('$', '').split()[0] if query else ''
+            url = f"https://finance.yahoo.com/quote/{clean_query}/news"
+            response = await asyncio.to_thread(self.session.get, url, timeout=10)
             
-            content = await make_robust_request(self.session, url)
-            if not content:
+            if response.status_code != 200:
                 return []
             
-            soup = BeautifulSoup(content, 'html.parser')
-            results = []
+            news_items = []
+            soup = BeautifulSoup(response.text, 'html.parser')
             
-            for result in soup.find_all('div', class_='links_main')[:5]:
-                title_elem = result.find('a', class_='result__a')
-                snippet_elem = result.find('a', class_='result__snippet')
+            # Find news articles
+            for article in soup.find_all('h3')[:5]:
+                if article.text:
+                    news_items.append({
+                        'title': article.text.strip()[:200],
+                        'url': '#',
+                        'source': 'Yahoo Finance'
+                    })
+            
+            return news_items[:3]
+            
+        except Exception as e:
+            logging.debug(f"News scrape error: {e}")
+            return []
+    
+    async def scrape_reddit_sentiment(self, ticker):
+        """Get Reddit sentiment"""
+        try:
+            clean_ticker = ticker.replace('$', '').split()[0] if ticker else ''
+            url = f"https://www.reddit.com/r/wallstreetbets/search.json?q={clean_ticker}&sort=new&limit=5"
+            
+            response = await asyncio.to_thread(self.session.get, url, timeout=10)
+            
+            if response.status_code == 200:
+                data = response.json()
+                posts = data.get('data', {}).get('children', [])
                 
-                if title_elem and snippet_elem:
-                    results.append({
-                        'title': title_elem.text.strip(),
-                        'snippet': snippet_elem.text.strip(),
-                        'source': 'Web Search'
-                    })
-            
-            return results
-            
-        except Exception as e:
-            logging.debug(f"Search scraping error: {e}")
-            return []
-    
-    async def scrape_finviz_details(self, ticker):
-        """Scrape Finviz for detailed ticker data"""
-        try:
-            url = f"https://finviz.com/quote.ashx?t={ticker}"
-            content = await make_robust_request(self.session, url)
-            
-            if not content:
-                return None
-            
-            soup = BeautifulSoup(content, 'html.parser')
-            data = {'ticker': ticker}
-            
-            # Get fundamental data table
-            fundamentals = {}
-            fund_table = soup.find('table', class_='snapshot-table2')
-            
-            if fund_table:
-                cells = fund_table.find_all('td')
-                for i in range(0, len(cells)-1, 2):
-                    key = cells[i].text.strip()
-                    value = cells[i+1].text.strip()
-                    fundamentals[key] = value
-            
-            # Parse key metrics
-            data['fundamentals'] = {
-                'P/E': fundamentals.get('P/E', 'N/A'),
-                'Forward P/E': fundamentals.get('Forward P/E', 'N/A'),
-                'PEG': fundamentals.get('PEG', 'N/A'),
-                'Short Float': fundamentals.get('Short Float', 'N/A'),
-                'Insider Own': fundamentals.get('Insider Own', 'N/A'),
-                'Inst Own': fundamentals.get('Inst Own', 'N/A'),
-                'RSI (14)': fundamentals.get('RSI (14)', 'N/A'),
-                'Target Price': fundamentals.get('Target Price', 'N/A'),
-                'Avg Volume': fundamentals.get('Avg Volume', 'N/A'),
-                'Rel Volume': fundamentals.get('Rel Volume', 'N/A')
-            }
-            
-            # Get analyst ratings
-            ratings_elem = soup.find('td', text='Analyst Recom')
-            if ratings_elem:
-                rating_value = ratings_elem.find_next_sibling('td')
-                if rating_value:
-                    data['analyst_rating'] = rating_value.text.strip()
-            
-            # Get news headlines
-            news_table = soup.find('table', id='news-table')
-            if news_table:
-                news = []
-                for row in news_table.find_all('tr')[:5]:
-                    link = row.find('a')
-                    if link:
-                        news.append({
-                            'headline': link.text.strip(),
-                            'url': link.get('href', '#')
-                        })
-                data['recent_news'] = news
-            
-            return data
-            
-        except Exception as e:
-            logging.debug(f"Finviz scraping error: {e}")
-            return None
-    
-    async def scrape_yahoo_finance_news(self, query):
-        """Scrape Yahoo Finance for news"""
-        try:
-            # Extract ticker if present
-            ticker = None
-            for word in query.split():
-                if word.isupper() and len(word) <= 5:
-                    ticker = word
-                    break
-            
-            if not ticker:
-                return []
-            
-            url = f"https://finance.yahoo.com/quote/{ticker}/news"
-            content = await make_robust_request(self.session, url)
-            
-            if not content:
-                return []
-            
-            soup = BeautifulSoup(content, 'html.parser')
-            news = []
-            
-            # Find news items
-            for item in soup.find_all('h3', class_='Mb(5px)')[:5]:
-                link = item.find('a')
-                if link:
-                    news.append({
-                        'headline': link.text.strip(),
-                        'source': 'Yahoo Finance',
-                        'url': 'https://finance.yahoo.com' + link.get('href', '#')
-                    })
-            
-            return news
-            
-        except Exception as e:
-            logging.debug(f"Yahoo Finance scraping error: {e}")
-            return []
-    
-    async def get_options_flow(self, ticker, session):
-        """Scrape unusual options activity"""
-        try:
-            # Using Barchart free data
-            url = f"https://www.barchart.com/stocks/quotes/{ticker}/options"
-            content = await make_robust_request(session, url)
-            
-            if not content:
-                return None
-            
-            soup = BeautifulSoup(content, 'html.parser')
-            
-            # Extract put/call ratio and volume
-            options_data = {
-                'put_call_ratio': 'N/A',
-                'volume': 'N/A',
-                'unusual_activity': []
-            }
-            
-            # Look for volume indicators
-            volume_elem = soup.find('span', string=re.compile('Volume'))
-            if volume_elem:
-                options_data['volume'] = volume_elem.find_next('span').text.strip()
-            
-            return options_data
-            
-        except Exception as e:
-            logging.debug(f"Options scraping error: {e}")
-            return None
-    
-    def extract_key_points(self, results):
-        """Extract key points from all scraped data"""
-        points = []
-        
-        # From fundamentals
-        if 'fundamentals' in results:
-            fund = results['fundamentals']
-            if fund.get('Short Float') and fund['Short Float'] != 'N/A':
-                try:
-                    short_float = float(fund['Short Float'].rstrip('%'))
-                    if short_float > 20:
-                        points.append(f"⚠️ High short interest: {fund['Short Float']}")
-                except:
-                    pass
-            
-            if fund.get('RSI (14)') and fund['RSI (14)'] != 'N/A':
-                try:
-                    rsi = float(fund['RSI (14)'])
-                    if rsi > 70:
-                        points.append(f"📈 Overbought territory (RSI: {rsi:.1f})")
-                    elif rsi < 30:
-                        points.append(f"📉 Oversold territory (RSI: {rsi:.1f})")
-                except:
-                    pass
-        
-        # From news sentiment
-        if results.get('news'):
-            bullish_words = ['upgrade', 'buy', 'bullish', 'surge', 'rally', 'breakout']
-            bearish_words = ['downgrade', 'sell', 'bearish', 'crash', 'plunge', 'warning']
-            
-            bullish_count = sum(1 for n in results['news'] 
-                              if any(w in n.get('headline', '').lower() for w in bullish_words))
-            bearish_count = sum(1 for n in results['news'] 
-                              if any(w in n.get('headline', '').lower() for w in bearish_words))
-            
-            if bullish_count > bearish_count + 2:
-                points.append("📰 News sentiment: Strongly bullish")
-            elif bearish_count > bullish_count + 2:
-                points.append("📰 News sentiment: Strongly bearish")
-        
-        return points[:5]  # Top 5 points
-    
-    def analyze_aggregate_sentiment(self, results):
-        """Analyze overall sentiment from all sources"""
-        sentiment_scores = []
-        
-        # Analyze news headlines
-        if results.get('news'):
-            for item in results['news']:
-                headline = item.get('headline', '').lower()
-                if any(w in headline for w in ['buy', 'upgrade', 'bullish', 'surge', 'rally']):
-                    sentiment_scores.append(1)
-                elif any(w in headline for w in ['sell', 'downgrade', 'bearish', 'crash', 'fall']):
-                    sentiment_scores.append(-1)
+                bullish_count = 0
+                bearish_count = 0
+                
+                for post in posts:
+                    title = post.get('data', {}).get('title', '').lower()
+                    if any(word in title for word in ['call', 'moon', 'buy', 'long', 'bull']):
+                        bullish_count += 1
+                    if any(word in title for word in ['put', 'short', 'sell', 'bear', 'dump']):
+                        bearish_count += 1
+                
+                if bullish_count > bearish_count:
+                    return {'overall_sentiment': 'bullish', 'posts': len(posts)}
+                elif bearish_count > bullish_count:
+                    return {'overall_sentiment': 'bearish', 'posts': len(posts)}
                 else:
-                    sentiment_scores.append(0)
+                    return {'overall_sentiment': 'neutral', 'posts': len(posts)}
+        except:
+            pass
         
-        if not sentiment_scores:
-            return 'neutral'
-        
-        avg_sentiment = sum(sentiment_scores) / len(sentiment_scores)
-        
-        if avg_sentiment > 0.3:
-            return 'bullish'
-        elif avg_sentiment < -0.3:
-            return 'bearish'
-        else:
-            return 'neutral'
-
-# ========================================
-# 2. ENHANCED DATA PIPELINE (FREE SOURCES)
-# ========================================
-
-class EnhancedFreeDataPipeline:
-    """Enhanced data gathering using free sources"""
+        return {'overall_sentiment': 'neutral', 'posts': 0}
     
-    async def get_comprehensive_analysis(self, ticker, session):
-        """Get comprehensive free data"""
+    async def scrape_yahoo_finance(self, ticker):
+        """Get Yahoo Finance data"""
+        try:
+            clean_ticker = ticker.replace('$', '').split()[0]
+            url = f"https://finance.yahoo.com/quote/{clean_ticker}"
+            response = await asyncio.to_thread(self.session.get, url, timeout=10)
+            
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.text, 'html.parser')
+                
+                # Try to find price target
+                for elem in soup.find_all('span'):
+                    if '1y Target' in elem.text:
+                        next_elem = elem.find_next('span')
+                        if next_elem:
+                            return {'price_target': next_elem.text}
+                
+            return {}
+        except:
+            return {}
+    
+    async def get_fear_greed_index(self):
+        """Get Fear & Greed Index"""
+        try:
+            response = await asyncio.to_thread(
+                self.session.get,
+                "https://api.alternative.me/fng/",
+                timeout=10
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                return {
+                    'value': int(data['data'][0]['value']),
+                    'text': data['data'][0]['value_classification']
+                }
+        except:
+            pass
+        
+        return {'value': 50, 'text': 'Neutral'}
+
+# ========================================
+# CHART GENERATOR (FREE)
+# ========================================
+
+class FreeChartGenerator:
+    """Generate charts with matplotlib"""
+    
+    def __init__(self):
+        sns.set_style("whitegrid")
+        self.colors = {
+            'green': '#16a34a',
+            'red': '#dc2626',
+            'blue': '#2563eb',
+            'purple': '#7c3aed'
+        }
+    
+    def create_price_chart_html(self, ticker, hist_data):
+        """Create embeddable price chart"""
+        try:
+            fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 6), 
+                                           gridspec_kw={'height_ratios': [3, 1]})
+            
+            # Price chart
+            close_prices = hist_data['Close'][-60:]  # Last 60 days
+            dates = hist_data.index[-60:]
+            
+            ax1.plot(dates, close_prices, color=self.colors['blue'], linewidth=2)
+            ax1.fill_between(dates, close_prices, alpha=0.1, color=self.colors['blue'])
+            
+            # Add MA20
+            if len(close_prices) >= 20:
+                ma20 = close_prices.rolling(20).mean()
+                ax1.plot(dates, ma20, color=self.colors['purple'], 
+                        linewidth=1, alpha=0.7, label='MA20')
+            
+            ax1.set_title(f'{ticker} - 60 Day Price Action', fontsize=14, fontweight='bold')
+            ax1.set_ylabel('Price ($)', fontsize=10)
+            ax1.legend(loc='upper left')
+            ax1.grid(True, alpha=0.3)
+            
+            # Volume
+            volumes = hist_data['Volume'][-60:]
+            colors = ['g' if close_prices.iloc[i] >= close_prices.iloc[i-1] else 'r' 
+                     for i in range(1, len(close_prices))]
+            colors.insert(0, 'g')
+            
+            ax2.bar(dates, volumes, color=colors, alpha=0.5)
+            ax2.set_ylabel('Volume', fontsize=10)
+            ax2.grid(True, alpha=0.3)
+            
+            plt.tight_layout()
+            
+            # Convert to base64
+            buffer = BytesIO()
+            plt.savefig(buffer, format='png', dpi=100, bbox_inches='tight')
+            buffer.seek(0)
+            image_base64 = base64.b64encode(buffer.getvalue()).decode()
+            plt.close()
+            
+            return f'<img src="data:image/png;base64,{image_base64}" style="width:100%; max-width:600px;">'
+            
+        except Exception as e:
+            logging.error(f"Chart error: {e}")
+            return ""
+    
+    def create_sentiment_gauge(self, sentiment_score):
+        """Create sentiment gauge"""
+        try:
+            fig, ax = plt.subplots(figsize=(6, 3))
+            
+            # Create gauge arc
+            theta = np.linspace(np.pi, 0, 100)
+            r = np.ones_like(theta)
+            
+            # Color zones
+            colors = ['#dc2626', '#f59e0b', '#eab308', '#84cc16', '#16a34a']
+            segments = np.array_split(theta, 5)
+            
+            for i, segment in enumerate(segments):
+                ax.fill_between(segment, 0, 1, color=colors[i], alpha=0.3)
+            
+            # Add needle
+            angle = np.pi - (sentiment_score / 100 * np.pi)
+            ax.arrow(0, 0, 0.8 * np.cos(angle), 0.8 * np.sin(angle),
+                    head_width=0.05, head_length=0.05, fc='black', ec='black')
+            
+            # Labels
+            ax.text(0, 0.5, f'Market Sentiment: {sentiment_score}', 
+                   fontsize=12, ha='center', fontweight='bold')
+            ax.text(-1, -0.2, 'Fear', fontsize=8)
+            ax.text(1, -0.2, 'Greed', fontsize=8)
+            
+            ax.set_xlim(-1.2, 1.2)
+            ax.set_ylim(-0.3, 1)
+            ax.axis('off')
+            
+            # Convert to base64
+            buffer = BytesIO()
+            plt.savefig(buffer, format='png', dpi=100, bbox_inches='tight')
+            buffer.seek(0)
+            image_base64 = base64.b64encode(buffer.getvalue()).decode()
+            plt.close()
+            
+            return f'<img src="data:image/png;base64,{image_base64}" style="width:100%; max-width:400px;">'
+            
+        except Exception as e:
+            logging.error(f"Gauge error: {e}")
+            return ""
+
+# ========================================
+# DATA ENHANCER (FREE SOURCES)
+# ========================================
+
+class FreeDataEnhancer:
+    """Enhanced data from free sources"""
+    
+    async def get_options_flow(self, ticker):
+        """Get options data from yfinance"""
         try:
             stock = yf.Ticker(ticker)
+            options_dates = stock.options
             
-            # Get extended history for better analysis
-            hist_1y = stock.history(period="1y", interval="1d")
-            hist_6mo = stock.history(period="6mo", interval="1d")
-            hist_1mo = stock.history(period="1mo", interval="1h")
+            if not options_dates:
+                return {}
             
-            info = stock.info
+            # Get nearest expiry
+            opt_chain = stock.option_chain(options_dates[0])
             
-            # Volume Analysis
-            volume_analysis = self.analyze_volume_profile(hist_1y)
+            calls = opt_chain.calls
+            puts = opt_chain.puts
             
-            # Support/Resistance Levels
-            support_resistance = self.calculate_support_resistance(hist_6mo)
-            
-            # Institutional Holdings (from yfinance)
-            institutional = {
-                'held_percent': info.get('heldPercentInstitutions', 0) * 100 if info.get('heldPercentInstitutions') else 0,
-                'float_percent': info.get('floatShares', 0) / info.get('sharesOutstanding', 1) * 100 if info.get('sharesOutstanding') else 0,
-                'insider_percent': info.get('heldPercentInsiders', 0) * 100 if info.get('heldPercentInsiders') else 0
-            }
-            
-            # Short Interest
-            short_interest = {
-                'short_ratio': info.get('shortRatio', 0),
-                'short_percent_of_float': info.get('shortPercentOfFloat', 0) * 100 if info.get('shortPercentOfFloat') else 0,
-                'shares_short': info.get('sharesShort', 0),
-                'shares_short_prior': info.get('sharesShortPriorMonth', 0)
-            }
-            
-            # Earnings & Fundamentals
-            fundamentals = {
-                'pe_trailing': info.get('trailingPE', 0),
-                'pe_forward': info.get('forwardPE', 0),
-                'peg_ratio': info.get('pegRatio', 0),
-                'price_to_book': info.get('priceToBook', 0),
-                'profit_margin': info.get('profitMargins', 0) * 100 if info.get('profitMargins') else 0,
-                'revenue_growth': info.get('revenueGrowth', 0) * 100 if info.get('revenueGrowth') else 0,
-                'earnings_growth': info.get('earningsGrowth', 0) * 100 if info.get('earningsGrowth') else 0,
-                'recommendation': info.get('recommendationKey', 'none')
-            }
-            
-            # Price Targets
-            price_targets = {
-                'current': hist_1y['Close'].iloc[-1],
-                'mean_target': info.get('targetMeanPrice', 0),
-                'low_target': info.get('targetLowPrice', 0),
-                'high_target': info.get('targetHighPrice', 0),
-                'number_of_analysts': info.get('numberOfAnalystOpinions', 0)
-            }
-            
-            # Advanced Technical Patterns
-            patterns = self.detect_chart_patterns(hist_6mo)
+            call_volume = calls['volume'].sum()
+            put_volume = puts['volume'].sum()
+            pc_ratio = put_volume / call_volume if call_volume > 0 else 1
             
             return {
-                'ticker': ticker,
-                'name': info.get('longName', ticker),
-                'sector': info.get('sector', 'Unknown'),
-                'volume_analysis': volume_analysis,
-                'support_resistance': support_resistance,
-                'institutional': institutional,
-                'short_interest': short_interest,
-                'fundamentals': fundamentals,
-                'price_targets': price_targets,
-                'patterns': patterns,
-                'hist_1y': hist_1y,
-                'hist_6mo': hist_6mo,
-                'hist_1mo': hist_1mo
+                'put_call_ratio': round(pc_ratio, 2),
+                'call_volume': int(call_volume),
+                'put_volume': int(put_volume),
+                'sentiment': 'bullish' if pc_ratio < 0.7 else 'bearish' if pc_ratio > 1.3 else 'neutral'
             }
-            
-        except Exception as e:
-            logging.error(f"Enhanced data error for {ticker}: {e}")
-            return None
-    
-    def analyze_volume_profile(self, hist_data):
-        """Analyze volume patterns"""
-        if hist_data.empty:
+        except:
             return {}
-        
-        recent_volume = hist_data['Volume'].tail(20)
-        avg_volume = hist_data['Volume'].mean()
-        
-        # Volume trend
-        volume_sma_20 = hist_data['Volume'].rolling(20).mean()
-        volume_trend = 'increasing' if volume_sma_20.iloc[-1] > volume_sma_20.iloc[-20] else 'decreasing'
-        
-        # Unusual volume days
-        volume_spikes = []
-        for i in range(len(hist_data) - 1, max(len(hist_data) - 20, 0), -1):
-            if hist_data['Volume'].iloc[i] > avg_volume * 2:
-                volume_spikes.append({
-                    'date': hist_data.index[i].strftime('%Y-%m-%d'),
-                    'volume': hist_data['Volume'].iloc[i],
-                    'price_change': ((hist_data['Close'].iloc[i] - hist_data['Open'].iloc[i]) / hist_data['Open'].iloc[i]) * 100
-                })
-        
-        return {
-            'current_vs_average': (recent_volume.mean() / avg_volume) if avg_volume > 0 else 1,
-            'trend': volume_trend,
-            'volume_spikes': volume_spikes[:3],
-            'accumulation_distribution': self.calculate_accumulation_distribution(hist_data)
-        }
     
-    def calculate_support_resistance(self, hist_data):
-        """Calculate support and resistance levels"""
-        if hist_data.empty or len(hist_data) < 20:
+    async def get_short_interest(self, ticker):
+        """Get short data from yfinance"""
+        try:
+            stock = yf.Ticker(ticker)
+            info = stock.info
+            
+            return {
+                'short_percent': info.get('shortPercentOfFloat', 0) * 100 if info.get('shortPercentOfFloat') else 0,
+                'short_ratio': info.get('shortRatio', 0),
+                'squeeze_potential': 'high' if info.get('shortPercentOfFloat', 0) > 0.2 else 'low'
+            }
+        except:
             return {}
-        
-        highs = hist_data['High'].values
-        lows = hist_data['Low'].values
-        closes = hist_data['Close'].values
-        
-        current_price = closes[-1]
-        
-        # Find peaks and troughs
-        resistance_levels = []
-        support_levels = []
-        
-        # Simple peak/trough detection
-        for i in range(10, len(highs) - 10):
-            # Resistance (peaks)
-            if highs[i] == max(highs[i-10:i+10]):
-                resistance_levels.append(highs[i])
-            
-            # Support (troughs)  
-            if lows[i] == min(lows[i-10:i+10]):
-                support_levels.append(lows[i])
-        
-        # Get unique levels and sort
-        resistance_levels = sorted(list(set(resistance_levels)), reverse=True)[:3]
-        support_levels = sorted(list(set(support_levels)), reverse=True)[:3]
-        
-        # Filter to nearby levels only (within 15% of current price)
-        resistance_levels = [r for r in resistance_levels if r > current_price and r < current_price * 1.15]
-        support_levels = [s for s in support_levels if s < current_price and s > current_price * 0.85]
-        
-        return {
-            'current_price': current_price,
-            'immediate_resistance': resistance_levels[0] if resistance_levels else current_price * 1.05,
-            'immediate_support': support_levels[0] if support_levels else current_price * 0.95,
-            'resistance_levels': resistance_levels[:3],
-            'support_levels': support_levels[:3]
-        }
-    
-    def calculate_accumulation_distribution(self, hist_data):
-        """Calculate A/D line to detect accumulation or distribution"""
-        if hist_data.empty:
-            return 'neutral'
-        
-        # Money Flow Multiplier
-        mfm = ((hist_data['Close'] - hist_data['Low']) - (hist_data['High'] - hist_data['Close'])) / (hist_data['High'] - hist_data['Low'])
-        mfm = mfm.fillna(0)
-        
-        # Money Flow Volume
-        mfv = mfm * hist_data['Volume']
-        
-        # A/D Line
-        ad_line = mfv.cumsum()
-        
-        # Trend of A/D line
-        if len(ad_line) >= 20:
-            recent_trend = ad_line.iloc[-1] - ad_line.iloc[-20]
-            if recent_trend > 0:
-                return 'accumulation'
-            elif recent_trend < 0:
-                return 'distribution'
-        
-        return 'neutral'
-    
-    def detect_chart_patterns(self, hist_data):
-        """Detect common chart patterns"""
-        if hist_data.empty or len(hist_data) < 50:
-            return []
-        
-        patterns = []
-        closes = hist_data['Close'].values
-        
-        # Moving Average Crossovers
-        sma_20 = hist_data['Close'].rolling(20).mean()
-        sma_50 = hist_data['Close'].rolling(50).mean()
-        
-        if len(sma_20) >= 2 and len(sma_50) >= 2:
-            # Golden Cross
-            if sma_20.iloc[-1] > sma_50.iloc[-1] and sma_20.iloc[-2] <= sma_50.iloc[-2]:
-                patterns.append({
-                    'pattern': 'Golden Cross',
-                    'signal': 'Bullish',
-                    'description': '20-day SMA crossed above 50-day SMA'
-                })
-            
-            # Death Cross
-            elif sma_20.iloc[-1] < sma_50.iloc[-1] and sma_20.iloc[-2] >= sma_50.iloc[-2]:
-                patterns.append({
-                    'pattern': 'Death Cross',
-                    'signal': 'Bearish',
-                    'description': '20-day SMA crossed below 50-day SMA'
-                })
-        
-        # Trend Detection
-        if len(closes) >= 20:
-            recent_trend = (closes[-1] - closes[-20]) / closes[-20] * 100
-            
-            if recent_trend > 15:
-                patterns.append({
-                    'pattern': 'Strong Uptrend',
-                    'signal': 'Bullish',
-                    'description': f'+{recent_trend:.1f}% over 20 days'
-                })
-            elif recent_trend < -15:
-                patterns.append({
-                    'pattern': 'Strong Downtrend',
-                    'signal': 'Bearish',
-                    'description': f'{recent_trend:.1f}% over 20 days'
-                })
-        
-        # Breakout Detection
-        if len(hist_data) >= 252:  # 1 year of data
-            year_high = hist_data['High'].tail(252).max()
-            year_low = hist_data['Low'].tail(252).min()
-            current = closes[-1]
-            
-            if current >= year_high * 0.98:
-                patterns.append({
-                    'pattern': '52-Week High Breakout',
-                    'signal': 'Bullish',
-                    'description': f'Near 52-week high of ${year_high:.2f}'
-                })
-            elif current <= year_low * 1.02:
-                patterns.append({
-                    'pattern': '52-Week Low',
-                    'signal': 'Bearish',
-                    'description': f'Near 52-week low of ${year_low:.2f}'
-                })
-        
-        return patterns
 
 # ========================================
-# 3. VISUAL INTELLIGENCE SYSTEM (FREE)
+# PROFESSIONAL HTML EMAIL FORMATTER
 # ========================================
 
-class MarketVisualization:
-    """Create professional charts using Plotly (free)"""
+class ProfessionalEmailFormatter:
+    """Create beautiful HTML emails"""
     
-    def create_comprehensive_chart(self, data):
-        """Create multi-panel professional trading chart"""
-        
-        ticker = data['ticker']
-        hist = data['hist_6mo']
-        
-        if hist.empty:
-            return None
-        
-        # Create subplots
-        fig = make_subplots(
-            rows=4, cols=1,
-            shared_xaxes=True,
-            vertical_spacing=0.03,
-            row_heights=[0.5, 0.2, 0.15, 0.15],
-            subplot_titles=(
-                f'{ticker} - Price Action & Technical Analysis',
-                'Volume Analysis',
-                'RSI (14)',
-                'MACD'
-            )
-        )
-        
-        # 1. Candlestick Chart with Bollinger Bands
-        fig.add_trace(
-            go.Candlestick(
-                x=hist.index,
-                open=hist['Open'],
-                high=hist['High'],
-                low=hist['Low'],
-                close=hist['Close'],
-                name='Price',
-                showlegend=False
-            ),
-            row=1, col=1
-        )
-        
-        # Add Bollinger Bands
-        bb = BollingerBands(hist['Close'])
-        fig.add_trace(
-            go.Scatter(
-                x=hist.index,
-                y=bb.bollinger_hband(),
-                name='Upper BB',
-                line=dict(color='rgba(250, 128, 114, 0.5)', width=1),
-                showlegend=True
-            ),
-            row=1, col=1
-        )
-        
-        fig.add_trace(
-            go.Scatter(
-                x=hist.index,
-                y=bb.bollinger_mavg(),
-                name='SMA 20',
-                line=dict(color='rgba(255, 165, 0, 0.8)', width=1),
-                showlegend=True
-            ),
-            row=1, col=1
-        )
-        
-        fig.add_trace(
-            go.Scatter(
-                x=hist.index,
-                y=bb.bollinger_lband(),
-                name='Lower BB',
-                line=dict(color='rgba(250, 128, 114, 0.5)', width=1),
-                fill='tonexty',
-                fillcolor='rgba(173, 216, 230, 0.1)',
-                showlegend=True
-            ),
-            row=1, col=1
-        )
-        
-        # Add support/resistance lines if available
-        if 'support_resistance' in data:
-            sr = data['support_resistance']
-            for resistance in sr.get('resistance_levels', [])[:2]:
-                fig.add_hline(
-                    y=resistance,
-                    line_dash="dash",
-                    line_color="red",
-                    opacity=0.5,
-                    annotation_text=f"R: ${resistance:.2f}",
-                    row=1, col=1
-                )
-            
-            for support in sr.get('support_levels', [])[:2]:
-                fig.add_hline(
-                    y=support,
-                    line_dash="dash",
-                    line_color="green",
-                    opacity=0.5,
-                    annotation_text=f"S: ${support:.2f}",
-                    row=1, col=1
-                )
-        
-        # 2. Volume Chart with colors
-        colors = ['red' if hist['Close'].iloc[i] < hist['Open'].iloc[i] else 'green' 
-                 for i in range(len(hist))]
-        
-        fig.add_trace(
-            go.Bar(
-                x=hist.index,
-                y=hist['Volume'],
-                name='Volume',
-                marker_color=colors,
-                showlegend=False,
-                opacity=0.7
-            ),
-            row=2, col=1
-        )
-        
-        # Add average volume line
-        avg_volume = hist['Volume'].mean()
-        fig.add_hline(
-            y=avg_volume,
-            line_dash="dot",
-            line_color="blue",
-            opacity=0.5,
-            annotation_text=f"Avg: {avg_volume/1e6:.1f}M",
-            row=2, col=1
-        )
-        
-        # 3. RSI
-        rsi = RSIIndicator(hist['Close'], window=14).rsi()
-        
-        fig.add_trace(
-            go.Scatter(
-                x=hist.index,
-                y=rsi,
-                name='RSI',
-                line=dict(color='purple', width=2),
-                showlegend=False
-            ),
-            row=3, col=1
-        )
-        
-        # RSI levels
-        fig.add_hline(y=70, line_dash="dash", line_color="red", opacity=0.3, row=3, col=1)
-        fig.add_hline(y=30, line_dash="dash", line_color="green", opacity=0.3, row=3, col=1)
-        
-        # 4. MACD
-        macd = MACD(hist['Close'])
-        
-        fig.add_trace(
-            go.Scatter(
-                x=hist.index,
-                y=macd.macd(),
-                name='MACD',
-                line=dict(color='blue', width=1),
-                showlegend=True
-            ),
-            row=4, col=1
-        )
-        
-        fig.add_trace(
-            go.Scatter(
-                x=hist.index,
-                y=macd.macd_signal(),
-                name='Signal',
-                line=dict(color='red', width=1),
-                showlegend=True
-            ),
-            row=4, col=1
-        )
-        
-        # MACD Histogram
-        macd_hist = macd.macd_diff()
-        colors = ['green' if val >= 0 else 'red' for val in macd_hist]
-        
-        fig.add_trace(
-            go.Bar(
-                x=hist.index,
-                y=macd_hist,
-                name='MACD Hist',
-                marker_color=colors,
-                showlegend=False,
-                opacity=0.4
-            ),
-            row=4, col=1
-        )
-        
-        # Update layout
-        fig.update_layout(
-            template='plotly_white',
-            height=900,
-            showlegend=True,
-            legend=dict(
-                orientation="h",
-                yanchor="bottom",
-                y=1.02,
-                xanchor="right",
-                x=1
-            ),
-            margin=dict(l=50, r=50, t=50, b=50),
-            hovermode='x unified'
-        )
-        
-        # Update axes
-        fig.update_xaxes(rangeslider_visible=False, row=1, col=1)
-        fig.update_yaxes(title_text="Price ($)", row=1, col=1)
-        fig.update_yaxes(title_text="Volume", row=2, col=1)
-        fig.update_yaxes(title_text="RSI", row=3, col=1)
-        fig.update_yaxes(title_text="MACD", row=4, col=1)
-        
-        return fig.to_html(include_plotlyjs='cdn', div_id="stock_chart")
+    def __init__(self):
+        self.chart_gen = FreeChartGenerator()
     
-    def create_mini_sparkline(self, hist_data, title="Price"):
-        """Create small inline chart for emails"""
+    def generate_html_response(self, question, analysis_data, web_data, charts):
+        """Generate professional HTML email"""
         
-        if hist_data.empty:
-            return ""
+        css = """
+        <style>
+            body { font-family: -apple-system, 'Segoe UI', Arial, sans-serif; margin: 0; background: #f5f5f5; }
+            .container { max-width: 700px; margin: 0 auto; background: white; }
+            .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px; color: white; text-align: center; }
+            .section { padding: 30px; border-bottom: 1px solid #e5e7eb; }
+            .metric-card { background: #f9fafb; padding: 20px; border-radius: 8px; border-left: 4px solid #667eea; margin: 15px 0; }
+            .alert { background: #fef3c7; padding: 15px; border-left: 4px solid #f59e0b; border-radius: 5px; margin: 20px 0; }
+            .success { background: #d1fae5; padding: 15px; border-left: 4px solid #10b981; border-radius: 5px; margin: 20px 0; }
+            .danger { background: #fee2e2; padding: 15px; border-left: 4px solid #ef4444; border-radius: 5px; margin: 20px 0; }
+            .news-item { background: white; padding: 15px; border: 1px solid #e5e7eb; border-radius: 5px; margin: 10px 0; }
+            table { width: 100%; border-collapse: collapse; }
+            th { background: #f9fafb; padding: 12px; text-align: left; font-weight: 600; }
+            td { padding: 12px; border-bottom: 1px solid #e5e7eb; }
+        </style>
+        """
         
-        fig = go.Figure()
-        
-        fig.add_trace(go.Scatter(
-            x=hist_data.index,
-            y=hist_data['Close'],
-            mode='lines',
-            line=dict(color='#1f77b4', width=2),
-            fill='tozeroy',
-            fillcolor='rgba(31, 119, 180, 0.1)',
-            showlegend=False
-        ))
-        
-        fig.update_layout(
-            height=150,
-            margin=dict(l=0, r=0, t=20, b=0),
-            title=dict(text=title, font=dict(size=12)),
-            showlegend=False,
-            hovermode='x',
-            xaxis=dict(showgrid=False, showticklabels=False),
-            yaxis=dict(showgrid=False, showticklabels=False)
-        )
-        
-        return fig.to_html(include_plotlyjs='cdn', div_id=f"spark_{title}")
-
-# ========================================
-# 4. RICH HTML EMAIL GENERATOR
-# ========================================
-
-class ProfessionalEmailGenerator:
-    """Generate Morning Brew style HTML emails"""
-    
-    def generate_analysis_email(self, question, analysis_data, web_data, enhanced_data, chart_html):
-        """Create beautiful, comprehensive HTML email response"""
-        
-        # Extract key metrics for cards
-        metrics = self.extract_metrics(analysis_data, enhanced_data)
-        
-        # Generate sections
-        hero_section = self.create_hero_section(question)
-        metrics_section = self.create_metrics_cards(metrics)
-        chart_section = self.create_chart_section(chart_html)
-        analysis_section = self.create_analysis_section(analysis_data)
-        web_intel_section = self.create_web_intelligence_section(web_data)
-        fundamentals_section = self.create_fundamentals_section(enhanced_data)
-        news_section = self.create_news_section(web_data)
-        recommendations_section = self.create_recommendations_section(analysis_data, enhanced_data)
-        
-        # Assemble complete email
         html = f"""
         <!DOCTYPE html>
         <html>
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <style>
-                * {{
-                    margin: 0;
-                    padding: 0;
-                    box-sizing: border-box;
-                }}
-                
-                body {{
-                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-                    line-height: 1.6;
-                    color: #1a1a1a;
-                    background-color: #f5f5f5;
-                }}
-                
-                .container {{
-                    max-width: 700px;
-                    margin: 0 auto;
-                    background-color: #ffffff;
-                }}
-                
-                .hero {{
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                    color: white;
-                    padding: 40px 30px;
-                    text-align: center;
-                }}
-                
-                .hero h1 {{
-                    font-size: 28px;
-                    margin-bottom: 10px;
-                    font-weight: 600;
-                }}
-                
-                .hero p {{
-                    font-size: 16px;
-                    opacity: 0.9;
-                }}
-                
-                .metrics-grid {{
-                    display: grid;
-                    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-                    gap: 20px;
-                    padding: 30px;
-                    background-color: #f8f9fa;
-                }}
-                
-                .metric-card {{
-                    background: white;
-                    padding: 20px;
-                    border-radius: 10px;
-                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-                    text-align: center;
-                }}
-                
-                .metric-value {{
-                    font-size: 28px;
-                    font-weight: bold;
-                    margin: 10px 0;
-                }}
-                
-                .metric-label {{
-                    font-size: 12px;
-                    color: #666;
-                    text-transform: uppercase;
-                    letter-spacing: 1px;
-                }}
-                
-                .section {{
-                    padding: 30px;
-                    border-bottom: 1px solid #e5e5e5;
-                }}
-                
-                .section h2 {{
-                    font-size: 22px;
-                    margin-bottom: 20px;
-                    color: #2c3e50;
-                    border-bottom: 3px solid #667eea;
-                    padding-bottom: 10px;
-                    display: inline-block;
-                }}
-                
-                .alert-box {{
-                    background: #fff3cd;
-                    border-left: 4px solid #ffc107;
-                    padding: 15px 20px;
-                    margin: 20px 0;
-                    border-radius: 5px;
-                }}
-                
-                .success-box {{
-                    background: #d4edda;
-                    border-left: 4px solid #28a745;
-                    padding: 15px 20px;
-                    margin: 20px 0;
-                    border-radius: 5px;
-                }}
-                
-                .danger-box {{
-                    background: #f8d7da;
-                    border-left: 4px solid #dc3545;
-                    padding: 15px 20px;
-                    margin: 20px 0;
-                    border-radius: 5px;
-                }}
-                
-                .info-box {{
-                    background: #d1ecf1;
-                    border-left: 4px solid #17a2b8;
-                    padding: 15px 20px;
-                    margin: 20px 0;
-                    border-radius: 5px;
-                }}
-                
-                .data-table {{
-                    width: 100%;
-                    border-collapse: collapse;
-                    margin: 20px 0;
-                }}
-                
-                .data-table th {{
-                    background: #667eea;
-                    color: white;
-                    padding: 12px;
-                    text-align: left;
-                    font-weight: 500;
-                }}
-                
-                .data-table td {{
-                    padding: 12px;
-                    border-bottom: 1px solid #e5e5e5;
-                }}
-                
-                .data-table tr:hover {{
-                    background-color: #f8f9fa;
-                }}
-                
-                .news-item {{
-                    padding: 15px;
-                    margin: 10px 0;
-                    background: #f8f9fa;
-                    border-radius: 8px;
-                    border-left: 3px solid #667eea;
-                }}
-                
-                .news-headline {{
-                    font-weight: 600;
-                    color: #2c3e50;
-                    margin-bottom: 5px;
-                }}
-                
-                .news-source {{
-                    font-size: 12px;
-                    color: #666;
-                }}
-                
-                .chart-container {{
-                    padding: 20px;
-                    background: #f8f9fa;
-                    border-radius: 10px;
-                    margin: 20px 0;
-                }}
-                
-                .badge {{
-                    display: inline-block;
-                    padding: 4px 8px;
-                    border-radius: 4px;
-                    font-size: 12px;
-                    font-weight: 600;
-                    margin-right: 5px;
-                }}
-                
-                .badge-success {{
-                    background: #28a745;
-                    color: white;
-                }}
-                
-                .badge-danger {{
-                    background: #dc3545;
-                    color: white;
-                }}
-                
-                .badge-warning {{
-                    background: #ffc107;
-                    color: #333;
-                }}
-                
-                .badge-info {{
-                    background: #17a2b8;
-                    color: white;
-                }}
-                
-                .footer {{
-                    background: #2c3e50;
-                    color: white;
-                    padding: 30px;
-                    text-align: center;
-                }}
-                
-                @media (max-width: 600px) {{
-                    .metrics-grid {{
-                        grid-template-columns: 1fr;
-                    }}
-                    
-                    .hero h1 {{
-                        font-size: 24px;
-                    }}
-                }}
-            </style>
-        </head>
+        <head>{css}</head>
         <body>
             <div class="container">
-                {hero_section}
-                {metrics_section}
-                {chart_section}
-                {analysis_section}
-                {web_intel_section}
-                {fundamentals_section}
-                {news_section}
-                {recommendations_section}
+                <div class="header">
+                    <h1 style="margin: 0;">Market Intelligence Report</h1>
+                    <p style="margin: 10px 0 0 0; opacity: 0.9;">AI-Powered Analysis</p>
+                </div>
                 
-                <div class="footer">
-                    <p style="margin-bottom: 10px;">
-                        📊 Powered by Professional Market Intelligence v4.0
-                    </p>
-                    <p style="font-size: 14px; opacity: 0.8;">
-                        This analysis combines real-time data from 10+ sources with AI-enhanced insights
-                    </p>
+                <div class="section">
+                    <h2 style="color: #1f2937;">Your Question</h2>
+                    <div class="metric-card">
+                        <p style="margin: 0; font-size: 16px;">"{question}"</p>
+                    </div>
+                </div>
+        """
+        
+        # Add charts if available
+        if charts.get('price_chart'):
+            html += f"""
+                <div class="section">
+                    <h2 style="color: #1f2937;">📊 Technical Analysis</h2>
+                    <div style="text-align: center; margin: 20px 0;">
+                        {charts['price_chart']}
+                    </div>
+                </div>
+            """
+        
+        # Add sentiment gauge
+        if charts.get('sentiment_gauge'):
+            html += f"""
+                <div class="section">
+                    <h2 style="color: #1f2937;">🎯 Market Sentiment</h2>
+                    <div style="text-align: center; margin: 20px 0;">
+                        {charts['sentiment_gauge']}
+                    </div>
+                </div>
+            """
+        
+        # Add data insights
+        if analysis_data:
+            html += self._create_data_section(analysis_data)
+        
+        # Add web intelligence
+        if web_data:
+            html += self._create_web_section(web_data)
+        
+        # AI Analysis
+        if analysis_data.get('ai_response'):
+            html += f"""
+                <div class="section">
+                    <h2 style="color: #1f2937;">🤖 AI Analysis</h2>
+                    <div style="background: #f0f9ff; padding: 20px; border-radius: 8px; border-left: 4px solid #0369a1;">
+                        {analysis_data['ai_response'].replace(chr(10), '<br>')}
+                    </div>
+                </div>
+            """
+        
+        html += """
+                <div style="background: #1f2937; color: #9ca3af; padding: 30px; text-align: center;">
+                    <p>Reply with follow-up questions anytime</p>
                 </div>
             </div>
         </body>
@@ -3448,700 +2125,283 @@ class ProfessionalEmailGenerator:
         
         return html
     
-    def create_hero_section(self, question):
-        """Create hero section"""
-        return f"""
-        <div class="hero">
-            <h1>📈 Your Personal Market Analysis</h1>
-            <p>Comprehensive answer to: "{question[:100]}..."</p>
-            <p style="margin-top: 10px; font-size: 14px;">
-                Generated: {datetime.now().strftime('%B %d, %Y at %I:%M %p')}
-            </p>
-        </div>
-        """
-    
-    def create_metrics_cards(self, metrics):
-        """Create metric cards section"""
-        cards_html = ""
+    def _create_data_section(self, data):
+        """Create data insights section"""
+        html = '<div class="section"><h2 style="color: #1f2937;">📈 Market Data</h2>'
         
-        for metric in metrics[:6]:  # Top 6 metrics
-            color = metric.get('color', '#667eea')
-            cards_html += f"""
-            <div class="metric-card">
-                <div class="metric-label">{metric['label']}</div>
-                <div class="metric-value" style="color: {color};">
-                    {metric['value']}
+        if data.get('price'):
+            color = '#10b981' if data.get('daily_change', 0) > 0 else '#ef4444'
+            html += f"""
+                <div class="metric-card">
+                    <h4 style="margin: 0; color: #6b7280;">Current Price</h4>
+                    <p style="margin: 5px 0; font-size: 24px; font-weight: bold; color: {color};">
+                        ${data['price']:.2f} ({data.get('daily_change', 0):+.2f}%)
+                    </p>
                 </div>
-                <div style="font-size: 14px; color: #666;">
-                    {metric.get('change', '')}
-                </div>
-            </div>
             """
         
-        return f"""
-        <div class="metrics-grid">
-            {cards_html}
-        </div>
-        """
-    
-    def create_chart_section(self, chart_html):
-        """Create chart section"""
-        if not chart_html:
-            return ""
+        if data.get('options_flow'):
+            opt = data['options_flow']
+            html += f"""
+                <div class="metric-card">
+                    <h4 style="margin: 0; color: #6b7280;">Options Flow</h4>
+                    <p>Put/Call Ratio: <strong>{opt.get('put_call_ratio', 'N/A')}</strong></p>
+                    <p>Sentiment: <strong>{opt.get('sentiment', 'neutral').upper()}</strong></p>
+                </div>
+            """
         
-        return f"""
-        <div class="section">
-            <h2>📊 Technical Analysis Chart</h2>
-            <div class="chart-container">
-                {chart_html}
-            </div>
-        </div>
-        """
+        html += '</div>'
+        return html
     
-    def create_analysis_section(self, analysis_data):
-        """Create main analysis section"""
-        return f"""
-        <div class="section">
-            <h2>🎯 Professional Analysis</h2>
-            <div style="line-height: 1.8; font-size: 16px;">
-                {analysis_data}
-            </div>
-        </div>
-        """
-    
-    def create_web_intelligence_section(self, web_data):
+    def _create_web_section(self, web_data):
         """Create web intelligence section"""
-        if not web_data:
-            return ""
+        html = '<div class="section"><h2 style="color: #1f2937;">🌐 Web Intelligence</h2>'
         
-        content = ""
-        
-        # Key Points
-        if web_data.get('key_points'):
-            points_html = "<ul style='padding-left: 20px;'>"
-            for point in web_data['key_points']:
-                points_html += f"<li style='margin: 10px 0;'>{point}</li>"
-            points_html += "</ul>"
-            
-            sentiment_class = {
-                'bullish': 'success-box',
-                'bearish': 'danger-box',
-                'neutral': 'info-box'
-            }.get(web_data.get('sentiment', 'neutral'), 'info-box')
-            
-            content = f"""
-            <div class="{sentiment_class}">
-                <strong>Market Intelligence Summary ({web_data.get('sentiment', 'neutral').upper()})</strong>
-                {points_html}
-            </div>
+        if web_data.get('reddit'):
+            sentiment = web_data['reddit'].get('overall_sentiment', 'neutral')
+            color = '#10b981' if sentiment == 'bullish' else '#ef4444' if sentiment == 'bearish' else '#6b7280'
+            html += f"""
+                <div class="metric-card">
+                    <h4>Reddit Sentiment</h4>
+                    <p style="color: {color}; font-weight: bold;">{sentiment.upper()}</p>
+                </div>
             """
         
-        return f"""
-        <div class="section">
-            <h2>🌐 Web Intelligence & Sentiment</h2>
-            {content}
-        </div>
-        """
-    
-    def create_fundamentals_section(self, enhanced_data):
-        """Create fundamentals section"""
-        if not enhanced_data:
-            return ""
+        if web_data.get('news'):
+            html += '<h3>Latest News</h3>'
+            for item in web_data['news'][:3]:
+                html += f"""
+                    <div class="news-item">
+                        <p style="margin: 0;"><strong>{item.get('title', 'No title')}</strong></p>
+                        <p style="margin: 5px 0 0 0; color: #6b7280; font-size: 14px;">
+                            Source: {item.get('source', 'Unknown')}
+                        </p>
+                    </div>
+                """
         
-        fund = enhanced_data.get('fundamentals', {})
-        targets = enhanced_data.get('price_targets', {})
-        inst = enhanced_data.get('institutional', {})
-        short = enhanced_data.get('short_interest', {})
-        
-        return f"""
-        <div class="section">
-            <h2>📋 Fundamental Analysis</h2>
-            
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>Metric</th>
-                        <th>Value</th>
-                        <th>Analysis</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>P/E Ratio</td>
-                        <td>{fund.get('pe_trailing', 'N/A')}</td>
-                        <td>{self.analyze_pe(fund.get('pe_trailing'))}</td>
-                    </tr>
-                    <tr>
-                        <td>Price Target</td>
-                        <td>${targets.get('mean_target', 0):.2f}</td>
-                        <td>{self.analyze_target(targets)}</td>
-                    </tr>
-                    <tr>
-                        <td>Institutional Ownership</td>
-                        <td>{inst.get('held_percent', 0):.1f}%</td>
-                        <td>{self.analyze_institutional(inst.get('held_percent'))}</td>
-                    </tr>
-                    <tr>
-                        <td>Short Interest</td>
-                        <td>{short.get('short_percent_of_float', 0):.1f}%</td>
-                        <td>{self.analyze_short(short.get('short_percent_of_float'))}</td>
-                    </tr>
-                    <tr>
-                        <td>Analyst Rating</td>
-                        <td>{fund.get('recommendation', 'N/A').upper()}</td>
-                        <td>{targets.get('number_of_analysts', 0)} analysts covering</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-        """
-    
-    def create_news_section(self, web_data):
-        """Create news section"""
-        if not web_data or not web_data.get('news'):
-            return ""
-        
-        news_html = ""
-        for item in web_data['news'][:5]:
-            news_html += f"""
-            <div class="news-item">
-                <div class="news-headline">{item.get('headline', 'No title')}</div>
-                <div class="news-source">Source: {item.get('source', 'Unknown')}</div>
-            </div>
-            """
-        
-        return f"""
-        <div class="section">
-            <h2>📰 Latest News & Headlines</h2>
-            {news_html}
-        </div>
-        """
-    
-    def create_recommendations_section(self, analysis, enhanced_data):
-        """Create actionable recommendations"""
-        patterns = enhanced_data.get('patterns', []) if enhanced_data else []
-        
-        recs_html = "<ul style='padding-left: 20px;'>"
-        
-        # Pattern-based recommendations
-        for pattern in patterns[:3]:
-            signal_badge = 'badge-success' if pattern['signal'] == 'Bullish' else 'badge-danger'
-            recs_html += f"""
-            <li style='margin: 15px 0;'>
-                <span class="badge {signal_badge}">{pattern['signal'].upper()}</span>
-                <strong>{pattern['pattern']}</strong>: {pattern['description']}
-            </li>
-            """
-        
-        recs_html += "</ul>"
-        
-        return f"""
-        <div class="section">
-            <h2>💡 Trading Signals & Recommendations</h2>
-            {recs_html}
-        </div>
-        """
-    
-    def extract_metrics(self, analysis_data, enhanced_data):
-        """Extract key metrics for display"""
-        metrics = []
-        
-        if enhanced_data:
-            current_price = enhanced_data.get('price_targets', {}).get('current', 0)
-            target_price = enhanced_data.get('price_targets', {}).get('mean_target', 0)
-            
-            metrics.append({
-                'label': 'Current Price',
-                'value': f'${current_price:.2f}',
-                'change': '',
-                'color': '#2c3e50'
-            })
-            
-            if target_price and current_price:
-                upside = ((target_price - current_price) / current_price) * 100
-                color = '#28a745' if upside > 0 else '#dc3545'
-                metrics.append({
-                    'label': 'Price Target',
-                    'value': f'${target_price:.2f}',
-                    'change': f'{upside:+.1f}% upside',
-                    'color': color
-                })
-            
-            # Volume metrics
-            if 'volume_analysis' in enhanced_data:
-                vol = enhanced_data['volume_analysis']
-                vol_ratio = vol.get('current_vs_average', 1)
-                color = '#ffc107' if vol_ratio > 1.5 else '#17a2b8'
-                metrics.append({
-                    'label': 'Volume vs Avg',
-                    'value': f'{vol_ratio:.1f}x',
-                    'change': vol.get('trend', ''),
-                    'color': color
-                })
-            
-            # Short interest
-            if 'short_interest' in enhanced_data:
-                short_pct = enhanced_data['short_interest'].get('short_percent_of_float', 0)
-                color = '#dc3545' if short_pct > 20 else '#28a745'
-                metrics.append({
-                    'label': 'Short Interest',
-                    'value': f'{short_pct:.1f}%',
-                    'change': 'of float',
-                    'color': color
-                })
-        
-        return metrics
-    
-    def analyze_pe(self, pe):
-        """Analyze P/E ratio"""
-        if not pe or pe == 'N/A':
-            return "No P/E data"
-        try:
-            pe_val = float(pe)
-            if pe_val < 0:
-                return "Negative earnings"
-            elif pe_val < 15:
-                return "Potentially undervalued"
-            elif pe_val < 25:
-                return "Fair valuation"
-            elif pe_val < 35:
-                return "Growth premium"
-            else:
-                return "Expensive valuation"
-        except:
-            return "Invalid data"
-    
-    def analyze_target(self, targets):
-        """Analyze price targets"""
-        current = targets.get('current', 0)
-        mean = targets.get('mean_target', 0)
-        
-        if not mean or not current:
-            return "No analyst coverage"
-        
-        upside = ((mean - current) / current) * 100
-        
-        if upside > 20:
-            return f"Strong buy signal (+{upside:.1f}%)"
-        elif upside > 10:
-            return f"Moderate upside (+{upside:.1f}%)"
-        elif upside > 0:
-            return f"Limited upside (+{upside:.1f}%)"
-        else:
-            return f"Downside risk ({upside:.1f}%)"
-    
-    def analyze_institutional(self, held_pct):
-        """Analyze institutional ownership"""
-        if held_pct > 80:
-            return "Very high - mature company"
-        elif held_pct > 60:
-            return "High - institutional favorite"
-        elif held_pct > 40:
-            return "Moderate - balanced ownership"
-        elif held_pct > 20:
-            return "Low - potential opportunity"
-        else:
-            return "Very low - higher risk"
-    
-    def analyze_short(self, short_pct):
-        """Analyze short interest"""
-        if short_pct > 20:
-            return "Very high - squeeze potential"
-        elif short_pct > 10:
-            return "Elevated - bearish sentiment"
-        elif short_pct > 5:
-            return "Normal - healthy skepticism"
-        else:
-            return "Low - bullish sentiment"
+        html += '</div>'
+        return html
 
 # ========================================
-# 5. ENHANCED PRODUCTION EMAIL BOT v4.0
+# ENHANCED AI ANALYST
 # ========================================
 
-class ProductionEmailBotV4(ProductionEmailBot):
-    """v4.0: Enhanced bot with all new capabilities"""
+class EnhancedAIAnalyst:
+    """AI analyst with all enhancements"""
     
     def __init__(self):
-        super().__init__()
         self.web_intel = FreeWebIntelligence()
-        self.data_pipeline = EnhancedFreeDataPipeline()
-        self.visualizer = MarketVisualization()
-        self.email_generator = ProfessionalEmailGenerator()
+        self.data_enhancer = FreeDataEnhancer()
+        self.formatter = ProfessionalEmailFormatter()
+        self.chart_gen = FreeChartGenerator()
     
-    async def generate_production_response_v4(self, question):
-        """v4.0: Full intelligence pipeline"""
-        logging.info("🚀 v4.0 Production pipeline starting...")
+    async def generate_ultra_response(self, question, cached_data=None):
+        """Generate ultra-enhanced response"""
+        logging.info("🚀 Generating ULTRA response...")
         
-        async with aiohttp.ClientSession() as session:
-            # Stage 1: Identify tickers in question
-            tickers = self.extract_tickers(question)
-            
-            if not tickers:
-                # Try to infer from context
-                tickers = self.infer_tickers_from_question(question)
-            
-            # Stage 2: Gather ALL data sources
-            all_data = {}
-            
-            for ticker in tickers[:3]:  # Limit to 3 tickers
-                logging.info(f"   Analyzing {ticker}...")
-                
-                # Get comprehensive data
-                enhanced_data = await self.data_pipeline.get_comprehensive_analysis(ticker, session)
-                
-                # Get web intelligence
-                web_query = f"{ticker} stock analysis {question}"
-                web_data = await self.web_intel.search_market_context(web_query, session)
-                
-                # Get additional Finviz data
-                finviz_data = await self.web_intel.scrape_finviz_details(ticker)
-                
-                # Get options flow
-                options_data = await self.web_intel.get_options_flow(ticker, session)
-                
-                all_data[ticker] = {
-                    'enhanced': enhanced_data,
-                    'web': web_data,
-                    'finviz': finviz_data,
-                    'options': options_data
-                }
-            
-            # Stage 3: Generate charts
-            chart_html = None
-            if tickers and all_data.get(tickers[0], {}).get('enhanced'):
-                chart_html = self.visualizer.create_comprehensive_chart(
-                    all_data[tickers[0]]['enhanced']
-                )
-            
-            # Stage 4: Generate AI analysis with all context
-            ai_response = await self.generate_ai_analysis_v4(question, all_data)
-            
-            # Stage 5: Create professional HTML email
-            html_email = self.email_generator.generate_analysis_email(
-                question,
-                ai_response,
-                all_data.get(tickers[0], {}).get('web') if tickers else None,
-                all_data.get(tickers[0], {}).get('enhanced') if tickers else None,
-                chart_html
-            )
-            
-            return html_email
+        # Extract ticker
+        ticker = self._extract_ticker(question)
+        
+        # Gather all data
+        analysis_data = await self._gather_all_data(question, ticker, cached_data)
+        
+        # Get web intelligence
+        web_data = await self.web_intel.search_market_intelligence(question, ticker)
+        
+        # Generate charts
+        charts = {}
+        if ticker:
+            try:
+                stock = yf.Ticker(ticker)
+                hist = stock.history(period='3mo')
+                if not hist.empty:
+                    charts['price_chart'] = self.chart_gen.create_price_chart_html(ticker, hist)
+                    
+                    # Calculate sentiment score
+                    sentiment_score = 50
+                    if analysis_data.get('options_flow'):
+                        pc_ratio = analysis_data['options_flow'].get('put_call_ratio', 1)
+                        sentiment_score = min(90, max(10, 50 + (1 - pc_ratio) * 40))
+                    
+                    charts['sentiment_gauge'] = self.chart_gen.create_sentiment_gauge(sentiment_score)
+            except Exception as e:
+                logging.error(f"Chart generation error: {e}")
+        
+        # Generate AI response
+        ai_response = await self._generate_ai_response(question, analysis_data, web_data)
+        analysis_data['ai_response'] = ai_response
+        
+        # Generate HTML email
+        html_response = self.formatter.generate_html_response(
+            question, analysis_data, web_data, charts
+        )
+        
+        return html_response
     
-    def extract_tickers(self, question):
-        """Extract stock tickers from question"""
-        # Common ticker patterns
-        tickers = []
+    def _extract_ticker(self, question):
+        """Extract ticker from question"""
+        import re
         
-        # Find uppercase words that look like tickers
-        words = question.split()
-        for word in words:
-            cleaned = word.strip('.,?!()[]{}')
-            if cleaned.isupper() and 1 <= len(cleaned) <= 5:
-                # Verify it's likely a ticker
-                if not cleaned in ['I', 'A', 'THE', 'AND', 'OR', 'BUT', 'IF', 'IS', 'IT', 'AT', 'TO']:
-                    tickers.append(cleaned)
+        # Try to find ticker symbols
+        matches = re.findall(r'\b([A-Z]{1,5})\b', question)
+        for match in matches:
+            if 2 <= len(match) <= 5:
+                return match
         
-        # Also check for common company names
-        name_to_ticker = {
-            'apple': 'AAPL', 'microsoft': 'MSFT', 'google': 'GOOGL', 'amazon': 'AMZN',
-            'tesla': 'TSLA', 'nvidia': 'NVDA', 'meta': 'META', 'netflix': 'NFLX',
-            'disney': 'DIS', 'coca-cola': 'KO', 'walmart': 'WMT', 'jpmorgan': 'JPM'
+        # Check company names
+        companies = {
+            'apple': 'AAPL', 'microsoft': 'MSFT', 'google': 'GOOGL',
+            'amazon': 'AMZN', 'tesla': 'TSLA', 'nvidia': 'NVDA'
         }
         
         q_lower = question.lower()
-        for name, ticker in name_to_ticker.items():
-            if name in q_lower and ticker not in tickers:
-                tickers.append(ticker)
+        for company, ticker in companies.items():
+            if company in q_lower:
+                return ticker
         
-        return tickers
+        return None
     
-    def infer_tickers_from_question(self, question):
-        """Infer tickers from question context"""
-        q_lower = question.lower()
+    async def _gather_all_data(self, question, ticker, cached_data):
+        """Gather comprehensive data"""
+        data = {'question': question, 'ticker': ticker}
         
-        # Check for sector mentions
-        if 'tech' in q_lower or 'technology' in q_lower:
-            return ['QQQ', 'AAPL', 'MSFT']
-        elif 'bank' in q_lower or 'financial' in q_lower:
-            return ['XLF', 'JPM', 'BAC']
-        elif 'energy' in q_lower or 'oil' in q_lower:
-            return ['XLE', 'XOM', 'CVX']
-        elif 'market' in q_lower or 's&p' in q_lower or 'index' in q_lower:
-            return ['SPY', 'QQQ', 'DIA']
+        if ticker:
+            try:
+                stock = yf.Ticker(ticker)
+                hist = stock.history(period='3mo')
+                
+                if not hist.empty:
+                    current = hist['Close'].iloc[-1]
+                    prev = hist['Close'].iloc[-2] if len(hist) > 1 else current
+                    
+                    data['price'] = current
+                    data['daily_change'] = ((current - prev) / prev) * 100
+                    data['rsi'] = RSIIndicator(hist['Close']).rsi().iloc[-1]
+                    
+                    # Get enhanced data
+                    data['options_flow'] = await self.data_enhancer.get_options_flow(ticker)
+                    data['short_interest'] = await self.data_enhancer.get_short_interest(ticker)
+            except Exception as e:
+                logging.error(f"Data gathering error: {e}")
         
-        # Default to major indices
-        return ['SPY']
+        return data
     
-    async def generate_ai_analysis_v4(self, question, all_data):
-        """Generate enhanced AI analysis with all v4.0 data"""
-        
+    async def _generate_ai_response(self, question, analysis_data, web_data):
+        """Generate AI response"""
         if not GEMINI_API_KEY:
-            return self.generate_enhanced_fallback(question, all_data)
+            return self._generate_fallback_response(question, analysis_data, web_data)
         
         try:
             genai.configure(api_key=GEMINI_API_KEY)
             
-            # Build comprehensive context
-            context = self.build_comprehensive_context(all_data)
+            # Build context
+            context = self._build_context(analysis_data, web_data)
             
-            prompt = f"""You are an elite hedge fund analyst providing institutional-grade analysis.
+            prompt = f"""You are a professional financial analyst. Answer this question:
+"{question}"
 
-CLIENT QUESTION: "{question}"
-
-COMPREHENSIVE MARKET INTELLIGENCE:
+Market Data:
 {context}
 
-Based on ALL this data, provide a detailed professional response that:
-
-1. DIRECT ANSWER (2-3 sentences)
-   - Clear yes/no/specific answer to their question
-   - Confidence level (High/Medium/Low) with reasoning
-
-2. DATA-DRIVEN EVIDENCE (3-4 bullet points)
-   - Cite specific numbers from the data above
-   - Reference technical levels, volume patterns, institutional flows
-
-3. KEY OPPORTUNITIES & RISKS
-   - Immediate opportunities with specific entry points
-   - Critical risks with stop-loss levels
-   - Time-sensitive factors (earnings, economic data, etc.)
-
-4. ACTIONABLE STRATEGY
-   - Specific trade setup if bullish/bearish
-   - Position sizing recommendation
-   - Exit strategy with targets
-
-5. CONTRARIAN PERSPECTIVE
-   - What the crowd might be missing
-   - Alternative scenario to consider
-
-Format with clear sections using ### headers.
-Be specific with prices, percentages, and dates.
-Write in a confident, professional tone.
-Length: 300-400 words."""
-
-            # Try multiple models
-            for model_name in ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro']:
+Provide a clear, actionable response with specific recommendations. Be concise but thorough.
+"""
+            
+            # Try Gemini models
+            for model_name in ['gemini-1.5-flash', 'gemini-pro']:
                 try:
                     model = genai.GenerativeModel(model_name)
-                    response = model.generate_content(
-                        prompt,
-                        generation_config=genai.types.GenerationConfig(
-                            temperature=0.7,
-                            max_output_tokens=800,
-                        )
-                    )
-                    
-                    # Format response for HTML
-                    formatted = response.text.replace('###', '<h3>').replace('\n\n', '</p><p>').replace('\n', '<br>')
-                    formatted = f"<p>{formatted}</p>"
-                    formatted = formatted.replace('<h3>', '</p><h3>').replace('</h3>', '</h3><p>')
-                    
-                    return formatted
-                    
-                except Exception as e:
-                    logging.warning(f"Model {model_name} failed: {str(e)[:100]}")
+                    response = model.generate_content(prompt)
+                    return response.text
+                except:
                     continue
-            
-        except Exception as e:
-            logging.error(f"AI enhancement failed: {e}")
+        except:
+            pass
         
-        return self.generate_enhanced_fallback(question, all_data)
+        return self._generate_fallback_response(question, analysis_data, web_data)
     
-    def build_comprehensive_context(self, all_data):
-        """Build comprehensive context for AI"""
-        context_parts = []
+    def _build_context(self, analysis_data, web_data):
+        """Build context for AI"""
+        lines = []
         
-        for ticker, data in all_data.items():
-            context_parts.append(f"\n=== {ticker} ANALYSIS ===\n")
-            
-            # Enhanced data
-            if data.get('enhanced'):
-                enh = data['enhanced']
-                
-                # Price action
-                if 'price_targets' in enh:
-                    pt = enh['price_targets']
-                    context_parts.append(f"""
-PRICE ANALYSIS:
-- Current: ${pt.get('current', 0):.2f}
-- Analyst Target: ${pt.get('mean_target', 0):.2f} ({pt.get('number_of_analysts', 0)} analysts)
-- Target Range: ${pt.get('low_target', 0):.2f} - ${pt.get('high_target', 0):.2f}
-""")
-                
-                # Volume
-                if 'volume_analysis' in enh:
-                    vol = enh['volume_analysis']
-                    context_parts.append(f"""
-VOLUME ANALYSIS:
-- Current vs Average: {vol.get('current_vs_average', 1):.1f}x
-- Trend: {vol.get('trend', 'stable')}
-- A/D Signal: {vol.get('accumulation_distribution', 'neutral')}
-""")
-                
-                # Support/Resistance
-                if 'support_resistance' in enh:
-                    sr = enh['support_resistance']
-                    context_parts.append(f"""
-KEY LEVELS:
-- Immediate Resistance: ${sr.get('immediate_resistance', 0):.2f}
-- Immediate Support: ${sr.get('immediate_support', 0):.2f}
-""")
-                
-                # Patterns
-                if 'patterns' in enh:
-                    patterns_text = "\nCHART PATTERNS:\n"
-                    for pattern in enh['patterns'][:3]:
-                        patterns_text += f"- {pattern['pattern']}: {pattern['signal']} - {pattern['description']}\n"
-                    context_parts.append(patterns_text)
-            
-            # Web intelligence
-            if data.get('web'):
-                web = data['web']
-                if web.get('key_points'):
-                    context_parts.append("\nWEB INTELLIGENCE:\n" + '\n'.join(f"- {p}" for p in web['key_points']))
-            
-            # Finviz data
-            if data.get('finviz') and data['finviz'].get('fundamentals'):
-                fund = data['finviz']['fundamentals']
-                context_parts.append(f"""
-FUNDAMENTALS:
-- P/E: {fund.get('P/E', 'N/A')}
-- Short Float: {fund.get('Short Float', 'N/A')}
-- Institutional Ownership: {fund.get('Inst Own', 'N/A')}
-- Analyst Rating: {data['finviz'].get('analyst_rating', 'N/A')}
-""")
+        if analysis_data.get('price'):
+            lines.append(f"Price: ${analysis_data['price']:.2f} ({analysis_data.get('daily_change', 0):+.2f}%)")
         
-        return ''.join(context_parts)
+        if analysis_data.get('options_flow'):
+            lines.append(f"Options: P/C Ratio {analysis_data['options_flow'].get('put_call_ratio', 'N/A')}")
+        
+        if web_data.get('reddit'):
+            lines.append(f"Reddit: {web_data['reddit'].get('overall_sentiment', 'neutral')}")
+        
+        return '\n'.join(lines)
     
-    def generate_enhanced_fallback(self, question, all_data):
-        """Enhanced fallback without AI"""
-        response = "<h3>📊 Data-Driven Analysis</h3><p>"
+    def _generate_fallback_response(self, question, analysis_data, web_data):
+        """Generate response without AI"""
+        response = "Based on my analysis:\n\n"
         
-        # Analyze each ticker
-        for ticker, data in all_data.items():
-            response += f"<strong>{ticker} Analysis:</strong><br><br>"
-            
-            if data.get('enhanced'):
-                enh = data['enhanced']
-                
-                # Price action
-                if 'price_targets' in enh:
-                    current = enh['price_targets'].get('current', 0)
-                    target = enh['price_targets'].get('mean_target', 0)
-                    
-                    if target and current:
-                        upside = ((target - current) / current) * 100
-                        if upside > 10:
-                            response += f"✅ <strong>Bullish Setup:</strong> Trading at ${current:.2f} with {upside:.1f}% upside to analyst target of ${target:.2f}.<br>"
-                        elif upside < -10:
-                            response += f"⚠️ <strong>Caution:</strong> Trading at ${current:.2f}, {abs(upside):.1f}% above analyst target of ${target:.2f}.<br>"
-                
-                # Volume signals
-                if 'volume_analysis' in enh:
-                    vol = enh['volume_analysis']
-                    if vol.get('current_vs_average', 1) > 1.5:
-                        response += f"📊 <strong>High Volume:</strong> {vol['current_vs_average']:.1f}x average - significant interest.<br>"
-                    
-                    if vol.get('accumulation_distribution') == 'accumulation':
-                        response += "💰 <strong>Accumulation detected</strong> - institutions may be buying.<br>"
-                    elif vol.get('accumulation_distribution') == 'distribution':
-                        response += "📉 <strong>Distribution detected</strong> - potential selling pressure.<br>"
-                
-                # Patterns
-                if 'patterns' in enh and enh['patterns']:
-                    response += "<br><strong>Technical Patterns:</strong><br>"
-                    for pattern in enh['patterns'][:2]:
-                        emoji = "🟢" if pattern['signal'] == 'Bullish' else "🔴"
-                        response += f"{emoji} {pattern['pattern']}: {pattern['description']}<br>"
-            
-            response += "<br>"
+        if analysis_data.get('price'):
+            response += f"**Price**: ${analysis_data['price']:.2f} ({analysis_data.get('daily_change', 0):+.2f}% today)\n\n"
         
-        response += "</p>"
+        if analysis_data.get('options_flow'):
+            opt = analysis_data['options_flow']
+            response += f"**Options Flow**: {opt.get('sentiment', 'neutral').upper()} (P/C: {opt.get('put_call_ratio', 'N/A')})\n\n"
         
-        # Add recommendation based on question
-        response += "<h3>💡 Recommendation</h3><p>"
+        if web_data.get('reddit'):
+            response += f"**Social Sentiment**: {web_data['reddit'].get('overall_sentiment', 'neutral').upper()}\n\n"
         
+        # Add recommendation
         if 'buy' in question.lower():
-            response += "Based on the data, consider scaling into positions gradually. Use the support levels identified above as potential entry points. Set stop-losses 5-7% below entry to manage risk.</p>"
-        elif 'sell' in question.lower():
-            response += "Review the resistance levels above for potential exit points. Consider taking partial profits at resistance and letting the remainder run with a trailing stop.</p>"
-        else:
-            response += "Monitor the key levels and patterns identified above. Wait for confirmation of breakouts/breakdowns before taking action.</p>"
+            if analysis_data.get('rsi', 50) < 35:
+                response += "**Recommendation**: Good entry point - RSI oversold\n"
+            elif analysis_data.get('rsi', 50) > 70:
+                response += "**Recommendation**: Wait for pullback - RSI overbought\n"
+            else:
+                response += "**Recommendation**: Neutral setup - consider scaling in\n"
         
         return response
+
+# ========================================
+# ULTRA PRODUCTION EMAIL BOT
+# ========================================
+
+class UltraProductionEmailBot(ProductionEmailBot):
+    """Enhanced bot with all features"""
     
-    async def check_for_questions_v4(self):
-        """v4.0 Enhanced email checking with professional responses"""
+    def __init__(self):
+        super().__init__()
+        self.ai_analyst = EnhancedAIAnalyst()
+    
+    def generate_production_response(self, question):
+        """Override with ultra response"""
+        logging.info("🚀 ULTRA response generation starting...")
+        
         try:
-            logging.info("📧 [v4.0] Checking for email questions...")
+            # Get cached data
+            cached_data = self.db.get_latest_analysis()
             
-            mail = imaplib.IMAP4_SSL(self.imap_server, timeout=15)
-            mail.login(self.smtp_user, self.smtp_pass)
-            mail.select('inbox')
+            # Generate ultra response
+            html_response = asyncio.run(
+                self.ai_analyst.generate_ultra_response(question, cached_data)
+            )
             
-            # Search for recent emails
-            from datetime import datetime as dt, timedelta
-            since_date = (dt.now() - timedelta(days=7)).strftime("%d-%b-%Y")
-            
-            _, search_data = mail.search(None, f'(UNSEEN SINCE {since_date} SUBJECT "Daily Market Briefing")')
-            matching_emails = search_data[0].split()
-            
-            if not matching_emails:
-                logging.info("✅ No unread briefing emails")
-                mail.close()
-                mail.logout()
-                return
-            
-            # Process emails
-            for num in list(reversed(matching_emails))[:2]:
-                try:
-                    _, data = mail.fetch(num, '(RFC822)')
-                    email_message = email.message_from_bytes(data[0][1])
-                    
-                    sender = email.utils.parseaddr(email_message['From'])[1]
-                    question = self.extract_question(email_message)
-                    
-                    if question and len(question.strip()) > 10:
-                        logging.info(f"❓ Processing: '{question[:80]}...'")
-                        
-                        # Generate v4.0 response
-                        response_html = await self.generate_production_response_v4(question)
-                        
-                        # Send professional HTML response
-                        self.send_html_response(sender, question, response_html)
-                        
-                        # Mark as read
-                        mail.store(num, '+FLAGS', '\\Seen')
-                        logging.info(f"✅ Sent professional response to {sender}")
-                    else:
-                        mail.store(num, '+FLAGS', '\\Seen')
-                
-                except Exception as e:
-                    logging.error(f"Error processing email: {e}")
-                    continue
-            
-            mail.close()
-            mail.logout()
-            logging.info("✅ [v4.0] Email check complete")
+            return html_response
             
         except Exception as e:
-            logging.error(f"Email bot v4.0 error: {e}")
+            logging.error(f"Ultra generation error: {e}")
+            # Fallback to parent method
+            return super().generate_production_response(question)
     
-    def send_html_response(self, to_email, question, html_content):
-        """Send professional HTML email response"""
-        import smtplib
-        
+    def send_response(self, to_email, question, response):
+        """Send HTML response"""
         msg = MIMEMultipart('alternative')
-        msg['Subject'] = f"Re: Your Market Analysis - {datetime.now().strftime('%b %d')}"
+        msg['Subject'] = f"Re: Market Analysis - {datetime.now().strftime('%b %d')}"
         msg['From'] = self.smtp_user
         msg['To'] = to_email
         
-        # Plain text version
-        text_part = MIMEText(f"Please view this email in HTML format for the best experience.", 'plain')
+        # Plain text fallback
+        text_part = MIMEText("Please view in HTML format", 'plain')
         
         # HTML version
-        html_part = MIMEText(html_content, 'html')
+        html_part = MIMEText(response, 'html')
         
         msg.attach(text_part)
         msg.attach(html_part)
@@ -4151,305 +2411,6 @@ FUNDAMENTALS:
                 server.starttls()
                 server.login(self.smtp_user, self.smtp_pass)
                 server.send_message(msg)
-            logging.info(f"✅ Professional HTML response sent")
+            logging.info("✅ Ultra HTML response sent")
         except Exception as e:
-            logging.error(f"Failed to send HTML email: {e}")
-
-# ========================================
-# UPDATED MAIN FUNCTION TO USE v4.0 BOT
-# ========================================
-
-# Replace the email bot section in your main() function with this:
-
-async def main(output="print", check_emails=False):
-    """
-    Main execution - handles both analysis and email bot modes
-    Now using v4.0 enhanced bot
-    """
-    
-    # EMAIL BOT MODE - Use v4.0 bot
-    if check_emails:
-        if ENABLE_EMAIL_BOT:
-            logging.info("🤖 EMAIL BOT MODE v4.0: Checking for questions...")
-            bot = ProductionEmailBotV4()  # Use v4.0 bot
-            await bot.check_for_questions_v4()  # Use v4.0 method
-            logging.info("✅ Email bot v4.0 check complete")
-        else:
-            logging.warning("❌ Email bot is disabled (ENABLE_EMAIL_BOT=False)")
-        return
-
-    # [Rest of your existing main function stays the same]
-    # FULL ANALYSIS MODE - Run complete market analysis
-    logging.info("📊 FULL ANALYSIS MODE: Running market intelligence scan...")
-    previous_day_memory = load_memory()
-    
-    sp500 = get_cached_tickers('sp500_cache.json', fetch_sp500_tickers_sync)
-    tsx = get_cached_tickers('tsx_cache.json', fetch_tsx_tickers_sync)
-    universe = (sp500 or [])[:75] + (tsx or [])[:25]
-    
-    throttler = Throttler(2)
-    semaphore = asyncio.Semaphore(10)
-    
-    async with aiohttp.ClientSession() as session:
-        stock_tasks = [analyze_stock(semaphore, throttler, session, ticker) for ticker in universe]
-        context_task = fetch_context_data(session)
-        news_task = fetch_market_headlines(session)
-        macro_task = fetch_macro_sentiment(session)
-        
-        if ENABLE_V2_FEATURES:
-            portfolio_task = analyze_portfolio_with_v2_features(session)
-        else:
-            portfolio_task = analyze_portfolio_watchlist(session)
-        
-        results = await asyncio.gather(
-            asyncio.gather(*stock_tasks), 
-            context_task, 
-            news_task, 
-            macro_task, 
-            portfolio_task
-        )
-        
-        stock_results_raw, context_data, market_news, macro_data, portfolio_data = results
-        
-        stock_results = sorted([r for r in stock_results_raw if r], key=lambda x: x['score'], reverse=True)
-        df_stocks = pd.DataFrame(stock_results) if stock_results else pd.DataFrame()
-
-        pattern_data = await find_historical_patterns(session, macro_data)
-        
-        portfolio_recommendations = None
-        if pattern_data and portfolio_data:
-            portfolio_recommendations = await generate_portfolio_recommendations_from_pattern(
-                portfolio_data, pattern_data, macro_data
-            )
-        
-        market_summary = {
-            'macro': macro_data,
-            'top_stock': stock_results[0] if stock_results else {},
-            'bottom_stock': stock_results[-1] if stock_results else {}
-        }
-        ai_analysis = await generate_ai_oracle_analysis(market_summary, portfolio_data, pattern_data)
-    
-    if ENABLE_DATA_PERSISTENCE:
-        db = MarketIntelligenceDB()
-        db.save_daily_analysis(
-            datetime.date.today().isoformat(),
-            portfolio_data,
-            pattern_data,
-            macro_data,
-            df_stocks.head(20).to_dict('records') if not df_stocks.empty else [],
-            ai_analysis,
-            portfolio_recommendations
-        )
-        logging.info("💾 Analysis saved to database")
-    
-    if output == "email":
-        html_email = generate_enhanced_html_email(
-            df_stocks, context_data, market_news, macro_data, 
-            previous_day_memory, portfolio_data, pattern_data, 
-            ai_analysis, portfolio_recommendations
-        )
-        
-        if ENABLE_EMAIL_BOT:
-            bot_section = """
-            <div class="section" style="background-color:#e0f2fe;border-left:4px solid #0284c7;">
-                <h2>🤖 ASK ME ANYTHING - v4.0 ENHANCED</h2>
-                <p style="font-size:1.1em;">
-                    <b>Just reply to this email with your questions!</b><br>
-                    Now with professional charts, web intelligence, and comprehensive analysis.
-                </p>
-                <p style="color:#666;font-size:0.9em;">
-                    <i>New v4.0 features:</i><br>
-                    • 📊 Interactive technical charts in your response<br>
-                    • 🌐 Real-time web intelligence and news<br>
-                    • 📈 Institutional flow and options data<br>
-                    • 🎯 Support/resistance levels with trade setups<br>
-                    • 💡 AI-enhanced insights from 10+ data sources
-                </p>
-            </div>
-            """
-            html_email = html_email.replace('</div>\n    </body>', bot_section + '</div>\n    </body>')
-        
-        send_email(html_email)
-        logging.info("📧 Daily briefing email sent")
-    
-    if not df_stocks.empty:
-        save_memory({
-            "previous_top_stock_name": df_stocks.iloc[0]['name'],
-            "previous_top_stock_ticker": df_stocks.iloc[0]['ticker'],
-            "previous_macro_score": macro_data.get('overall_macro_score', 0),
-            "date": datetime.date.today().isoformat()
-        })
-    
-    logging.info("✅ Analysis complete with v4.0 features.")
-
-# ========================================
-# END v4.0 PROFESSIONAL INTELLIGENCE LAYER
-# ========================================
-
-# ========================================
-# MAIN EXECUTION FUNCTION
-# ========================================
-
-async def main(output="print", check_emails=False):
-    """
-    Main execution - handles both analysis and email bot modes
-    
-    Args:
-        output: "print" or "email" - where to send analysis results
-        check_emails: If True, only check for email questions (bot mode)
-    """
-    
-    # EMAIL BOT MODE - Just check emails and respond
-    if check_emails:
-        if ENABLE_EMAIL_BOT:
-            logging.info("🤖 EMAIL BOT MODE: Checking for questions...")
-            bot = ProductionEmailBot()
-            bot.check_for_questions()
-            logging.info("✅ Email bot check complete")
-        else:
-            logging.warning("❌ Email bot is disabled (ENABLE_EMAIL_BOT=False)")
-        return  # Exit early - don't run full analysis
-
-    # FULL ANALYSIS MODE - Run complete market analysis
-    logging.info("📊 FULL ANALYSIS MODE: Running market intelligence scan...")
-    previous_day_memory = load_memory()
-    
-    sp500 = get_cached_tickers('sp500_cache.json', fetch_sp500_tickers_sync)
-    tsx = get_cached_tickers('tsx_cache.json', fetch_tsx_tickers_sync)
-    universe = (sp500 or [])[:75] + (tsx or [])[:25]
-    
-    throttler = Throttler(2)
-    semaphore = asyncio.Semaphore(10)
-    
-    async with aiohttp.ClientSession() as session:
-        stock_tasks = [analyze_stock(semaphore, throttler, session, ticker) for ticker in universe]
-        context_task = fetch_context_data(session)
-        news_task = fetch_market_headlines(session)
-        macro_task = fetch_macro_sentiment(session)
-        
-        # Use v2.0.0 portfolio analysis if enabled
-        if ENABLE_V2_FEATURES:
-            portfolio_task = analyze_portfolio_with_v2_features(session)
-        else:
-            portfolio_task = analyze_portfolio_watchlist(session)
-        
-        results = await asyncio.gather(
-            asyncio.gather(*stock_tasks), 
-            context_task, 
-            news_task, 
-            macro_task, 
-            portfolio_task
-        )
-        
-        stock_results_raw, context_data, market_news, macro_data, portfolio_data = results
-        
-        stock_results = sorted([r for r in stock_results_raw if r], key=lambda x: x['score'], reverse=True)
-        df_stocks = pd.DataFrame(stock_results) if stock_results else pd.DataFrame()
-
-        pattern_data = await find_historical_patterns(session, macro_data)
-        
-        portfolio_recommendations = None
-        if pattern_data and portfolio_data:
-            portfolio_recommendations = await generate_portfolio_recommendations_from_pattern(
-                portfolio_data, pattern_data, macro_data
-            )
-        
-        market_summary = {
-            'macro': macro_data,
-            'top_stock': stock_results[0] if stock_results else {},
-            'bottom_stock': stock_results[-1] if stock_results else {}
-        }
-        ai_analysis = await generate_ai_oracle_analysis(market_summary, portfolio_data, pattern_data)
-    
-    # Save analysis to database for email bot
-    if ENABLE_DATA_PERSISTENCE:
-        db = MarketIntelligenceDB()
-        db.save_daily_analysis(
-            datetime.date.today().isoformat(),
-            portfolio_data,
-            pattern_data,
-            macro_data,
-            df_stocks.head(20).to_dict('records') if not df_stocks.empty else [],
-            ai_analysis,
-            portfolio_recommendations
-        )
-        logging.info("💾 Analysis saved to database")
-    
-    # Send email if requested
-    if output == "email":
-        html_email = generate_enhanced_html_email(
-            df_stocks, context_data, market_news, macro_data, 
-            previous_day_memory, portfolio_data, pattern_data, 
-            ai_analysis, portfolio_recommendations
-        )
-        
-        # Add interactive bot section to email
-        if ENABLE_EMAIL_BOT:
-            bot_section = """
-            <div class="section" style="background-color:#e0f2fe;border-left:4px solid #0284c7;">
-                <h2>🤖 ASK ME ANYTHING</h2>
-                <p style="font-size:1.1em;">
-                    <b>Have questions about your portfolio? Just reply to this email!</b><br>
-                    I'll analyze the latest data and respond within 30 minutes.
-                </p>
-                <p style="color:#666;font-size:0.9em;">
-                    <i>Try asking:</i><br>
-                    • "Should I buy more NVDA right now?"<br>
-                    • "Why is AAPL dropping today?"<br>
-                    • "What are my best buying opportunities?"<br>
-                    • "Is it time to take profits on TSLA?"
-                </p>
-            </div>
-            """
-            # Insert before closing container
-            html_email = html_email.replace('</div>\n    </body>', bot_section + '</div>\n    </body>')
-        
-        send_email(html_email)
-        logging.info("📧 Daily briefing email sent")
-    
-    # Save memory for next run
-    if not df_stocks.empty:
-        save_memory({
-            "previous_top_stock_name": df_stocks.iloc[0]['name'],
-            "previous_top_stock_ticker": df_stocks.iloc[0]['ticker'],
-            "previous_macro_score": macro_data.get('overall_macro_score', 0),
-            "date": datetime.date.today().isoformat()
-        })
-    
-    logging.info("✅ Analysis complete with v2.0.0 features.")
-
-
-# ========================================
-# PROGRAM ENTRY POINT
-# THIS IS THE ONLY if __name__ == "__main__" BLOCK
-# ========================================
-
-if __name__ == "__main__":
-    # Parse command line arguments
-    parser = argparse.ArgumentParser(
-        description="Market Intelligence System - Daily Analysis & Email Bot"
-    )
-    parser.add_argument(
-        "--output", 
-        default="print", 
-        choices=["print", "email"], 
-        help="Where to send analysis: 'print' to console or 'email' to inbox"
-    )
-    parser.add_argument(
-        "--check-emails", 
-        action="store_true", 
-        help="Email bot mode: Check inbox for questions and auto-respond (no full analysis)"
-    )
-    
-    args = parser.parse_args()
-    
-    # Windows event loop compatibility
-    if os.name == 'nt':
-        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-    
-    # Run the main function with parsed arguments
-    logging.info("=" * 60)
-    logging.info("🚀 MARKET INTELLIGENCE SYSTEM v3.0.1")
-    logging.info("=" * 60)
-    
-    asyncio.run(main(output=args.output, check_emails=args.check_emails))
+            logging.error(f"Send failed: {e}")
