@@ -800,7 +800,7 @@ Focus on AI, geopolitical plays, and hidden opportunities. Be specific with pric
 
 # ========================================
 # 🚀 EXPERIMENTAL ZONE - v2.0.0
-# New features - Safe to modify
+# Should not be modified.
 # ========================================
 
 # Feature Flags
