@@ -1586,7 +1586,7 @@ if __name__ == "__main__":
         help="Where to send analysis: 'print' to console or 'email' to inbox"
     )
     
-    # 🆕 ADD THIS LINE:
+    # 🆕 NEW: Add email bot argument
     parser.add_argument(
         "--check-emails",
         action="store_true",
@@ -1601,14 +1601,12 @@ if __name__ == "__main__":
     
     logging.info("=" * 60)
     
-    # 🆕 ADD THIS ROUTING LOGIC:
+    # 🆕 NEW: Route to correct mode
     if args.check_emails:
         logging.info("🤖 EMAIL BOT MODE - Market Q&A System")
         logging.info("=" * 60)
-        asyncio.run(run_email_bot())
+        asyncio.run(run_email_bot())  # ← Bot mode
     else:
-        # Your existing code continues here
         logging.info("🚀 MARKET INTELLIGENCE SYSTEM v2.0.1 (Briefing-Only)")
         logging.info("=" * 60)
-        
-        asyncio.run(main(output=args.output))
+        asyncio.run(main(output=args.output))  # ← Your existing daily report
