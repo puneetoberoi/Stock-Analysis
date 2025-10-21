@@ -67,12 +67,10 @@ except ImportError:
 
 # 🆕 DuckDuckGo search (with fallback)
 try:
-    from duckduckgo_search import DDGS
-    DDGS_AVAILABLE = True
+    from ddgs import DDGS  # Try new package first
 except ImportError:
-    DDGS_AVAILABLE = False
-    logging.warning("⚠️ duckduckgo-search not available - bot news search will be limited")
-
+    from duckduckgo_search import DDGS  # Fallback to old
+    
 # 🆕 INTELLIGENT SYSTEM IMPORTS (Add after existing imports)
 try:
     import spacy
@@ -1684,11 +1682,9 @@ def safe_import(module_name, package_name=None):
 
 # Safe imports with fallbacks
 try:
-    from duckduckgo_search import DDGS
-    DDGS_AVAILABLE = True
+    from ddgs import DDGS  # Try new package first
 except ImportError:
-    DDGS_AVAILABLE = False
-    logging.info("📌 DuckDuckGo search not available - bot will use basic responses")
+    from duckduckgo_search import DDGS  # Fallback to old
     
     # Complete fallback implementation
     class DDGS:
@@ -1718,11 +1714,9 @@ from email.mime.multipart import MIMEMultipart
 
 # Try importing optional dependencies
 try:
-    from duckduckgo_search import DDGS
-    DDGS_AVAILABLE = True
+    from ddgs import DDGS  # Try new package first
 except ImportError:
-    logging.warning("⚠️ duckduckgo_search not available - bot will use fallback")
-    DDGS_AVAILABLE = False
+    from duckduckgo_search import DDGS  # Fallback to old
     
     # Fallback class if DDGS not available
     class DDGS:
@@ -2295,6 +2289,40 @@ class EmailBotEngine:
             if self.db:
                 self.db.update_stats(checked, answered, errors)
                 self.db.close()
+
+        def _send_email(self, to_email, question, html_body, original_subject=""):
+        """Send email response"""
+        try:
+            msg = MIMEMultipart('alternative')
+            
+            if original_subject and not original_subject.startswith('Re:'):
+                subject = f"Re: {original_subject}"
+            elif original_subject:
+                subject = original_subject
+            else:
+                subject = f"Market Analysis - {datetime.datetime.now().strftime('%b %d')}"
+            
+            msg['Subject'] = subject
+            msg['From'] = self.smtp_user
+            msg['To'] = to_email
+            msg['Date'] = email.utils.formatdate(localtime=True)
+            
+            text_part = MIMEText(f"Your question: {question}\n\nPlease view in HTML format.", 'plain')
+            html_part = MIMEText(html_body, 'html')
+            
+            msg.attach(text_part)
+            msg.attach(html_part)
+            
+            with smtplib.SMTP("smtp.gmail.com", 587, timeout=30) as server:
+                server.starttls()
+                server.login(self.smtp_user, self.smtp_pass)
+                server.send_message(msg)
+            
+            logging.info(f"📧 Email sent to {to_email}")
+            return True
+        except Exception as e:
+            logging.error(f"Send failed: {e}")
+            return False
     
     def _is_market_related_email(self, subject, sender):
         """Check if email is market-related and should be processed"""
@@ -2832,81 +2860,83 @@ class IntelligentMarketAnalyzer:
         return context
     
     async def _generate_llm_response(self, question, intent, context, ticker_data):
-        """Generate response using free LLM APIs with fallback chain"""
-        
-        # Build comprehensive prompt
-        prompt = self._build_llm_prompt(question, intent, context, ticker_data)
-        
-        response = None
-        
-        # Try Groq first (fastest, 30K tokens/day)
-        if 'groq' in self.llm_clients:
-            try:
-                logging.info("Trying Groq LLM...")
-                client = self.llm_clients['groq']
-                
-                completion = client.chat.completions.create(
-                    model="mixtral-8x7b-32768",  # Or "llama2-70b-4096"
-                    messages=[
-                        {"role": "system", "content": "You are a professional market analyst. Provide detailed, accurate analysis based on the given context."},
-                        {"role": "user", "content": prompt}
-                    ],
-                    temperature=0.7,
-                    max_tokens=1000
-                )
-                
-                response = completion.choices[0].message.content
-                logging.info("✅ Groq response generated")
-                
-            except Exception as e:
-                logging.warning(f"Groq failed: {e}")
-        
-        # Try Cohere if Groq failed
-        if not response and 'cohere' in self.llm_clients:
-            try:
-                logging.info("Trying Cohere LLM...")
-                client = self.llm_clients['cohere']
-                
-                result = client.generate(
-                    model='command-light',  # Free tier model
-                    prompt=prompt,
-                    max_tokens=800,
-                    temperature=0.7
-                )
-                
-                response = result.generations[0].text
-                logging.info("✅ Cohere response generated")
-                
-            except Exception as e:
-                logging.warning(f"Cohere failed: {e}")
-        
-        # Try Hugging Face if others failed
-        if not response and 'huggingface' in self.llm_clients:
-            try:
-                logging.info("Trying Hugging Face LLM...")
-                
-                api_key = self.llm_clients['huggingface']['api_key']
-                
-                async with aiohttp.ClientSession() as session:
-                    url = "https://api-inference.huggingface.co/models/facebook/bart-large-cnn"
-                    headers = {"Authorization": f"Bearer {api_key}"}
-                    
-                    # Summarization model as fallback
-                    payload = {
-                        "inputs": prompt[:1024],  # Limit input
-                        "parameters": {"max_length": 500}
-                    }
-                    
-                    async with session.post(url, headers=headers, json=payload) as resp:
-                        if resp.status == 200:
-                            result = await resp.json()
-                            response = result[0]['summary_text'] if isinstance(result, list) else result.get('summary_text', '')
-                            logging.info("✅ Hugging Face response generated")
+    """Generate response using free LLM APIs with fallback chain"""
+    
+    prompt = self._build_llm_prompt(question, intent, context, ticker_data)
+    response = None
+    
+    # Try Groq first (fastest, 30K tokens/day)
+    if 'groq' in self.llm_clients:
+        try:
+            logging.info("Trying Groq LLM...")
+            client = self.llm_clients['groq']
             
-            except Exception as e:
-                logging.warning(f"Hugging Face failed: {e}")
+            completion = client.chat.completions.create(
+                model="llama-3.1-70b-versatile",  # FIXED: Updated model
+                messages=[
+                    {"role": "system", "content": "You are a professional market analyst."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.7,
+                max_tokens=1000
+            )
+            
+            response = completion.choices[0].message.content
+            logging.info("✅ Groq response generated")
+            
+        except Exception as e:
+            logging.warning(f"Groq failed: {e}")
+    
+    # Try Cohere if Groq failed
+    if not response and 'cohere' in self.llm_clients:
+        try:
+            logging.info("Trying Cohere LLM...")
+            client = self.llm_clients['cohere']
+            
+            # FIXED: Use new chat API
+            result = client.chat(
+                message=prompt,
+                model='command-r',
+                temperature=0.7
+            )
+            
+            response = result.text
+            logging.info("✅ Cohere response generated")
+            
+        except Exception as e:
+            logging.warning(f"Cohere failed: {e}")
+    
+    # Try Hugging Face if others failed
+    if not response and 'huggingface' in self.llm_clients:
+        try:
+            logging.info("Trying Hugging Face LLM...")
+            
+            api_key = self.llm_clients['huggingface']['api_key']
+            
+            async with aiohttp.ClientSession() as session:
+                url = "https://api-inference.huggingface.co/models/facebook/bart-large-cnn"
+                headers = {"Authorization": f"Bearer {api_key}"}
+                
+                payload = {
+                    "inputs": prompt[:1024],
+                    "parameters": {"max_length": 500}
+                }
+                
+                async with session.post(url, headers=headers, json=payload) as resp:
+                    if resp.status == 200:
+                        result = await resp.json()
+                        response = result[0]['summary_text'] if isinstance(result, list) else result.get('summary_text', '')
+                        logging.info("✅ Hugging Face response generated")
         
-        return response
+        except Exception as e:
+            logging.warning(f"Hugging Face failed: {e}")
+    
+    # If all LLMs fail, use intelligent assembly
+    if not response:
+        logging.info("Using fallback intelligent assembly")
+        response = await self._intelligent_assembly(question, intent, context, ticker_data)
+    
+    return response
     
     def _build_llm_prompt(self, question, intent, context, ticker_data):
         """Build comprehensive prompt for LLM"""
