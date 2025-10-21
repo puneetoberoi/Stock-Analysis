@@ -2141,7 +2141,7 @@ body {{font-family: -apple-system, sans-serif; max-width: 700px; margin: 40px au
 class EmailBotEngine:
     """Main email bot engine with comprehensive error handling"""
     
-     def __init__(self):
+    def __init__(self):
         self.db = None
         self.smtp_user = os.getenv("SMTP_USER")
         self.smtp_pass = os.getenv("SMTP_PASS")
