@@ -64,47 +64,6 @@ try:
     COHERE_AVAILABLE = True
 except ImportError:
     COHERE_AVAILABLE = False
-    
-# 🆕 INTELLIGENT SYSTEM IMPORTS (Add after existing imports)
-try:
-    import spacy
-    SPACY_AVAILABLE = True
-except ImportError:
-    SPACY_AVAILABLE = False
-    logging.warning("spaCy not available - using basic NLP")
-
-try:
-    from textblob import TextBlob
-    TEXTBLOB_AVAILABLE = True
-except ImportError:
-    TEXTBLOB_AVAILABLE = False
-    logging.warning("TextBlob not available - using basic sentiment")
-
-try:
-    import wikipediaapi
-    WIKIPEDIA_AVAILABLE = True
-except ImportError:
-    WIKIPEDIA_AVAILABLE = False
-    logging.warning("Wikipedia not available - using web search only")
-
-try:
-    import markdown
-    MARKDOWN_AVAILABLE = True
-except ImportError:
-    MARKDOWN_AVAILABLE = False
-    logging.warning("Markdown not available - using plain text")
-
-try:
-    import groq
-    GROQ_AVAILABLE = True
-except ImportError:
-    GROQ_AVAILABLE = False
-
-try:
-    import cohere
-    COHERE_AVAILABLE = True
-except ImportError:
-    COHERE_AVAILABLE = False
 # ========================================
 # 🔒 STABLE FOUNDATION - v2.0.0
 # Last stable: 2024-12-20
@@ -1667,14 +1626,10 @@ def send_email(html_body):
 # ========================================
 
 # ========================================
-# 🆕 EMAIL BOT SYSTEM - v3.2.1 (FINAL)
+# 🆕 EMAIL BOT SYSTEM - v3.2.2 (FINAL)
 # ========================================
 
-# ========================================
-# SECTION 1: IMPORTS & FAILSAFES
-# ========================================
-
-# ddgs/duckduckgo-search compatibility
+# ddgs/duckduckgo-search compatibility (only once)
 try:
     from ddgs import DDGS
     DDGS_AVAILABLE = True
@@ -1684,22 +1639,13 @@ except ImportError:
         DDGS_AVAILABLE = True
         logging.warning("⚠️ DeprecationWarning: `duckduckgo_search` is now `ddgs`. Use `pip install -U ddgs`.")
     except ImportError:
-        logging.error("❌ `ddgs` not found. Web search capabilities disabled.")
+        logging.error("❌ `ddgs` not found. Web search disabled.")
         DDGS_AVAILABLE = False
         class DDGS:
             def __enter__(self): return self
             def __exit__(self, *args): pass
             def news(self, *args, **kwargs): return []
             def text(self, *args, **kwargs): return []
-
-# NOTE: This block assumes the following are imported earlier in your file:
-# os, json, datetime, asyncio, logging, smtplib, aiohttp, yfinance as yf,
-# pandas as pd, from ta.momentum import RSIIndicator,
-# wikipediaapi, spacy, and SPACY_AVAILABLE/TEXTBLOB_AVAILABLE/WIKIPEDIA_AVAILABLE/GROQ_AVAILABLE/COHERE_AVAILABLE flags.
-
-# ========================================
-# SECTION 2: CORE BOT CLASSES
-# ========================================
 
 class EmailBotDatabase:
     """Isolated database for bot conversations"""
@@ -1709,7 +1655,7 @@ class EmailBotDatabase:
             self.conn = sqlite3.connect(db_path, check_same_thread=False)
             self._init_schema()
         except Exception as e:
-            logging.error(f"DB init failed: {e}. Using in-memory fallback.")
+            logging.error(f"DB init failed: {e}. Using in-memory DB.")
             self.conn = sqlite3.connect(':memory:', check_same_thread=False)
             self._init_schema()
 
@@ -1743,7 +1689,6 @@ class EmailBotDatabase:
     def update_stats(self, checked=0, answered=0, errors=0):
         today = datetime.date.today().isoformat()
         try:
-            # Attempt UPSERT
             self.conn.execute(
                 'INSERT INTO bot_stats (date, emails_checked, questions_answered, errors) VALUES (?, ?, ?, ?) '
                 'ON CONFLICT(date) DO UPDATE SET '
@@ -1754,7 +1699,6 @@ class EmailBotDatabase:
             )
             self.conn.commit()
         except Exception:
-            # Fallback for older SQLite
             try:
                 cur = self.conn.execute(
                     'UPDATE bot_stats SET emails_checked = emails_checked + ?, questions_answered = questions_answered + ?, errors = errors + ? WHERE date = ?',
@@ -1775,13 +1719,11 @@ class EmailBotDatabase:
         except:
             pass
 
-
 class EmailBotResponder:
-    """Generates basic HTML responses as a fallback"""
+    """Basic fallback HTML responder"""
     @staticmethod
     def create_price_card(data):
-        if not data:
-            return ""
+        if not data: return ""
         try:
             color = '#16a34a' if data.get('daily_change', 0) >= 0 else '#dc2626'
             return f"""
@@ -1793,7 +1735,7 @@ class EmailBotResponder:
             """
         except Exception as e:
             logging.error(f"Card build failed: {e}")
-            return ""
+        return ""
 
     @staticmethod
     def generate_html_response(question, market_data):
@@ -1816,7 +1758,6 @@ class EmailBotResponder:
         <p>No market topics detected in "{question}". Try asking about specific stocks (AAPL) or crypto (Bitcoin/XRP).</p>
         </body></html>"""
 
-
 class MarketQuestionAnalyzer:
     """Extracts topics and fetches data for user questions"""
     @staticmethod
@@ -1825,7 +1766,7 @@ class MarketQuestionAnalyzer:
         if not question:
             return topics
         q_lower = question.lower()
-        # Map keywords -> ticker and name
+        # Mapping
         mappings = {
             'bitcoin': {'t': 'BTC-USD', 'n': 'Bitcoin'},
             'btc': {'t': 'BTC-USD', 'n': 'Bitcoin'},
@@ -1847,7 +1788,7 @@ class MarketQuestionAnalyzer:
                 asset_type = 'crypto' if data['t'].endswith('-USD') else ('commodity' if data['t'].endswith('=F') else ('index' if data['t'].startswith('^') else 'asset'))
                 topics[keyword] = {'type': asset_type, 'ticker': data['t'], 'name': data['n']}
                 seen.add(data['t'])
-        # Extract $TICKER or TICKER
+        # Tickers ($AAPL/AAPL)
         try:
             for ticker in re.findall(r'\$?([A-Z]{1,5})\b', question):
                 if ticker not in ['USD', 'ETH', 'BTC', 'CEO', 'AI'] and len(ticker) <= 5 and ticker not in seen:
@@ -1881,12 +1822,8 @@ class MarketQuestionAnalyzer:
             logging.warning(f"Market data fetch failed for {ticker}: {e}")
             return None
 
-
-# ========================================
-# SECTION 3: INTELLIGENT ANALYSIS ENGINE
-# ========================================
-
 class IntelligentMarketAnalyzer:
+    """Lightweight intelligent analysis with safe fallbacks"""
     def __init__(self):
         self.nlp = None
         self.wiki = None
@@ -1918,30 +1855,19 @@ class IntelligentMarketAnalyzer:
 
     async def answer_intelligently(self, question, ticker_data):
         logging.info(f"🧠 Generating intelligent answer for: {ticker_data.get('name', 'asset')}")
-        intent = self._analyze_question_intent(question)
-        context = await self._gather_context(ticker_data.get('name', ''), intent)
-        response = await self._generate_llm_response(question, intent, context, ticker_data)
+        context = await self._gather_context(ticker_data.get('name', ''))
+        response = await self._generate_llm_response(question, context, ticker_data)
         if not response or len(response) < 50:
             response = self._intelligent_assembly(context, ticker_data)
         return response
 
-    def _analyze_question_intent(self, question):
-        q = (question or "").lower()
-        return {
-            'reasons': any(w in q for w in ['why', 'reason', 'cause']),
-            'applications': any(w in q for w in ['application', 'use', 'utility'])
-        }
-
-    async def _gather_context(self, asset_name, intent):
+    async def _gather_context(self, asset_name):
         context = {'news': [], 'wikipedia': {}}
         async def fetch_news():
             if DDGS_AVAILABLE and asset_name:
                 try:
                     with DDGS() as ddgs:
-                        query = f"{asset_name} analysis"
-                        if intent.get('reasons'): query = f"{asset_name} price drivers"
-                        elif intent.get('applications'): query = f"{asset_name} commercial use cases"
-                        news = list(ddgs.news(query, max_results=3))
+                        news = list(ddgs.news(f"{asset_name} analysis", max_results=3))
                         context['news'] = [{'title': n.get('title', ''), 'body': n.get('body', '')} for n in news]
                 except Exception as e:
                     logging.warning(f"News search failed: {e}")
@@ -1956,7 +1882,7 @@ class IntelligentMarketAnalyzer:
         await asyncio.gather(fetch_news(), fetch_wiki())
         return context
 
-    async def _generate_llm_response(self, question, intent, context, ticker_data):
+    async def _generate_llm_response(self, question, context, ticker_data):
         prompt = self._build_llm_prompt(question, context, ticker_data)
         response = None
         if 'groq' in self.llm_clients:
@@ -2013,7 +1939,6 @@ class IntelligentMarketAnalyzer:
             lines.append(context['wikipedia']['summary'])
         return "\n".join(lines)
 
-
 class IntelligentEmailBotResponder:
     def __init__(self):
         self.analyzer = IntelligentMarketAnalyzer()
@@ -2050,11 +1975,6 @@ class IntelligentEmailBotResponder:
         {''.join(sections)}
         </body></html>"""
 
-
-# ========================================
-# SECTION 4: MAIN EMAIL BOT ENGINE
-# ========================================
-
 class EmailBotEngine:
     def __init__(self):
         self.db = None
@@ -2073,7 +1993,7 @@ class EmailBotEngine:
         checked, answered, errors = 0, 0, 0
         mail = None
         try:
-            mail = imaplib.IMAP4_SSL("imap.gmail.com", 15)
+            mail = imaplib.IMAP4_SSL("imap.gmail.com", timeout=15)
             mail.login(self.smtp_user, self.smtp_pass)
             mail.select('inbox')
             since = (datetime.datetime.now() - datetime.timedelta(days=7)).strftime("%d-%b-%Y")
@@ -2084,7 +2004,6 @@ class EmailBotEngine:
                 return
             logging.info(f"📬 Found {len(email_ids)} unread emails")
 
-            # Process newest 5
             for eid in reversed(email_ids[:5]):
                 try:
                     checked += 1
@@ -2108,17 +2027,13 @@ class EmailBotEngine:
                     if not topics:
                         html = EmailBotResponder.generate_help_response(question)
                     else:
-                        # Fetch data for topic tickers
                         tickers = [info['ticker'] for info in topics.values()]
                         results = await asyncio.gather(*(MarketQuestionAnalyzer.get_market_data(t) for t in tickers))
-
-                        # Zip results back to topics
                         final_market_data = {}
                         for (key, info), data in zip(topics.items(), results):
                             if data:
                                 final_market_data[key] = {**info, **data}
 
-                        # Prefer intelligent responder
                         html = None
                         try:
                             responder = IntelligentEmailBotResponder()
@@ -2149,7 +2064,6 @@ class EmailBotEngine:
         except Exception as e:
             errors += 1
             logging.error(f"❌ Bot main error: {e}")
-
         finally:
             if mail:
                 try:
@@ -2169,7 +2083,6 @@ class EmailBotEngine:
             msg['From'] = self.smtp_user
             msg['To'] = to_email
             msg['Date'] = email.utils.formatdate(localtime=True)
-            # Attach parts
             msg.attach(MIMEText(f"Q: {question}\n\nPlease view in HTML for the full response.", 'plain'))
             msg.attach(MIMEText(html_body, 'html'))
             with smtplib.SMTP("smtp.gmail.com", 587, timeout=30) as s:
@@ -2190,7 +2103,6 @@ class EmailBotEngine:
             return False
         if any(k in s_lower for k in ['market', 'stock', 'crypto', 'bitcoin', 'ethereum', 'price', 'question', 'gold']):
             return True
-        # Default: allow (body may contain question)
         return True
 
     def _extract_question(self, msg):
@@ -2210,7 +2122,6 @@ class EmailBotEngine:
                 payload = msg.get_payload(decode=True)
                 if payload:
                     body = payload.decode('utf-8', errors='ignore')
-            # Clean lines
             lines = []
             for line in (body or "").split('\n'):
                 l = line.strip()
@@ -2234,7 +2145,6 @@ class EmailBotEngine:
         if any(k in question.lower() for k in ['automated', 'auto-reply', 'unsubscribe', 'no-reply', 'mailer-daemon']):
             return False
         return True
-
 
 async def run_email_bot():
     """Entry point for email bot mode"""
