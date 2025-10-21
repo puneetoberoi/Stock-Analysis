@@ -24,7 +24,7 @@ jobs:
           pip install pandas yfinance requests numpy aiohttp beautifulsoup4 lxml matplotlib seaborn pytrends requests-html nest_asyncio
           pip install vaderSentiment ta asyncio-throttle
           pip install google-generativeai
-          pip install duckduckgo-search
+          pip install -U ddgs  # NEW package name
           pip install spacy textblob wikipedia-api markdown
           pip install groq cohere
           python -m spacy download en_core_web_sm
