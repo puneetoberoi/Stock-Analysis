@@ -2158,7 +2158,7 @@ class EmailBotEngine:
             logging.error(f"Database initialization failed: {e}")
     
         async def check_and_respond(self):
-        """Check inbox and respond with full error handling"""
+    """Check inbox and respond with full error handling"""
         logging.info("📧 Email bot checking inbox...")
         
         checked = 0
