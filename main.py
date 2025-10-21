@@ -64,12 +64,6 @@ try:
     COHERE_AVAILABLE = True
 except ImportError:
     COHERE_AVAILABLE = False
-
-# 🆕 DuckDuckGo search (with fallback)
-try:
-    from ddgs import DDGS  # Try new package first
-except ImportError:
-    from duckduckgo_search import DDGS  # Fallback to old
     
 # 🆕 INTELLIGENT SYSTEM IMPORTS (Add after existing imports)
 try:
@@ -1673,14 +1667,14 @@ def send_email(html_body):
 # ========================================
 
 # ========================================
-# 🆕 EMAIL BOT SYSTEM - v3.2.0 (FINAL, AUDITED & GUARANTEED)
+# 🆕 EMAIL BOT SYSTEM - v3.2.1 (FINAL)
 # ========================================
 
 # ========================================
 # SECTION 1: IMPORTS & FAILSAFES
 # ========================================
 
-# Failsafe for duckduckgo-search -> ddgs rename
+# ddgs/duckduckgo-search compatibility
 try:
     from ddgs import DDGS
     DDGS_AVAILABLE = True
@@ -1698,8 +1692,13 @@ except ImportError:
             def news(self, *args, **kwargs): return []
             def text(self, *args, **kwargs): return []
 
+# NOTE: This block assumes the following are imported earlier in your file:
+# os, json, datetime, asyncio, logging, smtplib, aiohttp, yfinance as yf,
+# pandas as pd, from ta.momentum import RSIIndicator,
+# wikipediaapi, spacy, and SPACY_AVAILABLE/TEXTBLOB_AVAILABLE/WIKIPEDIA_AVAILABLE/GROQ_AVAILABLE/COHERE_AVAILABLE flags.
+
 # ========================================
-# SECTION 2: CORE BOT CLASSES (DATABASE, BASIC RESPONDER, ANALYZER)
+# SECTION 2: CORE BOT CLASSES
 # ========================================
 
 class EmailBotDatabase:
@@ -1717,55 +1716,105 @@ class EmailBotDatabase:
     def _init_schema(self):
         try:
             self.conn.executescript('''
-                CREATE TABLE IF NOT EXISTS conversations (id INTEGER PRIMARY KEY, timestamp TEXT, user_email TEXT, user_question TEXT, topics TEXT, sent BOOLEAN);
-                CREATE TABLE IF NOT EXISTS bot_stats (date TEXT PRIMARY KEY, checked INTEGER DEFAULT 0, answered INTEGER DEFAULT 0, errors INTEGER DEFAULT 0);
+                CREATE TABLE IF NOT EXISTS conversations (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp TEXT, user_email TEXT, user_question TEXT,
+                    topics_detected TEXT, response_sent BOOLEAN
+                );
+                CREATE TABLE IF NOT EXISTS bot_stats (
+                    date TEXT PRIMARY KEY, emails_checked INTEGER DEFAULT 0,
+                    questions_answered INTEGER DEFAULT 0, errors INTEGER DEFAULT 0
+                );
             ''')
             self.conn.commit()
-        except Exception as e: logging.error(f"Schema creation failed: {e}")
+        except Exception as e:
+            logging.error(f"Schema creation failed: {e}")
 
-    def log_conversation(self, email, q, topics, success):
+    def log_conversation(self, email_addr, question, topics, success):
         try:
-            self.conn.execute('INSERT INTO conversations (timestamp, user_email, user_question, topics, sent) VALUES (?, ?, ?, ?, ?)',(datetime.datetime.now().isoformat(),email,q[:500],json.dumps(topics),success))
+            self.conn.execute(
+                'INSERT INTO conversations (timestamp, user_email, user_question, topics_detected, response_sent) VALUES (?, ?, ?, ?, ?)',
+                (datetime.datetime.now().isoformat(), email_addr, (question or "")[:500], json.dumps(topics or {}), bool(success))
+            )
             self.conn.commit()
-        except Exception as e: logging.error(f"Conversation log failed: {e}")
+        except Exception as e:
+            logging.error(f"Conversation log failed: {e}")
 
     def update_stats(self, checked=0, answered=0, errors=0):
+        today = datetime.date.today().isoformat()
         try:
-            today = datetime.date.today().isoformat()
-            self.conn.execute('INSERT INTO bot_stats (date, checked, answered, errors) VALUES (?, ?, ?, ?) ON CONFLICT(date) DO UPDATE SET checked=checked+excluded.checked, answered=answered+excluded.answered, errors=errors+excluded.errors',(today,checked,answered,errors))
+            # Attempt UPSERT
+            self.conn.execute(
+                'INSERT INTO bot_stats (date, emails_checked, questions_answered, errors) VALUES (?, ?, ?, ?) '
+                'ON CONFLICT(date) DO UPDATE SET '
+                'emails_checked = emails_checked + excluded.emails_checked, '
+                'questions_answered = questions_answered + excluded.questions_answered, '
+                'errors = errors + excluded.errors',
+                (today, checked, answered, errors)
+            )
             self.conn.commit()
         except Exception:
+            # Fallback for older SQLite
             try:
-                self.conn.execute('UPDATE bot_stats SET checked=checked+?, answered=answered+?, errors=errors+? WHERE date=?', (checked,answered,errors,today))
-                if self.conn.rowcount==0: self.conn.execute('INSERT INTO bot_stats (date,checked,answered,errors) VALUES (?,?,?,?)',(today,checked,answered,errors))
+                cur = self.conn.execute(
+                    'UPDATE bot_stats SET emails_checked = emails_checked + ?, questions_answered = questions_answered + ?, errors = errors + ? WHERE date = ?',
+                    (checked, answered, errors, today)
+                )
+                if cur.rowcount == 0:
+                    self.conn.execute(
+                        'INSERT INTO bot_stats (date, emails_checked, questions_answered, errors) VALUES (?, ?, ?, ?)',
+                        (today, checked, answered, errors)
+                    )
                 self.conn.commit()
-            except Exception as e: logging.error(f"Stats update fallback failed: {e}")
+            except Exception as e:
+                logging.error(f"Stats update failed: {e}")
 
     def close(self):
-        if self.conn:
-            try: self.conn.close()
-            except: pass
+        try:
+            self.conn.close()
+        except:
+            pass
 
 
 class EmailBotResponder:
     """Generates basic HTML responses as a fallback"""
     @staticmethod
     def create_price_card(data):
-        if not data: return ""
+        if not data:
+            return ""
         try:
-            color = '#16a34a' if data.get('daily_change',0)>=0 else '#dc2626'
-            return f"""<div style="display:inline-block;width:45%;margin:10px 2%;padding:15px;border-radius:12px;background:#f0f7ff;vertical-align:top;"><h3 style="margin:0;color:#1e40af;text-transform:uppercase;">{data.get('name','?')}</h3><p style="font-size:28px;font-weight:bold;margin:8px 0;">${data.get('price',0):,.2f}</p><p style="color:{color};font-size:16px;">{data.get('daily_change',0):+.2f}%</p></div>"""
-        except: return ""
+            color = '#16a34a' if data.get('daily_change', 0) >= 0 else '#dc2626'
+            return f"""
+            <div style="display:inline-block;width:45%;margin:10px 2%;padding:15px;border-radius:12px;background:#f0f7ff;vertical-align:top;">
+                <h3 style="margin:0;color:#1e40af;text-transform:uppercase;">{data.get('name','?')}</h3>
+                <p style="font-size:28px;font-weight:bold;margin:8px 0;">${data.get('price',0):,.2f}</p>
+                <p style="color:{color};font-size:16px;">{data.get('daily_change',0):+.2f}% today</p>
+            </div>
+            """
+        except Exception as e:
+            logging.error(f"Card build failed: {e}")
+            return ""
 
     @staticmethod
     def generate_html_response(question, market_data):
-        if not market_data: return EmailBotResponder.generate_help_response(question)
+        if not market_data:
+            return EmailBotResponder.generate_help_response(question)
         cards = [EmailBotResponder.create_price_card(d) for d in market_data.values()]
-        return f"""<!DOCTYPE html><html><head><style>body{{font-family:sans-serif;}}</style></head><body><h1>Basic Report</h1><p><b>Q:</b> {question}</p>{''.join(cards)}<p><i>Intelligent analysis failed.</i></p></body></html>"""
-    
+        return f"""<!DOCTYPE html><html><head><meta charset="UTF-8">
+        <style>body{{font-family:sans-serif;max-width:900px;margin:auto;background:#f5f5f5;padding:20px;}}</style>
+        </head><body>
+        <h1>Basic Market Report</h1>
+        <p><b>Q:</b> {question}</p>
+        {''.join(cards)}
+        <p><i>Intelligent analysis unavailable (fallback).</i></p>
+        </body></html>"""
+
     @staticmethod
     def generate_help_response(question):
-        return f"""<!DOCTYPE html><html><body><h1>Help</h1><p>No market topics detected in "{question}". Try asking about specific stocks (AAPL) or crypto (Bitcoin).</p></body></html>"""
+        return f"""<!DOCTYPE html><html><body>
+        <h1>Help</h1>
+        <p>No market topics detected in "{question}". Try asking about specific stocks (AAPL) or crypto (Bitcoin/XRP).</p>
+        </body></html>"""
 
 
 class MarketQuestionAnalyzer:
@@ -1773,31 +1822,65 @@ class MarketQuestionAnalyzer:
     @staticmethod
     def extract_topics(question):
         topics, seen = {}, set()
-        if not question: return topics
+        if not question:
+            return topics
         q_lower = question.lower()
-        mappings = {'bitcoin':{'t':'BTC-USD','n':'Bitcoin'},'btc':{'t':'BTC-USD','n':'Bitcoin'},'ethereum':{'t':'ETH-USD','n':'Ethereum'},'eth':{'t':'ETH-USD','n':'Ethereum'},'xrp':{'t':'XRP-USD','n':'Ripple'},'ripple':{'t':'XRP-USD','n':'Ripple'},'gold':{'t':'GC=F','n':'Gold'},'silver':{'t':'SI=F','n':'Silver'},'oil':{'t':'CL=F','n':'Crude Oil'},'sp500':{'t':'^GSPC','n':'S&P 500'},'nasdaq':{'t':'^IXIC','n':'Nasdaq'}}
+        # Map keywords -> ticker and name
+        mappings = {
+            'bitcoin': {'t': 'BTC-USD', 'n': 'Bitcoin'},
+            'btc': {'t': 'BTC-USD', 'n': 'Bitcoin'},
+            'ethereum': {'t': 'ETH-USD', 'n': 'Ethereum'},
+            'eth': {'t': 'ETH-USD', 'n': 'Ethereum'},
+            'xrp': {'t': 'XRP-USD', 'n': 'Ripple'},
+            'ripple': {'t': 'XRP-USD', 'n': 'Ripple'},
+            'gold': {'t': 'GC=F', 'n': 'Gold'},
+            'silver': {'t': 'SI=F', 'n': 'Silver'},
+            'oil': {'t': 'CL=F', 'n': 'Crude Oil'},
+            'crude': {'t': 'CL=F', 'n': 'Crude Oil'},
+            'sp500': {'t': '^GSPC', 'n': 'S&P 500'},
+            's&p': {'t': '^GSPC', 'n': 'S&P 500'},
+            'nasdaq': {'t': '^IXIC', 'n': 'Nasdaq'},
+            'dow': {'t': '^DJI', 'n': 'Dow Jones'},
+        }
         for keyword, data in mappings.items():
             if keyword in q_lower and data['t'] not in seen:
-                topics[keyword] = {'type':'crypto' if '-USD' in data['t'] else 'commodity' if '=F' in data['t'] else 'index', 'ticker':data['t'], 'name':data['n']}
+                asset_type = 'crypto' if data['t'].endswith('-USD') else ('commodity' if data['t'].endswith('=F') else ('index' if data['t'].startswith('^') else 'asset'))
+                topics[keyword] = {'type': asset_type, 'ticker': data['t'], 'name': data['n']}
                 seen.add(data['t'])
+        # Extract $TICKER or TICKER
         try:
             for ticker in re.findall(r'\$?([A-Z]{1,5})\b', question):
-                if ticker not in ['USD','ETH','BTC','CEO','AI'] and len(ticker) <= 5 and ticker not in seen:
-                    topics[ticker.lower()] = {'type':'stock', 'ticker':ticker, 'name':ticker}
+                if ticker not in ['USD', 'ETH', 'BTC', 'CEO', 'AI'] and len(ticker) <= 5 and ticker not in seen:
+                    topics[ticker.lower()] = {'type': 'stock', 'ticker': ticker, 'name': ticker}
                     seen.add(ticker)
-        except: pass
+        except:
+            pass
         return topics
-    
+
     @staticmethod
     async def get_market_data(ticker):
         try:
             hist = await asyncio.to_thread(yf.Ticker(ticker).history, period='3mo')
-            if hist.empty: return None
-            current, day_ago = hist['Close'].iloc[-1], hist['Close'].iloc[-2] if len(hist)>1 else hist['Close'].iloc[-1]
-            try: rsi = RSIIndicator(hist['Close'],14).rsi().iloc[-1]; rsi = 50.0 if pd.isna(rsi) else rsi
-            except: rsi = 50.0
-            return {'ticker':ticker,'price':float(current),'daily_change':float(((current-day_ago)/day_ago*100) if day_ago!=0 else 0),'rsi':float(rsi)}
-        except Exception as e: logging.warning(f"Data fetch failed for {ticker}: {e}"); return None
+            if hist.empty:
+                return None
+            current = hist['Close'].iloc[-1]
+            day_ago = hist['Close'].iloc[-2] if len(hist) > 1 else current
+            # RSI
+            try:
+                rsi_val = RSIIndicator(hist['Close'], 14).rsi().iloc[-1]
+                rsi = 50.0 if pd.isna(rsi_val) else float(rsi_val)
+            except:
+                rsi = 50.0
+            return {
+                'ticker': ticker,
+                'price': float(current),
+                'daily_change': float(((current - day_ago) / day_ago * 100) if day_ago else 0),
+                'rsi': rsi
+            }
+        except Exception as e:
+            logging.warning(f"Market data fetch failed for {ticker}: {e}")
+            return None
+
 
 # ========================================
 # SECTION 3: INTELLIGENT ANALYSIS ENGINE
@@ -1805,120 +1888,168 @@ class MarketQuestionAnalyzer:
 
 class IntelligentMarketAnalyzer:
     def __init__(self):
-        self.nlp = None; self.wiki = None; self.llm_clients = {}
-        if SPACY_AVAILABLE:
-            try: self.nlp = spacy.load("en_core_web_sm")
-            except: logging.warning("spaCy model not loaded")
-        if WIKIPEDIA_AVAILABLE: self.wiki = wikipediaapi.Wikipedia('MarketBot/1.0', 'en')
+        self.nlp = None
+        self.wiki = None
+        self.llm_clients = {}
+        if 'SPACY_AVAILABLE' in globals() and SPACY_AVAILABLE:
+            try:
+                self.nlp = spacy.load("en_core_web_sm")
+            except:
+                logging.warning("spaCy model not loaded")
+        if 'WIKIPEDIA_AVAILABLE' in globals() and WIKIPEDIA_AVAILABLE:
+            self.wiki = wikipediaapi.Wikipedia('MarketBot/1.0', 'en')
         self._setup_llm_clients()
 
     def _setup_llm_clients(self):
-        if GROQ_AVAILABLE and os.getenv("GROQ_API_KEY"):
-            try: self.llm_clients['groq'] = __import__('groq').Groq(api_key=os.getenv("GROQ_API_KEY")); logging.info("✅ Groq LLM available")
-            except Exception as e: logging.warning(f"Groq setup failed: {e}")
-        if COHERE_AVAILABLE and os.getenv("COHERE_API_KEY"):
-            try: self.llm_clients['cohere'] = __import__('cohere').Client(os.getenv("COHERE_API_KEY")); logging.info("✅ Cohere LLM available")
-            except Exception as e: logging.warning(f"Cohere setup failed: {e}")
+        if 'GROQ_AVAILABLE' in globals() and GROQ_AVAILABLE and os.getenv("GROQ_API_KEY"):
+            try:
+                from groq import Groq
+                self.llm_clients['groq'] = Groq(api_key=os.getenv("GROQ_API_KEY"))
+                logging.info("✅ Groq LLM available")
+            except Exception as e:
+                logging.warning(f"Groq setup failed: {e}")
+        if 'COHERE_AVAILABLE' in globals() and COHERE_AVAILABLE and os.getenv("COHERE_API_KEY"):
+            try:
+                import cohere
+                self.llm_clients['cohere'] = cohere.Client(os.getenv("COHERE_API_KEY"))
+                logging.info("✅ Cohere LLM available")
+            except Exception as e:
+                logging.warning(f"Cohere setup failed: {e}")
 
     async def answer_intelligently(self, question, ticker_data):
-        logging.info(f"🧠 Generating intelligent answer for: {ticker_data.get('name', 'asset')}...")
+        logging.info(f"🧠 Generating intelligent answer for: {ticker_data.get('name', 'asset')}")
         intent = self._analyze_question_intent(question)
         context = await self._gather_context(ticker_data.get('name', ''), intent)
         response = await self._generate_llm_response(question, intent, context, ticker_data)
         if not response or len(response) < 50:
             response = self._intelligent_assembly(context, ticker_data)
         return response
-    
+
     def _analyze_question_intent(self, question):
-        intent = {'reasons': False, 'applications': False}
-        q_lower = question.lower()
-        if any(w in q_lower for w in ['why','reason','cause']): intent['reasons'] = True
-        if any(w in q_lower for w in ['application','use','utility']): intent['applications'] = True
-        return intent
+        q = (question or "").lower()
+        return {
+            'reasons': any(w in q for w in ['why', 'reason', 'cause']),
+            'applications': any(w in q for w in ['application', 'use', 'utility'])
+        }
 
     async def _gather_context(self, asset_name, intent):
         context = {'news': [], 'wikipedia': {}}
         async def fetch_news():
-            if DDGS_AVAILABLE:
+            if DDGS_AVAILABLE and asset_name:
                 try:
                     with DDGS() as ddgs:
                         query = f"{asset_name} analysis"
                         if intent.get('reasons'): query = f"{asset_name} price drivers"
-                        elif intent.get('applications'): query = f"{asset_name} use cases"
-                        context['news'] = [{'title': n.get('title',''),'body':n.get('body','')} for n in ddgs.news(query,max_results=3)]
-                except Exception as e: logging.warning(f"News search failed: {e}")
-        async def fetch_wikipedia():
+                        elif intent.get('applications'): query = f"{asset_name} commercial use cases"
+                        news = list(ddgs.news(query, max_results=3))
+                        context['news'] = [{'title': n.get('title', ''), 'body': n.get('body', '')} for n in news]
+                except Exception as e:
+                    logging.warning(f"News search failed: {e}")
+        async def fetch_wiki():
             if self.wiki and asset_name:
                 try:
                     page = self.wiki.page(asset_name)
                     if page.exists():
                         context['wikipedia']['summary'] = page.summary[:1000]
-                        if intent.get('applications'):
-                            for s in ['Applications','Use cases','Adoption']:
-                                if s in page.sections and page.section_by_title(s):
-                                    context['wikipedia']['applications'] = page.section_by_title(s).text[:800]; break
-                except Exception as e: logging.warning(f"Wikipedia failed: {e}")
-        await asyncio.gather(fetch_news(), fetch_wikipedia())
+                except Exception as e:
+                    logging.warning(f"Wikipedia failed: {e}")
+        await asyncio.gather(fetch_news(), fetch_wiki())
         return context
-    
+
     async def _generate_llm_response(self, question, intent, context, ticker_data):
         prompt = self._build_llm_prompt(question, context, ticker_data)
         response = None
         if 'groq' in self.llm_clients:
             try:
-                logging.info("Trying Groq LLM...")
                 client = self.llm_clients['groq']
-                completion = client.chat.completions.create(model="llama-3.1-70b-versatile", messages=[{"role": "user", "content": prompt}], temperature=0.7, max_tokens=800)
+                completion = client.chat.completions.create(
+                    model="llama-3.1-70b-versatile",
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=0.7, max_tokens=800
+                )
                 response = completion.choices[0].message.content
-                if response: logging.info("✅ Groq response generated")
-            except Exception as e: logging.warning(f"Groq failed: {e}")
+                if response:
+                    logging.info("✅ Groq response generated")
+            except Exception as e:
+                logging.warning(f"Groq failed: {e}")
         if not response and 'cohere' in self.llm_clients:
             try:
-                logging.info("Trying Cohere LLM...")
-                result = self.llm_clients['cohere'].chat(message=prompt, model='command-r', temperature=0.7)
+                client = self.llm_clients['cohere']
+                result = client.chat(message=prompt, model='command-r', temperature=0.7)
                 response = result.text
-                if response: logging.info("✅ Cohere response generated")
-            except Exception as e: logging.warning(f"Cohere failed: {e}")
+                if response:
+                    logging.info("✅ Cohere response generated")
+            except Exception as e:
+                logging.warning(f"Cohere failed: {e}")
         return response
-    
+
     def _build_llm_prompt(self, question, context, ticker_data):
-        prompt = f"Q: {question}\nAsset: {ticker_data.get('name')}\nData: Price ${ticker_data.get('price',0):.2f}, RSI {ticker_data.get('rsi',50):.0f}\n"
-        if context.get('news'): prompt += "News:\n" + "\n".join([f"- {n['title']}" for n in context['news']])
-        if context.get('wikipedia', {}).get('summary'): prompt += f"\nBackground:\n{context['wikipedia']['summary']}"
-        prompt += "\n\nAnswer as a market analyst:"
-        return prompt
-    
+        parts = [
+            f"Question: {question}",
+            f"Asset: {ticker_data.get('name')} ({ticker_data.get('ticker')})",
+            f"Data: Price ${ticker_data.get('price', 0):.2f}, RSI {ticker_data.get('rsi', 50):.0f}"
+        ]
+        if context.get('news'):
+            parts.append("News:")
+            for n in context['news']:
+                parts.append(f"- {n['title']}")
+        if context.get('wikipedia', {}).get('summary'):
+            parts.append("Background:")
+            parts.append(context['wikipedia']['summary'])
+        parts.append("Provide a direct, professional analysis based on the above.")
+        return "\n".join(parts)
+
     def _intelligent_assembly(self, context, ticker_data):
-        parts = [f"# {ticker_data.get('name')} Analysis"]
-        if context.get('news'): parts.append("## Key Drivers (from news)\n" + "\n".join([f"- {n['title']}" for n in context['news']]))
-        if context.get('wikipedia',{}).get('applications'): parts.append(f"## Applications\n{context['wikipedia']['applications']}")
-        elif context.get('wikipedia',{}).get('summary'): parts.append(f"## Overview\n{context['wikipedia']['summary']}")
-        return '\n'.join(parts)
+        lines = [
+            f"# {ticker_data.get('name')} Analysis",
+            f"Price: ${ticker_data.get('price', 0):,.2f}, RSI: {ticker_data.get('rsi', 50):.0f}"
+        ]
+        if context.get('news'):
+            lines.append("Key Drivers:")
+            for n in context['news']:
+                lines.append(f"- {n['title']}")
+        if context.get('wikipedia', {}).get('summary'):
+            lines.append("Overview:")
+            lines.append(context['wikipedia']['summary'])
+        return "\n".join(lines)
 
 
 class IntelligentEmailBotResponder:
     def __init__(self):
         self.analyzer = IntelligentMarketAnalyzer()
-    
+
     async def generate_intelligent_html(self, question, market_data):
         analyses = {}
         for key, data in market_data.items():
             if data:
-                try: analyses[key] = {'data': data, 'analysis': await self.analyzer.answer_intelligently(question, data)}
-                except Exception as e: logging.error(f"Analysis failed for {key}: {e}")
+                try:
+                    analyses[key] = {
+                        'data': data,
+                        'analysis': await self.analyzer.answer_intelligently(question, data)
+                    }
+                except Exception as e:
+                    logging.error(f"Analysis failed for {key}: {e}")
         return self._build_intelligent_html(question, analyses)
-    
+
     def _build_intelligent_html(self, question, analyses):
         def md_to_html(text):
-            if MARKDOWN_AVAILABLE:
+            if 'MARKDOWN_AVAILABLE' in globals() and MARKDOWN_AVAILABLE:
                 import markdown
                 return markdown.markdown(text, extensions=['fenced_code', 'tables'])
             return f"<pre>{text}</pre>"
-        
+
         cards = [EmailBotResponder.create_price_card(item['data']) for item in analyses.values()]
         sections = [f'<div style="margin-top:20px;padding:20px;background:#f9fafb;border-radius:10px;">{md_to_html(item["analysis"])}</div>' for item in analyses.values()]
-        
-        return f"""<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{{font-family:-apple-system,sans-serif;max-width:800px;margin:auto;background:#f1f5f9;padding:20px;}} .container{{background:white;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,0.1);}} .header{{background:linear-gradient(135deg,#4f46e5,#7c3aed);color:white;padding:30px;text-align:center;}} h1{{margin:0;}} .content{{padding:30px;}} .question-box{{background:#eef2ff;border-left:5px solid #6366f1;padding:20px;border-radius:8px;margin-bottom:25px;}} h2{{color:#312e81;border-bottom:2px solid #e5e7eb;padding-bottom:8px;}}</style></head><body><div class="container"><div class="header"><h1>Intelligent Market Analysis</h1><p>{datetime.datetime.now().strftime('%B %d, %Y')}</p></div><div class="content"><div class="question-box"><h2>Your Question</h2><p>"{question}"</p></div><div>{''.join(cards)}</div><div style="clear:both;"></div>{''.join(sections)}</div></div></body></html>"""
+
+        return f"""<!DOCTYPE html><html><head><meta charset="UTF-8">
+        <style>body{{font-family:-apple-system,sans-serif;max-width:900px;margin:auto;background:#f1f5f9;padding:20px;}}</style>
+        </head><body>
+        <h1>Intelligent Market Analysis</h1>
+        <div><b>Q:</b> {question}</div>
+        <div>{''.join(cards)}</div>
+        {''.join(sections)}
+        </body></html>"""
+
 
 # ========================================
 # SECTION 4: MAIN EMAIL BOT ENGINE
@@ -1926,81 +2057,140 @@ class IntelligentEmailBotResponder:
 
 class EmailBotEngine:
     def __init__(self):
-        self.db, self.smtp_user, self.smtp_pass = None, os.getenv("SMTP_USER"), os.getenv("SMTP_PASS")
-        if not self.smtp_user or not self.smtp_pass: raise ValueError("❌ SMTP credentials required!")
+        self.db = None
+        self.smtp_user = os.getenv("SMTP_USER")
+        self.smtp_pass = os.getenv("SMTP_PASS")
+        if not self.smtp_user or not self.smtp_pass:
+            raise ValueError("❌ SMTP credentials required!")
         logging.info(f"📧 Bot initialized for: {self.smtp_user}")
-        try: self.db = EmailBotDatabase()
-        except Exception as e: logging.error(f"DB init failed: {e}")
+        try:
+            self.db = EmailBotDatabase()
+        except Exception as e:
+            logging.error(f"DB init failed: {e}")
 
     async def check_and_respond(self):
         logging.info("📧 Checking inbox...")
-        checked, answered, errors, mail = 0, 0, 0, None
+        checked, answered, errors = 0, 0, 0
+        mail = None
         try:
             mail = imaplib.IMAP4_SSL("imap.gmail.com", 15)
             mail.login(self.smtp_user, self.smtp_pass)
             mail.select('inbox')
-            since = (datetime.datetime.now()-datetime.timedelta(days=7)).strftime("%d-%b-%Y")
+            since = (datetime.datetime.now() - datetime.timedelta(days=7)).strftime("%d-%b-%Y")
             _, data = mail.search(None, f'(UNSEEN SINCE {since})')
             email_ids = data[0].split()
-            if not email_ids: logging.info("✅ No new emails"); return
+            if not email_ids:
+                logging.info("✅ No new emails")
+                return
             logging.info(f"📬 Found {len(email_ids)} unread emails")
+
+            # Process newest 5
             for eid in reversed(email_ids[:5]):
                 try:
                     checked += 1
-                    _, data = mail.fetch(eid, '(RFC822)')
-                    msg = email.message_from_bytes(data[0][1])
-                    sender, subject = email.utils.parseaddr(msg['From'])[1], msg.get('Subject','')
-                    if not self._is_market_related(subject, sender): logging.info(f"⏭️ Skipping: {subject[:50]}"); continue
+                    _, fdata = mail.fetch(eid, '(RFC822)')
+                    msg = email.message_from_bytes(fdata[0][1])
+                    sender = email.utils.parseaddr(msg['From'])[1]
+                    subject = msg.get('Subject', '') or ''
+
+                    if not self._is_market_related(subject, sender):
+                        logging.info(f"⏭️ Skipping: {subject[:60]}")
+                        continue
+
                     question = self._extract_question(msg)
-                    if not self._is_valid(question): logging.info(f"⏭️ Invalid Q: {question[:30]}"); continue
+                    if not self._is_valid(question):
+                        logging.info(f"⏭️ Invalid Q: {question[:30]}")
+                        continue
+
                     logging.info(f"❓ Q from {sender}: {question[:60]}")
+
                     topics = MarketQuestionAnalyzer.extract_topics(question)
                     if not topics:
                         html = EmailBotResponder.generate_help_response(question)
                     else:
-                        market_data = {k:d for k,d in (await asyncio.gather(*(MarketQuestionAnalyzer.get_market_data(i['ticker']) for i in topics.values()))) if d}
-                        data_map = {d['ticker']: d for d in market_data.values()}
-                        # Map fetched data back to original topics
-                        final_market_data = {k: {**v, **data_map.get(v['ticker'], {})} for k, v in topics.items() if v['ticker'] in data_map}
+                        # Fetch data for topic tickers
+                        tickers = [info['ticker'] for info in topics.values()]
+                        results = await asyncio.gather(*(MarketQuestionAnalyzer.get_market_data(t) for t in tickers))
+
+                        # Zip results back to topics
+                        final_market_data = {}
+                        for (key, info), data in zip(topics.items(), results):
+                            if data:
+                                final_market_data[key] = {**info, **data}
+
+                        # Prefer intelligent responder
+                        html = None
                         try:
                             responder = IntelligentEmailBotResponder()
                             html = await responder.generate_intelligent_html(question, final_market_data)
                             logging.info("✅ Intelligent response generated")
                         except Exception as e:
                             logging.warning(f"Intelligent responder failed: {e}")
+                        if not html or len(html) < 100:
                             html = EmailBotResponder.generate_html_response(question, final_market_data)
+
                     if self._send_email(sender, question, html, subject):
-                        answered += 1; logging.info(f"✅ Answered {sender}")
-                        if self.db: self.db.log_conversation(sender, question, topics, True)
-                    else: errors += 1
+                        answered += 1
+                        if self.db:
+                            self.db.log_conversation(sender, question, topics, True)
+                        logging.info(f"✅ Answered {sender}")
+                    else:
+                        errors += 1
+
                     mail.store(eid, '+FLAGS', '\\Seen')
                     await asyncio.sleep(2)
-                except Exception as e: errors+=1; logging.error(f"Email processing error: {e}")
-            logging.info(f"✅ Complete: {answered}/{checked} answered")
-        except Exception as e: errors+=1; logging.error(f"❌ Bot main error: {e}")
+
+                except Exception as e:
+                    errors += 1
+                    logging.error(f"Processing error: {e}")
+
+            logging.info(f"✅ Complete: {answered}/{checked} answered (errors: {errors})")
+
+        except Exception as e:
+            errors += 1
+            logging.error(f"❌ Bot main error: {e}")
+
         finally:
             if mail:
-                try: mail.close(); mail.logout()
-                except: pass
-            if self.db: self.db.update_stats(checked, answered, errors); self.db.close()
-    
-    def _send_email(self, to, q, body, subj=""):
+                try:
+                    mail.close()
+                    mail.logout()
+                except:
+                    pass
+            if self.db:
+                self.db.update_stats(checked, answered, errors)
+                self.db.close()
+
+    def _send_email(self, to_email, question, html_body, original_subject=""):
         try:
             msg = MIMEMultipart('alternative')
-            msg['Subject'] = f"Re: {subj}" if subj and not subj.startswith('Re:') else subj or "Market Analysis"
-            msg['From'], msg['To'], msg['Date'] = self.smtp_user, to, email.utils.formatdate(localtime=True)
-            msg.attach(MIMEText(f"Q: {q}\n\nView in HTML.",'plain'))
-            msg.attach(MIMEText(body,'html'))
-            with smtplib.SMTP("smtp.gmail.com", 587, 30) as s:
-                s.starttls(); s.login(self.smtp_user, self.smtp_pass); s.send_message(msg)
-            logging.info(f"📧 Email sent to {to}"); return True
-        except Exception as e: logging.error(f"Send failed: {e}"); return False
+            subject = f"Re: {original_subject}" if original_subject and not original_subject.startswith('Re:') else original_subject or "Market Analysis"
+            msg['Subject'] = subject
+            msg['From'] = self.smtp_user
+            msg['To'] = to_email
+            msg['Date'] = email.utils.formatdate(localtime=True)
+            # Attach parts
+            msg.attach(MIMEText(f"Q: {question}\n\nPlease view in HTML for the full response.", 'plain'))
+            msg.attach(MIMEText(html_body, 'html'))
+            with smtplib.SMTP("smtp.gmail.com", 587, timeout=30) as s:
+                s.starttls()
+                s.login(self.smtp_user, self.smtp_pass)
+                s.send_message(msg)
+            logging.info(f"📧 Email sent to {to_email}")
+            return True
+        except Exception as e:
+            logging.error(f"Send failed: {e}")
+            return False
 
     def _is_market_related(self, subject, sender):
-        if sender == self.smtp_user: return True
-        s_lower = subject.lower()
-        if any(k in s_lower for k in ['unsubscribe','newsletter','notification']): return False
-        if any(k in s_lower for k in ['market','stock','crypto','price','question']): return True
+        if sender == self.smtp_user:
+            return True
+        s_lower = (subject or '').lower()
+        if any(k in s_lower for k in ['unsubscribe', 'newsletter', 'notification', 'password', 'security']):
+            return False
+        if any(k in s_lower for k in ['market', 'stock', 'crypto', 'bitcoin', 'ethereum', 'price', 'question', 'gold']):
+            return True
+        # Default: allow (body may contain question)
         return True
 
     def _extract_question(self, msg):
@@ -2008,21 +2198,41 @@ class EmailBotEngine:
         try:
             if msg.is_multipart():
                 for part in msg.walk():
-                    if part.get_content_type()=="text/plain":
+                    if part.get_content_type() == "text/plain":
                         try:
                             payload = part.get_payload(decode=True)
-                            if payload: body = payload.decode('utf-8','ignore'); break
-                        except: continue
+                            if payload:
+                                body = payload.decode('utf-8', errors='ignore')
+                                break
+                        except:
+                            continue
             else:
                 payload = msg.get_payload(decode=True)
-                if payload: body = payload.decode('utf-8','ignore')
-            lines = [l.strip() for l in body.split('\n') if l.strip() and not l.strip().startswith('>') and 'wrote:' not in l.lower()]
-            return re.sub(r'\s+',' ', ' '.join(lines))[:500]
-        except: return ""
+                if payload:
+                    body = payload.decode('utf-8', errors='ignore')
+            # Clean lines
+            lines = []
+            for line in (body or "").split('\n'):
+                l = line.strip()
+                if not l:
+                    continue
+                if l.startswith('>'):
+                    continue
+                if any(m in l.lower() for m in ['wrote:', 'from:', 'sent:', 'date:']):
+                    break
+                if 'please view' in l.lower() and 'html' in l.lower():
+                    continue
+                lines.append(l)
+            return re.sub(r'\s+', ' ', ' '.join(lines))[:500]
+        except Exception as e:
+            logging.error(f"Extract question failed: {e}")
+            return ""
 
     def _is_valid(self, question):
-        if not question or len(question)<5: return False
-        if any(k in question.lower() for k in ['automated','auto-reply']): return False
+        if not question or len(question.strip()) < 5:
+            return False
+        if any(k in question.lower() for k in ['automated', 'auto-reply', 'unsubscribe', 'no-reply', 'mailer-daemon']):
+            return False
         return True
 
 
@@ -2039,7 +2249,13 @@ async def run_email_bot():
 def verify_intelligence_available():
     """Logs the status of intelligent components."""
     logging.info("🔍 Verifying Intelligence Components Status:")
-    components = {'spaCy':SPACY_AVAILABLE,'TextBlob':TEXTBLOB_AVAILABLE,'Wikipedia':WIKIPEDIA_AVAILABLE,'Groq':GROQ_AVAILABLE and os.getenv("GROQ_API_KEY"),'Cohere':COHERE_AVAILABLE and os.getenv("COHERE_API_KEY"),'HuggingFace':bool(os.getenv("HUGGINGFACE_API_KEY"))}
+    components = {
+        'spaCy': 'SPACY_AVAILABLE' in globals() and SPACY_AVAILABLE,
+        'TextBlob': 'TEXTBLOB_AVAILABLE' in globals() and TEXTBLOB_AVAILABLE if 'TEXTBLOB_AVAILABLE' in globals() else False,
+        'Wikipedia': 'WIKIPEDIA_AVAILABLE' in globals() and WIKIPEDIA_AVAILABLE if 'WIKIPEDIA_AVAILABLE' in globals() else False,
+        'Groq': 'GROQ_AVAILABLE' in globals() and GROQ_AVAILABLE and os.getenv("GROQ_API_KEY"),
+        'Cohere': 'COHERE_AVAILABLE' in globals() and COHERE_AVAILABLE and os.getenv("COHERE_API_KEY"),
+    }
     for component, available in components.items():
         logging.info(f"  {'✅' if available else '❌'} {component}: {'Available' if available else 'Not Available'}")
 
