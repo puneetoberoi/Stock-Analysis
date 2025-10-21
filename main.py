@@ -2141,7 +2141,7 @@ body {{font-family: -apple-system, sans-serif; max-width: 700px; margin: 40px au
 class EmailBotEngine:
     """Main email bot engine with comprehensive error handling"""
     
-    def __init__(self):
+     def __init__(self):
         self.db = None
         self.smtp_user = os.getenv("SMTP_USER")
         self.smtp_pass = os.getenv("SMTP_PASS")
@@ -2149,13 +2149,15 @@ class EmailBotEngine:
         if not self.smtp_user or not self.smtp_pass:
             raise ValueError("❌ SMTP_USER and SMTP_PASS environment variables required!")
         
+        # 🆕 LOG CREDENTIALS (safely)
+        logging.info(f"📧 Bot initialized for: {self.smtp_user}")
+        
         try:
             self.db = EmailBotDatabase()
         except Exception as e:
             logging.error(f"Database initialization failed: {e}")
-            # Continue without database
     
-    async def check_and_respond(self):
+        async def check_and_respond(self):
         """Check inbox and respond with full error handling"""
         logging.info("📧 Email bot checking inbox...")
         
@@ -2171,9 +2173,14 @@ class EmailBotEngine:
             mail.login(self.smtp_user, self.smtp_pass)
             mail.select('inbox')
             
-            # Search for unread emails
+            # Search for unread emails from the past 7 days
             since = (datetime.datetime.now() - datetime.timedelta(days=7)).strftime("%d-%b-%Y")
-            _, search_data = mail.search(None, f'(UNSEEN SINCE {since})')
+            
+            # 🆕 FILTER BY SUBJECT - Only process market-related questions
+            # Search for unread emails with market-related subjects OR from yourself
+            search_query = f'(UNSEEN SINCE {since})'
+            
+            _, search_data = mail.search(None, search_query)
             
             email_ids = search_data[0].split()
             
@@ -2183,8 +2190,8 @@ class EmailBotEngine:
             
             logging.info(f"📬 Found {len(email_ids)} unread email(s)")
             
-            # Process newest 3 emails
-            for email_id in list(reversed(email_ids))[:3]:
+            # Process newest 5 emails (increased from 3 for testing)
+            for email_id in list(reversed(email_ids))[:5]:
                 try:
                     checked += 1
                     
@@ -2195,57 +2202,70 @@ class EmailBotEngine:
                     sender = email.utils.parseaddr(msg['From'])[1]
                     subject = msg.get('Subject', '')
                     
+                    # 🆕 IMPROVED FILTERING - Check if this is a market question
+                    if not self._is_market_related_email(subject, sender):
+                        logging.info(f"⏭️ Skipping non-market email from {sender}: '{subject[:50]}'")
+                        # DON'T mark as read - let user handle it
+                        continue
+                    
                     # Extract question
                     question = self._extract_question(msg)
                     
+                    # 🆕 RELAXED VALIDATION - More permissive
                     if not self._is_valid_question(question):
-                        mail.store(email_id, '+FLAGS', '\\Seen')
+                        logging.info(f"⏭️ Question too short or invalid: '{question[:30]}'")
                         continue
                     
                     logging.info(f"❓ Question from {sender}: '{question[:60]}...'")
                     
                     # Analyze question
                     topics = MarketQuestionAnalyzer.extract_topics(question)
-                    market_data = {}
                     
-                    # Fetch market data for detected topics
-                    for key, info in topics.items():
-                        if info and 'ticker' in info:
-                            data = await MarketQuestionAnalyzer.get_market_data(info['ticker'])
-                            if data:
-                                market_data[key] = {**info, **data}
-                    
-                    # 🆕 INTELLIGENT RESPONSE GENERATION
-                    html_response = None
-                    
-                    # Check if intelligent responder is available
-                    try:
-                        # Try to use intelligent responder if it exists
-                        if 'IntelligentEmailBotResponder' in globals():
-                            logging.info("🧠 Using intelligent responder...")
-                            intelligent_responder = IntelligentEmailBotResponder()
-                            html_response = await intelligent_responder.generate_intelligent_html(question, market_data)
-                            logging.info("✅ Intelligent response generated")
-                        else:
-                            logging.info("⚠️ Intelligent responder not found, using basic")
-                    except Exception as e:
-                        logging.warning(f"Intelligent responder failed: {e}, falling back to basic")
-                    
-                    # Fallback to basic responder if intelligent failed
-                    if not html_response:
-                        logging.info("📊 Using basic responder")
-                        html_response = EmailBotResponder.generate_html_response(question, market_data)
+                    if not topics:
+                        logging.info(f"⏭️ No market topics detected in question")
+                        # Send help response
+                        html_response = EmailBotResponder.generate_help_response(question)
+                    else:
+                        market_data = {}
+                        
+                        # Fetch market data for detected topics
+                        for key, info in topics.items():
+                            if info and 'ticker' in info:
+                                data = await MarketQuestionAnalyzer.get_market_data(info['ticker'])
+                                if data:
+                                    market_data[key] = {**info, **data}
+                        
+                        # 🆕 INTELLIGENT RESPONSE GENERATION
+                        html_response = None
+                        
+                        # Check if intelligent responder is available
+                        try:
+                            # Try to use intelligent responder if it exists
+                            if 'IntelligentEmailBotResponder' in globals():
+                                logging.info("🧠 Using intelligent responder...")
+                                intelligent_responder = IntelligentEmailBotResponder()
+                                html_response = await intelligent_responder.generate_intelligent_html(question, market_data)
+                                logging.info("✅ Intelligent response generated")
+                            else:
+                                logging.info("⚠️ Intelligent responder not found, using basic")
+                        except Exception as e:
+                            logging.warning(f"Intelligent responder failed: {e}, falling back to basic")
+                        
+                        # Fallback to basic responder if intelligent failed
+                        if not html_response or len(html_response) < 100:
+                            logging.info("📊 Using basic responder")
+                            html_response = EmailBotResponder.generate_html_response(question, market_data)
                     
                     # Send response
                     if self._send_email(sender, question, html_response, subject):
                         answered += 1
                         if self.db:
-                            self.db.log_conversation(sender, question, topics, True)
+                            self.db.log_conversation(sender, question, topics if topics else {}, True)
                         logging.info(f"✅ Answered {sender}")
                     else:
                         errors += 1
                         if self.db:
-                            self.db.log_conversation(sender, question, topics, False)
+                            self.db.log_conversation(sender, question, topics if topics else {}, False)
                     
                     # Mark as read
                     mail.store(email_id, '+FLAGS', '\\Seen')
@@ -2258,7 +2278,7 @@ class EmailBotEngine:
                     logging.error(f"Error processing email: {e}")
                     continue
             
-            logging.info(f"✅ Bot complete: {answered}/{checked} answered")
+            logging.info(f"✅ Bot complete: {answered}/{checked} answered, {errors} errors")
             
         except Exception as e:
             logging.error(f"❌ Bot error: {e}")
@@ -2275,6 +2295,46 @@ class EmailBotEngine:
             if self.db:
                 self.db.update_stats(checked, answered, errors)
                 self.db.close()
+    
+    def _is_market_related_email(self, subject, sender):
+        """Check if email is market-related and should be processed"""
+        
+        # Always process emails from yourself (for testing)
+        if sender == self.smtp_user:
+            return True
+        
+        # Skip obvious non-market emails
+        skip_subjects = [
+            'unsubscribe', 'newsletter', 'notification', 'alert',
+            'security', 'password', 'verification', 'confirm',
+            'receipt', 'order', 'shipping', 'delivery',
+            'meeting', 'calendar', 'invitation'
+        ]
+        
+        subject_lower = subject.lower()
+        
+        if any(skip in subject_lower for skip in skip_subjects):
+            return False
+        
+        # Accept emails with market-related keywords
+        market_keywords = [
+            'market', 'stock', 'crypto', 'bitcoin', 'ethereum',
+            'gold', 'silver', 'analysis', 'price', 'trading',
+            'investment', 'portfolio', 'ticker', 'btc', 'eth',
+            'question', 'why', 'what', 'how'  # Question words
+        ]
+        
+        # If subject contains market keywords, process it
+        if any(keyword in subject_lower for keyword in market_keywords):
+            return True
+        
+        # If subject is empty or very short, check the email anyway
+        # (user might have sent question in body only)
+        if len(subject.strip()) < 3:
+            return True
+        
+        # Default: process it (better to over-process than miss questions)
+        return True
     
     def _extract_question(self, msg):
         """Extract question from email body"""
@@ -2309,63 +2369,52 @@ class EmailBotEngine:
                 if line.strip().startswith('>'):
                     continue
                 # Skip HTML fallback
-                if 'please view' in line.lower():
+                if 'please view' in line.lower() and 'html' in line.lower():
                     continue
+                # Skip email signatures
+                if line.strip() in ['--', '___', 'Sent from', 'Get Outlook']:
+                    break
                 
                 if line.strip():
                     lines.append(line.strip())
             
-            return re.sub(r'\s+', ' ', ' '.join(lines).strip())
+            question = re.sub(r'\s+', ' ', ' '.join(lines).strip())
+            
+            # If question is too long (likely entire email thread), truncate
+            if len(question) > 500:
+                question = question[:500]
+            
+            return question
+            
         except Exception as e:
             logging.error(f"Question extraction failed: {e}")
             return ""
     
     def _is_valid_question(self, question):
-        """Validate question"""
-        if not question or len(question) < 10:
+        """Validate question - RELAXED validation"""
+        
+        # Must have some content
+        if not question or len(question.strip()) < 5:  # Reduced from 10 to 5
             return False
         
+        # Skip obvious auto-replies
         skip = ['automated', 'auto-reply', 'out of office', 'unsubscribe', 'no-reply', 'mailer-daemon']
-        return not any(kw in question.lower() for kw in skip)
-    
-    def _send_email(self, to_email, question, html_body, original_subject=""):
-        """Send email response with error handling"""
-        try:
-            msg = MIMEMultipart('alternative')
-            
-            # Create subject
-            if original_subject and not original_subject.startswith('Re:'):
-                subject = f"Re: {original_subject}"
-            elif original_subject:
-                subject = original_subject
-            else:
-                subject = f"Market Analysis - {datetime.datetime.now().strftime('%b %d')}"
-            
-            msg['Subject'] = subject
-            msg['From'] = self.smtp_user
-            msg['To'] = to_email
-            msg['Date'] = email.utils.formatdate(localtime=True)
-            
-            # Plain text fallback
-            text_content = f"Your question: {question}\n\nPlease view this email in HTML format for the full analysis."
-            text_part = MIMEText(text_content, 'plain')
-            
-            # HTML content
-            html_part = MIMEText(html_body, 'html')
-            
-            msg.attach(text_part)
-            msg.attach(html_part)
-            
-            # Send email
-            with smtplib.SMTP("smtp.gmail.com", 587, timeout=30) as server:
-                server.starttls()
-                server.login(self.smtp_user, self.smtp_pass)
-                server.send_message(msg)
-            
-            return True
-        except Exception as e:
-            logging.error(f"Email send failed: {e}")
+        if any(kw in question.lower() for kw in skip):
             return False
+        
+        # If it has a question mark or market keywords, it's probably valid
+        if '?' in question:
+            return True
+        
+        market_words = ['bitcoin', 'crypto', 'stock', 'gold', 'market', 'price', 'why', 'what', 'how']
+        if any(word in question.lower() for word in market_words):
+            return True
+        
+        # Accept anything that looks like a sentence
+        if len(question.split()) >= 3:  # At least 3 words
+            return True
+        
+        return False
 
 
 async def run_email_bot():
