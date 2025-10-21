@@ -25,6 +25,11 @@ jobs:
           pip install vaderSentiment ta asyncio-throttle
           pip install google-generativeai
           pip install duckduckgo-search
+          pip install transformers torch --no-deps  # Lightweight install
+          pip install groq  # Only if using Groq
+          pip install cohere  # Only if using Cohere
+          python -m spacy download en_core_web_sm
+          python -m textblob.download_corpora
       
       - name: Check and respond to emails
         env:
