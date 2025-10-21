@@ -17,6 +17,20 @@ import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
+# 🆕 Email bot imports
+import sqlite3
+import imaplib
+import email
+import email.utils
+import re
+
+# 🆕 DuckDuckGo search (with fallback)
+try:
+    from duckduckgo_search import DDGS
+    DDGS_AVAILABLE = True
+except ImportError:
+    DDGS_AVAILABLE = False
+    logging.warning("⚠️ duckduckgo-search not available - bot news search will be limited")
 # ========================================
 # 🔒 STABLE FOUNDATION - v2.0.0
 # Last stable: 2024-12-20
@@ -1572,39 +1586,76 @@ def send_email(html_body):
 
 
 # ========================================
-# 🆕 EMAIL BOT SYSTEM - v2.1.0
-# Added: December 2024
-# All code below is NEW - safe to remove if not needed
+# 🆕 EMAIL BOT SYSTEM - v2.2.0 PRODUCTION
+# Complete with all imports and error handling
 # ========================================
+
+# Bot-specific imports (some may be redundant but ensures it works)
+import sqlite3
+import imaplib
+import email
+import email.utils
+import re
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+
+# Try importing optional dependencies
+try:
+    from duckduckgo_search import DDGS
+    DDGS_AVAILABLE = True
+except ImportError:
+    logging.warning("⚠️ duckduckgo_search not available - bot will use fallback")
+    DDGS_AVAILABLE = False
+    
+    # Fallback class if DDGS not available
+    class DDGS:
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            pass
+        def news(self, query, max_results=3):
+            return []
+        def text(self, query, max_results=3):
+            return []
+
 
 class EmailBotDatabase:
     """Isolated database for bot conversations"""
     
     def __init__(self, db_path='email_bot.db'):
         self.db_path = db_path
-        self.conn = sqlite3.connect(db_path, check_same_thread=False)
-        self._init_schema()
+        try:
+            self.conn = sqlite3.connect(db_path, check_same_thread=False)
+            self._init_schema()
+        except Exception as e:
+            logging.error(f"Database init failed: {e}")
+            # Use in-memory database as fallback
+            self.conn = sqlite3.connect(':memory:', check_same_thread=False)
+            self._init_schema()
     
     def _init_schema(self):
-        self.conn.executescript('''
-            CREATE TABLE IF NOT EXISTS conversations (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                timestamp TEXT,
-                user_email TEXT,
-                user_question TEXT,
-                topics_detected TEXT,
-                response_sent BOOLEAN,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-            
-            CREATE TABLE IF NOT EXISTS bot_stats (
-                date TEXT PRIMARY KEY,
-                emails_checked INTEGER DEFAULT 0,
-                questions_answered INTEGER DEFAULT 0,
-                errors INTEGER DEFAULT 0
-            );
-        ''')
-        self.conn.commit()
+        try:
+            self.conn.executescript('''
+                CREATE TABLE IF NOT EXISTS conversations (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp TEXT,
+                    user_email TEXT,
+                    user_question TEXT,
+                    topics_detected TEXT,
+                    response_sent BOOLEAN,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+                
+                CREATE TABLE IF NOT EXISTS bot_stats (
+                    date TEXT PRIMARY KEY,
+                    emails_checked INTEGER DEFAULT 0,
+                    questions_answered INTEGER DEFAULT 0,
+                    errors INTEGER DEFAULT 0
+                );
+            ''')
+            self.conn.commit()
+        except Exception as e:
+            logging.error(f"Schema creation failed: {e}")
     
     def log_conversation(self, user_email, question, topics, success):
         try:
@@ -1614,8 +1665,8 @@ class EmailBotDatabase:
             ''', (
                 datetime.datetime.now().isoformat(),
                 user_email,
-                question[:500],
-                json.dumps(topics),
+                question[:500] if question else "",
+                json.dumps(topics) if topics else "{}",
                 success
             ))
             self.conn.commit()
@@ -1625,20 +1676,32 @@ class EmailBotDatabase:
     def update_stats(self, checked=0, answered=0, errors=0):
         try:
             today = datetime.date.today().isoformat()
-            self.conn.execute('''
-                INSERT INTO bot_stats (date, emails_checked, questions_answered, errors)
-                VALUES (?, ?, ?, ?)
-                ON CONFLICT(date) DO UPDATE SET
-                    emails_checked = emails_checked + ?,
-                    questions_answered = questions_answered + ?,
-                    errors = errors + ?
-            ''', (today, checked, answered, errors, checked, answered, errors))
+            # SQLite doesn't support ON CONFLICT in older versions, use INSERT OR REPLACE
+            existing = self.conn.execute('SELECT * FROM bot_stats WHERE date = ?', (today,)).fetchone()
+            
+            if existing:
+                self.conn.execute('''
+                    UPDATE bot_stats 
+                    SET emails_checked = emails_checked + ?,
+                        questions_answered = questions_answered + ?,
+                        errors = errors + ?
+                    WHERE date = ?
+                ''', (checked, answered, errors, today))
+            else:
+                self.conn.execute('''
+                    INSERT INTO bot_stats (date, emails_checked, questions_answered, errors)
+                    VALUES (?, ?, ?, ?)
+                ''', (today, checked, answered, errors))
+            
             self.conn.commit()
         except Exception as e:
             logging.error(f"Stats update failed: {e}")
     
     def close(self):
-        self.conn.close()
+        try:
+            self.conn.close()
+        except:
+            pass
 
 
 class MarketQuestionAnalyzer:
@@ -1647,6 +1710,10 @@ class MarketQuestionAnalyzer:
     @staticmethod
     def extract_topics(question):
         topics = {}
+        
+        if not question:
+            return topics
+            
         q_lower = question.lower()
         
         mappings = {
@@ -1657,6 +1724,7 @@ class MarketQuestionAnalyzer:
             'gold': {'type': 'commodity', 'ticker': 'GC=F', 'name': 'Gold'},
             'silver': {'type': 'commodity', 'ticker': 'SI=F', 'name': 'Silver'},
             'oil': {'type': 'commodity', 'ticker': 'CL=F', 'name': 'Crude Oil'},
+            'crude': {'type': 'commodity', 'ticker': 'CL=F', 'name': 'Crude Oil'},
             'sp500': {'type': 'index', 'ticker': '^GSPC', 'name': 'S&P 500'},
             's&p': {'type': 'index', 'ticker': '^GSPC', 'name': 'S&P 500'},
             'nasdaq': {'type': 'index', 'ticker': '^IXIC', 'name': 'Nasdaq'},
@@ -1667,20 +1735,26 @@ class MarketQuestionAnalyzer:
             if keyword in q_lower:
                 topics[keyword] = data
         
-        ticker_matches = re.findall(r'\$?([A-Z]{1,5})\b', question)
-        for ticker in ticker_matches:
-            if ticker not in ['USD', 'ETH', 'BTC', 'CEO', 'USA'] and len(ticker) <= 5:
-                topics[ticker.lower()] = {'type': 'stock', 'ticker': ticker, 'name': ticker}
+        # Extract stock tickers
+        try:
+            ticker_matches = re.findall(r'\$?([A-Z]{1,5})\b', question)
+            for ticker in ticker_matches:
+                if ticker not in ['USD', 'ETH', 'BTC', 'CEO', 'USA', 'AI', 'Q', 'A'] and len(ticker) <= 5:
+                    topics[ticker.lower()] = {'type': 'stock', 'ticker': ticker, 'name': ticker}
+        except:
+            pass
         
         return topics
     
     @staticmethod
     async def get_market_data(ticker):
+        """Fetch market data with comprehensive error handling"""
         try:
             stock = yf.Ticker(ticker)
             hist = await asyncio.to_thread(stock.history, period='3mo')
             
             if hist.empty:
+                logging.warning(f"No data for {ticker}")
                 return None
             
             current = hist['Close'].iloc[-1]
@@ -1688,24 +1762,57 @@ class MarketQuestionAnalyzer:
             week_ago = hist['Close'].iloc[-5] if len(hist) >= 5 else current
             month_ago = hist['Close'].iloc[-22] if len(hist) >= 22 else current
             
+            # Safe RSI calculation
             try:
                 rsi = RSIIndicator(hist['Close'], window=14).rsi().iloc[-1]
+                if pd.isna(rsi):
+                    rsi = 50
             except:
                 rsi = 50
             
+            # Safe calculations with division by zero check
+            daily_change = ((current - day_ago) / day_ago * 100) if day_ago != 0 else 0
+            weekly_change = ((current - week_ago) / week_ago * 100) if week_ago != 0 else 0
+            monthly_change = ((current - month_ago) / month_ago * 100) if month_ago != 0 else 0
+            
             return {
                 'ticker': ticker,
-                'price': current,
-                'daily_change': ((current - day_ago) / day_ago) * 100,
-                'weekly_change': ((current - week_ago) / week_ago) * 100,
-                'monthly_change': ((current - month_ago) / month_ago) * 100,
-                'rsi': rsi,
-                'year_high': hist['High'].tail(252).max() if len(hist) > 252 else hist['High'].max(),
-                'year_low': hist['Low'].tail(252).min() if len(hist) > 252 else hist['Low'].min(),
+                'price': float(current),
+                'daily_change': float(daily_change),
+                'weekly_change': float(weekly_change),
+                'monthly_change': float(monthly_change),
+                'rsi': float(rsi),
+                'year_high': float(hist['High'].tail(252).max() if len(hist) > 252 else hist['High'].max()),
+                'year_low': float(hist['Low'].tail(252).min() if len(hist) > 252 else hist['Low'].min()),
             }
         except Exception as e:
             logging.warning(f"Data fetch failed for {ticker}: {e}")
             return None
+    
+    @staticmethod
+    async def search_news(query, max_results=3):
+        """Search news with fallback"""
+        if not DDGS_AVAILABLE:
+            return "Market analysis based on current trends..."
+            
+        try:
+            results = ""
+            with DDGS() as ddgs:
+                try:
+                    news = list(ddgs.news(query, max_results=max_results))
+                    for i, item in enumerate(news, 1):
+                        results += f"[{i}] {item.get('title', '')}\n"
+                except:
+                    try:
+                        text = list(ddgs.text(query, max_results=max_results))
+                        for i, item in enumerate(text, 1):
+                            results += f"[{i}] {item.get('title', '')}\n"
+                    except:
+                        pass
+            return results or "Market analysis based on current trends..."
+        except Exception as e:
+            logging.debug(f"News search failed: {e}")
+            return "Market analysis based on current trends..."
 
 
 class EmailBotResponder:
@@ -1713,41 +1820,56 @@ class EmailBotResponder:
     
     @staticmethod
     def create_price_card(data):
-        change_color = '#16a34a' if data['daily_change'] >= 0 else '#dc2626'
-        return f"""
-        <div style="background: linear-gradient(135deg, #e0f2fe, #bae6fd); padding: 20px; 
-                    border-radius: 12px; margin: 15px 0; display: inline-block; 
-                    width: 45%; margin-right: 3%; vertical-align: top;">
-            <h3 style="margin: 0; color: #1e40af; text-transform: uppercase;">{data['name']}</h3>
-            <p style="font-size: 32px; font-weight: bold; margin: 10px 0;">${data['price']:,.2f}</p>
-            <p style="color: {change_color}; font-size: 18px; margin: 5px 0;">{data['daily_change']:+.2f}% today</p>
-            <p style="font-size: 12px; color: #6b7280;">
-                Week: {data['weekly_change']:+.1f}% | Month: {data['monthly_change']:+.1f}%<br>
-                RSI: {data['rsi']:.0f} | Range: ${data['year_low']:,.2f} - ${data['year_high']:,.2f}
-            </p>
-        </div>
-        """
+        if not data:
+            return ""
+            
+        try:
+            change_color = '#16a34a' if data.get('daily_change', 0) >= 0 else '#dc2626'
+            return f"""
+            <div style="background: linear-gradient(135deg, #e0f2fe, #bae6fd); padding: 20px; 
+                        border-radius: 12px; margin: 15px 0; display: inline-block; 
+                        width: 45%; margin-right: 3%; vertical-align: top;">
+                <h3 style="margin: 0; color: #1e40af; text-transform: uppercase;">{data.get('name', 'Unknown')}</h3>
+                <p style="font-size: 32px; font-weight: bold; margin: 10px 0;">${data.get('price', 0):,.2f}</p>
+                <p style="color: {change_color}; font-size: 18px; margin: 5px 0;">{data.get('daily_change', 0):+.2f}% today</p>
+                <p style="font-size: 12px; color: #6b7280;">
+                    Week: {data.get('weekly_change', 0):+.1f}% | Month: {data.get('monthly_change', 0):+.1f}%<br>
+                    RSI: {data.get('rsi', 50):.0f} | Range: ${data.get('year_low', 0):,.2f} - ${data.get('year_high', 0):,.2f}
+                </p>
+            </div>
+            """
+        except Exception as e:
+            logging.error(f"Price card creation failed: {e}")
+            return ""
     
     @staticmethod
     def create_analysis_section(data):
-        rsi = data['rsi']
-        if rsi > 70:
-            rsi_signal = f"<strong style='color: #dc2626;'>OVERBOUGHT</strong> (RSI {rsi:.0f})"
-        elif rsi < 30:
-            rsi_signal = f"<strong style='color: #16a34a;'>OVERSOLD</strong> (RSI {rsi:.0f})"
-        else:
-            rsi_signal = f"<strong>NEUTRAL</strong> (RSI {rsi:.0f})"
-        
-        trend = "Strong uptrend" if data['monthly_change'] > 10 else \
-                "Strong downtrend" if data['monthly_change'] < -10 else \
-                "Consolidation phase"
-        
-        price = data['price']
-        dist_high = ((price - data['year_high']) / data['year_high']) * 100
-        dist_low = ((price - data['year_low']) / data['year_low']) * 100
-        
-        return f"""
-<h2 style="color: #2563eb; margin-top: 30px;">📈 {data['name']} ({data['ticker']}) Analysis</h2>
+        if not data:
+            return ""
+            
+        try:
+            rsi = data.get('rsi', 50)
+            if rsi > 70:
+                rsi_signal = f"<strong style='color: #dc2626;'>OVERBOUGHT</strong> (RSI {rsi:.0f})"
+            elif rsi < 30:
+                rsi_signal = f"<strong style='color: #16a34a;'>OVERSOLD</strong> (RSI {rsi:.0f})"
+            else:
+                rsi_signal = f"<strong>NEUTRAL</strong> (RSI {rsi:.0f})"
+            
+            monthly = data.get('monthly_change', 0)
+            trend = "Strong uptrend" if monthly > 10 else \
+                    "Strong downtrend" if monthly < -10 else \
+                    "Consolidation phase"
+            
+            price = data.get('price', 0)
+            high = data.get('year_high', price)
+            low = data.get('year_low', price)
+            
+            dist_high = ((price - high) / high * 100) if high != 0 else 0
+            dist_low = ((price - low) / low * 100) if low != 0 else 0
+            
+            return f"""
+<h2 style="color: #2563eb; margin-top: 30px;">📈 {data.get('name', 'Asset')} ({data.get('ticker', 'N/A')}) Analysis</h2>
 
 <h3>Technical Signals</h3>
 <ul style="line-height: 1.8;">
@@ -1763,26 +1885,40 @@ class EmailBotResponder:
     <th style="padding: 10px; text-align: right;">Change</th>
 </tr>
 <tr><td style="padding: 10px;">Daily</td>
-    <td style="padding: 10px; text-align: right; color: {'#16a34a' if data['daily_change'] > 0 else '#dc2626'}; font-weight: bold;">
-    {data['daily_change']:+.2f}%</td></tr>
+    <td style="padding: 10px; text-align: right; color: {'#16a34a' if data.get('daily_change', 0) > 0 else '#dc2626'}; font-weight: bold;">
+    {data.get('daily_change', 0):+.2f}%</td></tr>
 <tr><td style="padding: 10px;">Weekly</td>
-    <td style="padding: 10px; text-align: right; color: {'#16a34a' if data['weekly_change'] > 0 else '#dc2626'}; font-weight: bold;">
-    {data['weekly_change']:+.2f}%</td></tr>
+    <td style="padding: 10px; text-align: right; color: {'#16a34a' if data.get('weekly_change', 0) > 0 else '#dc2626'}; font-weight: bold;">
+    {data.get('weekly_change', 0):+.2f}%</td></tr>
 <tr><td style="padding: 10px;">Monthly</td>
-    <td style="padding: 10px; text-align: right; color: {'#16a34a' if data['monthly_change'] > 0 else '#dc2626'}; font-weight: bold;">
-    {data['monthly_change']:+.2f}%</td></tr>
+    <td style="padding: 10px; text-align: right; color: {'#16a34a' if data.get('monthly_change', 0) > 0 else '#dc2626'}; font-weight: bold;">
+    {data.get('monthly_change', 0):+.2f}%</td></tr>
 </table>
 """
+        except Exception as e:
+            logging.error(f"Analysis section creation failed: {e}")
+            return ""
     
     @staticmethod
     def generate_html_response(question, market_data):
-        if not market_data:
-            return EmailBotResponder.generate_help_response(question)
-        
-        price_cards = [EmailBotResponder.create_price_card(data) for data in market_data.values() if data]
-        analysis_sections = [EmailBotResponder.create_analysis_section(data) for data in market_data.values() if data]
-        
-        return f"""
+        try:
+            if not market_data:
+                return EmailBotResponder.generate_help_response(question)
+            
+            price_cards = []
+            analysis_sections = []
+            
+            for data in market_data.values():
+                if data:
+                    card = EmailBotResponder.create_price_card(data)
+                    if card:
+                        price_cards.append(card)
+                    
+                    section = EmailBotResponder.create_analysis_section(data)
+                    if section:
+                        analysis_sections.append(section)
+            
+            return f"""
 <!DOCTYPE html>
 <html>
 <head>
@@ -1833,6 +1969,9 @@ h2 {{margin-top: 30px; padding-bottom: 10px; border-bottom: 2px solid #e5e7eb;}}
 </body>
 </html>
 """
+        except Exception as e:
+            logging.error(f"HTML generation failed: {e}")
+            return EmailBotResponder.generate_help_response(question)
     
     @staticmethod
     def generate_help_response(question):
@@ -1850,7 +1989,7 @@ body {{font-family: -apple-system, sans-serif; max-width: 700px; margin: 40px au
 <h1>📊 Market Intelligence Bot</h1>
 <div class="info-box">
     <h2 style="margin-top: 0;">Your Question:</h2>
-    <p style="font-size: 16px;">"{question}"</p>
+    <p style="font-size: 16px;">"{question if question else 'No question detected'}"</p>
 </div>
 
 <h2>I can analyze:</h2>
@@ -1865,7 +2004,6 @@ body {{font-family: -apple-system, sans-serif; max-width: 700px; margin: 40px au
 <div class="example"><strong>💡 "What's happening with gold?"</strong></div>
 <div class="example"><strong>💡 "Bitcoin analysis"</strong></div>
 <div class="example"><strong>💡 "How's NVDA looking?"</strong></div>
-<div class="example"><strong>💡 "Compare AAPL and MSFT"</strong></div>
 
 <p style="margin-top: 30px; padding: 15px; background: #fef3c7; border-radius: 8px;">
 <strong>💡 Tip:</strong> Mention specific ticker symbols or asset names for detailed analysis!
@@ -1876,28 +2014,39 @@ body {{font-family: -apple-system, sans-serif; max-width: 700px; margin: 40px au
 
 
 class EmailBotEngine:
-    """Main email bot engine"""
+    """Main email bot engine with comprehensive error handling"""
     
     def __init__(self):
-        self.db = EmailBotDatabase()
+        self.db = None
         self.smtp_user = os.getenv("SMTP_USER")
         self.smtp_pass = os.getenv("SMTP_PASS")
         
         if not self.smtp_user or not self.smtp_pass:
-            raise ValueError("❌ SMTP_USER and SMTP_PASS required for email bot!")
+            raise ValueError("❌ SMTP_USER and SMTP_PASS environment variables required!")
+        
+        try:
+            self.db = EmailBotDatabase()
+        except Exception as e:
+            logging.error(f"Database initialization failed: {e}")
+            # Continue without database
     
     async def check_and_respond(self):
+        """Check inbox and respond with full error handling"""
         logging.info("📧 Email bot checking inbox...")
         
         checked = 0
         answered = 0
         errors = 0
         
+        mail = None
+        
         try:
+            # Connect to inbox
             mail = imaplib.IMAP4_SSL("imap.gmail.com", timeout=15)
             mail.login(self.smtp_user, self.smtp_pass)
             mail.select('inbox')
             
+            # Search for unread emails
             since = (datetime.datetime.now() - datetime.timedelta(days=7)).strftime("%d-%b-%Y")
             _, search_data = mail.search(None, f'(UNSEEN SINCE {since})')
             
@@ -1905,23 +2054,23 @@ class EmailBotEngine:
             
             if not email_ids:
                 logging.info("✅ No new emails")
-                mail.close()
-                mail.logout()
-                self.db.close()
                 return
             
             logging.info(f"📬 Found {len(email_ids)} unread email(s)")
             
+            # Process newest 3 emails
             for email_id in list(reversed(email_ids))[:3]:
                 try:
                     checked += 1
                     
+                    # Fetch email
                     _, data = mail.fetch(email_id, '(RFC822)')
                     msg = email.message_from_bytes(data[0][1])
                     
                     sender = email.utils.parseaddr(msg['From'])[1]
                     subject = msg.get('Subject', '')
                     
+                    # Extract question
                     question = self._extract_question(msg)
                     
                     if not self._is_valid_question(question):
@@ -1930,96 +2079,141 @@ class EmailBotEngine:
                     
                     logging.info(f"❓ Question from {sender}: '{question[:60]}...'")
                     
+                    # Analyze question
                     topics = MarketQuestionAnalyzer.extract_topics(question)
                     market_data = {}
                     
+                    # Fetch market data for detected topics
                     for key, info in topics.items():
-                        data = await MarketQuestionAnalyzer.get_market_data(info['ticker'])
-                        if data:
-                            market_data[key] = {**info, **data}
+                        if info and 'ticker' in info:
+                            data = await MarketQuestionAnalyzer.get_market_data(info['ticker'])
+                            if data:
+                                market_data[key] = {**info, **data}
                     
+                    # Generate response
                     html_response = EmailBotResponder.generate_html_response(question, market_data)
                     
+                    # Send response
                     if self._send_email(sender, question, html_response, subject):
                         answered += 1
-                        self.db.log_conversation(sender, question, topics, True)
+                        if self.db:
+                            self.db.log_conversation(sender, question, topics, True)
                         logging.info(f"✅ Answered {sender}")
                     else:
                         errors += 1
-                        self.db.log_conversation(sender, question, topics, False)
+                        if self.db:
+                            self.db.log_conversation(sender, question, topics, False)
                     
+                    # Mark as read
                     mail.store(email_id, '+FLAGS', '\\Seen')
+                    
+                    # Rate limit
                     await asyncio.sleep(2)
                     
                 except Exception as e:
                     errors += 1
                     logging.error(f"Error processing email: {e}")
+                    continue
             
-            mail.close()
-            mail.logout()
-            
-            self.db.update_stats(checked, answered, errors)
             logging.info(f"✅ Bot complete: {answered}/{checked} answered")
             
         except Exception as e:
             logging.error(f"❌ Bot error: {e}")
-            self.db.update_stats(0, 0, 1)
+            errors += 1
         finally:
-            self.db.close()
+            # Clean up
+            if mail:
+                try:
+                    mail.close()
+                    mail.logout()
+                except:
+                    pass
+            
+            if self.db:
+                self.db.update_stats(checked, answered, errors)
+                self.db.close()
     
     def _extract_question(self, msg):
+        """Extract question from email body"""
         body = ""
         
-        if msg.is_multipart():
-            for part in msg.walk():
-                if part.get_content_type() == "text/plain":
-                    try:
-                        body = part.get_payload(decode=True).decode('utf-8', errors='ignore')
-                        break
-                    except:
-                        continue
-        else:
-            try:
-                body = msg.get_payload(decode=True).decode('utf-8', errors='ignore')
-            except:
-                body = str(msg.get_payload())
-        
-        lines = []
-        for line in body.split('\n'):
-            if any(m in line.lower() for m in ['wrote:', 'from:', 'sent:', '----', 'on ', 'date:']):
-                break
-            if line.strip().startswith('>') or 'please view' in line.lower():
-                continue
-            if line.strip():
-                lines.append(line.strip())
-        
-        return re.sub(r'\s+', ' ', ' '.join(lines).strip())
+        try:
+            if msg.is_multipart():
+                for part in msg.walk():
+                    if part.get_content_type() == "text/plain":
+                        try:
+                            payload = part.get_payload(decode=True)
+                            if payload:
+                                body = payload.decode('utf-8', errors='ignore')
+                                break
+                        except:
+                            continue
+            else:
+                try:
+                    payload = msg.get_payload(decode=True)
+                    if payload:
+                        body = payload.decode('utf-8', errors='ignore')
+                except:
+                    body = str(msg.get_payload())
+            
+            # Clean up body
+            lines = []
+            for line in body.split('\n'):
+                # Stop at quoted content
+                if any(m in line.lower() for m in ['wrote:', 'from:', 'sent:', '----', 'on ', 'date:']):
+                    break
+                # Skip quoted lines
+                if line.strip().startswith('>'):
+                    continue
+                # Skip HTML fallback
+                if 'please view' in line.lower():
+                    continue
+                
+                if line.strip():
+                    lines.append(line.strip())
+            
+            return re.sub(r'\s+', ' ', ' '.join(lines).strip())
+        except Exception as e:
+            logging.error(f"Question extraction failed: {e}")
+            return ""
     
     def _is_valid_question(self, question):
+        """Validate question"""
         if not question or len(question) < 10:
             return False
         
-        skip = ['automated', 'auto-reply', 'out of office', 'unsubscribe', 'no-reply']
+        skip = ['automated', 'auto-reply', 'out of office', 'unsubscribe', 'no-reply', 'mailer-daemon']
         return not any(kw in question.lower() for kw in skip)
     
     def _send_email(self, to_email, question, html_body, original_subject=""):
+        """Send email response with error handling"""
         try:
             msg = MIMEMultipart('alternative')
             
-            subject = f"Re: {original_subject}" if original_subject and not original_subject.startswith('Re:') \
-                      else original_subject or f"Market Analysis - {datetime.datetime.now().strftime('%b %d')}"
+            # Create subject
+            if original_subject and not original_subject.startswith('Re:'):
+                subject = f"Re: {original_subject}"
+            elif original_subject:
+                subject = original_subject
+            else:
+                subject = f"Market Analysis - {datetime.datetime.now().strftime('%b %d')}"
             
             msg['Subject'] = subject
             msg['From'] = self.smtp_user
             msg['To'] = to_email
             msg['Date'] = email.utils.formatdate(localtime=True)
             
-            text_part = MIMEText(f"Your question: {question}\n\nPlease view in HTML format.", 'plain')
+            # Plain text fallback
+            text_content = f"Your question: {question}\n\nPlease view this email in HTML format for the full analysis."
+            text_part = MIMEText(text_content, 'plain')
+            
+            # HTML content
             html_part = MIMEText(html_body, 'html')
             
             msg.attach(text_part)
             msg.attach(html_part)
             
+            # Send email
             with smtplib.SMTP("smtp.gmail.com", 587, timeout=30) as server:
                 server.starttls()
                 server.login(self.smtp_user, self.smtp_pass)
@@ -2027,14 +2221,18 @@ class EmailBotEngine:
             
             return True
         except Exception as e:
-            logging.error(f"Send failed: {e}")
+            logging.error(f"Email send failed: {e}")
             return False
 
 
 async def run_email_bot():
-    """Entry point for email bot mode"""
-    bot = EmailBotEngine()
-    await bot.check_and_respond()
+    """Entry point for email bot mode with error handling"""
+    try:
+        bot = EmailBotEngine()
+        await bot.check_and_respond()
+    except Exception as e:
+        logging.error(f"❌ Bot initialization failed: {e}")
+        sys.exit(1)
 
 # ========================================
 # 🆕 END EMAIL BOT SYSTEM
