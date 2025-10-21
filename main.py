@@ -1586,6 +1586,13 @@ if __name__ == "__main__":
         help="Where to send analysis: 'print' to console or 'email' to inbox"
     )
     
+    # 🆕 ADD THIS LINE:
+    parser.add_argument(
+        "--check-emails",
+        action="store_true",
+        help="Run in email bot mode (check inbox and respond to questions)"
+    )
+    
     args = parser.parse_args()
     
     # Windows event loop compatibility
@@ -1593,7 +1600,15 @@ if __name__ == "__main__":
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     
     logging.info("=" * 60)
-    logging.info("🚀 MARKET INTELLIGENCE SYSTEM v2.0.1 (Briefing-Only)")
-    logging.info("=" * 60)
     
-    asyncio.run(main(output=args.output))
+    # 🆕 ADD THIS ROUTING LOGIC:
+    if args.check_emails:
+        logging.info("🤖 EMAIL BOT MODE - Market Q&A System")
+        logging.info("=" * 60)
+        asyncio.run(run_email_bot())
+    else:
+        # Your existing code continues here
+        logging.info("🚀 MARKET INTELLIGENCE SYSTEM v2.0.1 (Briefing-Only)")
+        logging.info("=" * 60)
+        
+        asyncio.run(main(output=args.output))
