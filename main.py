@@ -2291,9 +2291,9 @@ class EmailBotEngine:
                 self.db.close()
 
         def _send_email(self, to_email, question, html_body, original_subject=""):
-        """Send email response"""
-        try:
-            msg = MIMEMultipart('alternative')
+            """Send email response"""
+            try:
+                msg = MIMEMultipart('alternative')
             
             if original_subject and not original_subject.startswith('Re:'):
                 subject = f"Re: {original_subject}"
