@@ -3,7 +3,7 @@ name: Email Bot Check
 on:
   schedule:
     - cron: '*/30 7-21 * * 1-5'  # Every 30 min, 7AM-9PM UTC, Mon-Fri
-  workflow_dispatch:
+  workflow_dispatch:  # ← CRITICAL for manual runs
 
 jobs:
   check-emails:
@@ -21,17 +21,16 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install pandas yfinance requests numpy aiohttp beautifulsoup4 lxml matplotlib seaborn pytrends requests-html nest_asyncio spacy textblob transformers wikipedia-api markdown
+          pip install pandas yfinance requests numpy aiohttp beautifulsoup4 lxml matplotlib seaborn pytrends requests-html nest_asyncio
           pip install vaderSentiment ta asyncio-throttle
           pip install google-generativeai
           pip install duckduckgo-search
-          pip install transformers torch --no-deps  # Lightweight install
-          pip install groq  # Only if using Groq
-          pip install cohere  # Only if using Cohere
+          pip install spacy textblob wikipedia-api markdown
+          pip install groq cohere
           python -m spacy download en_core_web_sm
           python -m textblob.download_corpora
       
-      - name: Check and respond to emails
+      - name: Check and respond to emails  # ← Make sure there's NO if: condition here
         env:
           SMTP_USER: ${{ secrets.SMTP_USER }}
           SMTP_PASS: ${{ secrets.SMTP_PASS }}
@@ -39,4 +38,4 @@ jobs:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           HUGGINGFACE_API_KEY: ${{ secrets.HUGGINGFACE_API_KEY }}
           COHERE_API_KEY: ${{ secrets.COHERE_API_KEY }}
-        run: python main.py --check-emails
+        run: python main.py --check-emails  # ← This MUST run
