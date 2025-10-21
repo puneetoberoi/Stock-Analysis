@@ -1572,12 +1572,482 @@ def send_email(html_body):
 
 
 # ========================================
+# 🆕 EMAIL BOT SYSTEM - v2.1.0
+# Added: December 2024
+# All code below is NEW - safe to remove if not needed
+# ========================================
+
+class EmailBotDatabase:
+    """Isolated database for bot conversations"""
+    
+    def __init__(self, db_path='email_bot.db'):
+        self.db_path = db_path
+        self.conn = sqlite3.connect(db_path, check_same_thread=False)
+        self._init_schema()
+    
+    def _init_schema(self):
+        self.conn.executescript('''
+            CREATE TABLE IF NOT EXISTS conversations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp TEXT,
+                user_email TEXT,
+                user_question TEXT,
+                topics_detected TEXT,
+                response_sent BOOLEAN,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            
+            CREATE TABLE IF NOT EXISTS bot_stats (
+                date TEXT PRIMARY KEY,
+                emails_checked INTEGER DEFAULT 0,
+                questions_answered INTEGER DEFAULT 0,
+                errors INTEGER DEFAULT 0
+            );
+        ''')
+        self.conn.commit()
+    
+    def log_conversation(self, user_email, question, topics, success):
+        try:
+            self.conn.execute('''
+                INSERT INTO conversations (timestamp, user_email, user_question, topics_detected, response_sent)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (
+                datetime.datetime.now().isoformat(),
+                user_email,
+                question[:500],
+                json.dumps(topics),
+                success
+            ))
+            self.conn.commit()
+        except Exception as e:
+            logging.error(f"Failed to log conversation: {e}")
+    
+    def update_stats(self, checked=0, answered=0, errors=0):
+        try:
+            today = datetime.date.today().isoformat()
+            self.conn.execute('''
+                INSERT INTO bot_stats (date, emails_checked, questions_answered, errors)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(date) DO UPDATE SET
+                    emails_checked = emails_checked + ?,
+                    questions_answered = questions_answered + ?,
+                    errors = errors + ?
+            ''', (today, checked, answered, errors, checked, answered, errors))
+            self.conn.commit()
+        except Exception as e:
+            logging.error(f"Stats update failed: {e}")
+    
+    def close(self):
+        self.conn.close()
+
+
+class MarketQuestionAnalyzer:
+    """Extract topics from user questions"""
+    
+    @staticmethod
+    def extract_topics(question):
+        topics = {}
+        q_lower = question.lower()
+        
+        mappings = {
+            'bitcoin': {'type': 'crypto', 'ticker': 'BTC-USD', 'name': 'Bitcoin'},
+            'btc': {'type': 'crypto', 'ticker': 'BTC-USD', 'name': 'Bitcoin'},
+            'ethereum': {'type': 'crypto', 'ticker': 'ETH-USD', 'name': 'Ethereum'},
+            'eth': {'type': 'crypto', 'ticker': 'ETH-USD', 'name': 'Ethereum'},
+            'gold': {'type': 'commodity', 'ticker': 'GC=F', 'name': 'Gold'},
+            'silver': {'type': 'commodity', 'ticker': 'SI=F', 'name': 'Silver'},
+            'oil': {'type': 'commodity', 'ticker': 'CL=F', 'name': 'Crude Oil'},
+            'sp500': {'type': 'index', 'ticker': '^GSPC', 'name': 'S&P 500'},
+            's&p': {'type': 'index', 'ticker': '^GSPC', 'name': 'S&P 500'},
+            'nasdaq': {'type': 'index', 'ticker': '^IXIC', 'name': 'Nasdaq'},
+            'dow': {'type': 'index', 'ticker': '^DJI', 'name': 'Dow Jones'},
+        }
+        
+        for keyword, data in mappings.items():
+            if keyword in q_lower:
+                topics[keyword] = data
+        
+        ticker_matches = re.findall(r'\$?([A-Z]{1,5})\b', question)
+        for ticker in ticker_matches:
+            if ticker not in ['USD', 'ETH', 'BTC', 'CEO', 'USA'] and len(ticker) <= 5:
+                topics[ticker.lower()] = {'type': 'stock', 'ticker': ticker, 'name': ticker}
+        
+        return topics
+    
+    @staticmethod
+    async def get_market_data(ticker):
+        try:
+            stock = yf.Ticker(ticker)
+            hist = await asyncio.to_thread(stock.history, period='3mo')
+            
+            if hist.empty:
+                return None
+            
+            current = hist['Close'].iloc[-1]
+            day_ago = hist['Close'].iloc[-2] if len(hist) > 1 else current
+            week_ago = hist['Close'].iloc[-5] if len(hist) >= 5 else current
+            month_ago = hist['Close'].iloc[-22] if len(hist) >= 22 else current
+            
+            try:
+                rsi = RSIIndicator(hist['Close'], window=14).rsi().iloc[-1]
+            except:
+                rsi = 50
+            
+            return {
+                'ticker': ticker,
+                'price': current,
+                'daily_change': ((current - day_ago) / day_ago) * 100,
+                'weekly_change': ((current - week_ago) / week_ago) * 100,
+                'monthly_change': ((current - month_ago) / month_ago) * 100,
+                'rsi': rsi,
+                'year_high': hist['High'].tail(252).max() if len(hist) > 252 else hist['High'].max(),
+                'year_low': hist['Low'].tail(252).min() if len(hist) > 252 else hist['Low'].min(),
+            }
+        except Exception as e:
+            logging.warning(f"Data fetch failed for {ticker}: {e}")
+            return None
+
+
+class EmailBotResponder:
+    """Generate HTML responses"""
+    
+    @staticmethod
+    def create_price_card(data):
+        change_color = '#16a34a' if data['daily_change'] >= 0 else '#dc2626'
+        return f"""
+        <div style="background: linear-gradient(135deg, #e0f2fe, #bae6fd); padding: 20px; 
+                    border-radius: 12px; margin: 15px 0; display: inline-block; 
+                    width: 45%; margin-right: 3%; vertical-align: top;">
+            <h3 style="margin: 0; color: #1e40af; text-transform: uppercase;">{data['name']}</h3>
+            <p style="font-size: 32px; font-weight: bold; margin: 10px 0;">${data['price']:,.2f}</p>
+            <p style="color: {change_color}; font-size: 18px; margin: 5px 0;">{data['daily_change']:+.2f}% today</p>
+            <p style="font-size: 12px; color: #6b7280;">
+                Week: {data['weekly_change']:+.1f}% | Month: {data['monthly_change']:+.1f}%<br>
+                RSI: {data['rsi']:.0f} | Range: ${data['year_low']:,.2f} - ${data['year_high']:,.2f}
+            </p>
+        </div>
+        """
+    
+    @staticmethod
+    def create_analysis_section(data):
+        rsi = data['rsi']
+        if rsi > 70:
+            rsi_signal = f"<strong style='color: #dc2626;'>OVERBOUGHT</strong> (RSI {rsi:.0f})"
+        elif rsi < 30:
+            rsi_signal = f"<strong style='color: #16a34a;'>OVERSOLD</strong> (RSI {rsi:.0f})"
+        else:
+            rsi_signal = f"<strong>NEUTRAL</strong> (RSI {rsi:.0f})"
+        
+        trend = "Strong uptrend" if data['monthly_change'] > 10 else \
+                "Strong downtrend" if data['monthly_change'] < -10 else \
+                "Consolidation phase"
+        
+        price = data['price']
+        dist_high = ((price - data['year_high']) / data['year_high']) * 100
+        dist_low = ((price - data['year_low']) / data['year_low']) * 100
+        
+        return f"""
+<h2 style="color: #2563eb; margin-top: 30px;">📈 {data['name']} ({data['ticker']}) Analysis</h2>
+
+<h3>Technical Signals</h3>
+<ul style="line-height: 1.8;">
+    <li><strong>Momentum:</strong> {rsi_signal}</li>
+    <li><strong>Trend:</strong> {trend}</li>
+    <li><strong>Position:</strong> {abs(dist_high):.1f}% from 52W high, {dist_low:.1f}% from 52W low</li>
+</ul>
+
+<h3>Performance Summary</h3>
+<table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+<tr style="background: #f9fafb;">
+    <th style="padding: 10px; text-align: left;">Period</th>
+    <th style="padding: 10px; text-align: right;">Change</th>
+</tr>
+<tr><td style="padding: 10px;">Daily</td>
+    <td style="padding: 10px; text-align: right; color: {'#16a34a' if data['daily_change'] > 0 else '#dc2626'}; font-weight: bold;">
+    {data['daily_change']:+.2f}%</td></tr>
+<tr><td style="padding: 10px;">Weekly</td>
+    <td style="padding: 10px; text-align: right; color: {'#16a34a' if data['weekly_change'] > 0 else '#dc2626'}; font-weight: bold;">
+    {data['weekly_change']:+.2f}%</td></tr>
+<tr><td style="padding: 10px;">Monthly</td>
+    <td style="padding: 10px; text-align: right; color: {'#16a34a' if data['monthly_change'] > 0 else '#dc2626'}; font-weight: bold;">
+    {data['monthly_change']:+.2f}%</td></tr>
+</table>
+"""
+    
+    @staticmethod
+    def generate_html_response(question, market_data):
+        if not market_data:
+            return EmailBotResponder.generate_help_response(question)
+        
+        price_cards = [EmailBotResponder.create_price_card(data) for data in market_data.values() if data]
+        analysis_sections = [EmailBotResponder.create_analysis_section(data) for data in market_data.values() if data]
+        
+        return f"""
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+body {{font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 900px; margin: 0 auto; background: linear-gradient(135deg, #f5f5f5 0%, #e5e5e5 100%); padding: 20px;}}
+.container {{background: white; border-radius: 20px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.15);}}
+.header {{background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 40px; text-align: center;}}
+.content {{padding: 40px;}}
+.question-box {{background: linear-gradient(135deg, #fef3c7, #fed7aa); border-left: 5px solid #f59e0b;
+                 padding: 25px; border-radius: 10px; margin-bottom: 30px;}}
+h2 {{margin-top: 30px; padding-bottom: 10px; border-bottom: 2px solid #e5e7eb;}}
+.footer {{background: #f3f4f6; padding: 25px; text-align: center; color: #6b7280;}}
+</style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>📊 Market Intelligence Report</h1>
+        <p style="margin: 15px 0 0 0; font-size: 18px;">
+            {datetime.datetime.now().strftime('%B %d, %Y at %I:%M %p')}
+        </p>
+    </div>
+    
+    <div class="content">
+        <div class="question-box">
+            <h2 style="margin: 0; color: #92400e; border: none;">Your Question</h2>
+            <p style="margin: 10px 0 0 0; font-size: 16px; color: #451a03;">"{question}"</p>
+        </div>
+        
+        <div style="margin: 30px 0;">
+            {''.join(price_cards)}
+        </div>
+        
+        <div style="clear: both;"></div>
+        
+        {''.join(analysis_sections)}
+        
+        <div class="footer">
+            <p style="margin: 0;">
+                <strong>Data Sources:</strong> Yahoo Finance, Market Analysis<br>
+                <strong>Disclaimer:</strong> For informational purposes only. Not financial advice.
+            </p>
+        </div>
+    </div>
+</div>
+</body>
+</html>
+"""
+    
+    @staticmethod
+    def generate_help_response(question):
+        return f"""
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8">
+<style>
+body {{font-family: -apple-system, sans-serif; max-width: 700px; margin: 40px auto; padding: 20px;}}
+.info-box {{background: #f0f9ff; border-left: 4px solid #3b82f6; padding: 20px; border-radius: 8px; margin: 20px 0;}}
+.example {{background: #f9fafb; padding: 15px; border-radius: 8px; margin: 10px 0;}}
+</style>
+</head>
+<body>
+<h1>📊 Market Intelligence Bot</h1>
+<div class="info-box">
+    <h2 style="margin-top: 0;">Your Question:</h2>
+    <p style="font-size: 16px;">"{question}"</p>
+</div>
+
+<h2>I can analyze:</h2>
+<ul style="line-height: 2;">
+    <li><strong>Stocks:</strong> Any ticker (e.g., "AAPL analysis", "What's TSLA doing?")</li>
+    <li><strong>Crypto:</strong> Bitcoin, Ethereum</li>
+    <li><strong>Commodities:</strong> Gold, silver, oil</li>
+    <li><strong>Indices:</strong> S&P 500, Nasdaq, Dow</li>
+</ul>
+
+<h2>Example Questions:</h2>
+<div class="example"><strong>💡 "What's happening with gold?"</strong></div>
+<div class="example"><strong>💡 "Bitcoin analysis"</strong></div>
+<div class="example"><strong>💡 "How's NVDA looking?"</strong></div>
+<div class="example"><strong>💡 "Compare AAPL and MSFT"</strong></div>
+
+<p style="margin-top: 30px; padding: 15px; background: #fef3c7; border-radius: 8px;">
+<strong>💡 Tip:</strong> Mention specific ticker symbols or asset names for detailed analysis!
+</p>
+</body>
+</html>
+"""
+
+
+class EmailBotEngine:
+    """Main email bot engine"""
+    
+    def __init__(self):
+        self.db = EmailBotDatabase()
+        self.smtp_user = os.getenv("SMTP_USER")
+        self.smtp_pass = os.getenv("SMTP_PASS")
+        
+        if not self.smtp_user or not self.smtp_pass:
+            raise ValueError("❌ SMTP_USER and SMTP_PASS required for email bot!")
+    
+    async def check_and_respond(self):
+        logging.info("📧 Email bot checking inbox...")
+        
+        checked = 0
+        answered = 0
+        errors = 0
+        
+        try:
+            mail = imaplib.IMAP4_SSL("imap.gmail.com", timeout=15)
+            mail.login(self.smtp_user, self.smtp_pass)
+            mail.select('inbox')
+            
+            since = (datetime.datetime.now() - datetime.timedelta(days=7)).strftime("%d-%b-%Y")
+            _, search_data = mail.search(None, f'(UNSEEN SINCE {since})')
+            
+            email_ids = search_data[0].split()
+            
+            if not email_ids:
+                logging.info("✅ No new emails")
+                mail.close()
+                mail.logout()
+                self.db.close()
+                return
+            
+            logging.info(f"📬 Found {len(email_ids)} unread email(s)")
+            
+            for email_id in list(reversed(email_ids))[:3]:
+                try:
+                    checked += 1
+                    
+                    _, data = mail.fetch(email_id, '(RFC822)')
+                    msg = email.message_from_bytes(data[0][1])
+                    
+                    sender = email.utils.parseaddr(msg['From'])[1]
+                    subject = msg.get('Subject', '')
+                    
+                    question = self._extract_question(msg)
+                    
+                    if not self._is_valid_question(question):
+                        mail.store(email_id, '+FLAGS', '\\Seen')
+                        continue
+                    
+                    logging.info(f"❓ Question from {sender}: '{question[:60]}...'")
+                    
+                    topics = MarketQuestionAnalyzer.extract_topics(question)
+                    market_data = {}
+                    
+                    for key, info in topics.items():
+                        data = await MarketQuestionAnalyzer.get_market_data(info['ticker'])
+                        if data:
+                            market_data[key] = {**info, **data}
+                    
+                    html_response = EmailBotResponder.generate_html_response(question, market_data)
+                    
+                    if self._send_email(sender, question, html_response, subject):
+                        answered += 1
+                        self.db.log_conversation(sender, question, topics, True)
+                        logging.info(f"✅ Answered {sender}")
+                    else:
+                        errors += 1
+                        self.db.log_conversation(sender, question, topics, False)
+                    
+                    mail.store(email_id, '+FLAGS', '\\Seen')
+                    await asyncio.sleep(2)
+                    
+                except Exception as e:
+                    errors += 1
+                    logging.error(f"Error processing email: {e}")
+            
+            mail.close()
+            mail.logout()
+            
+            self.db.update_stats(checked, answered, errors)
+            logging.info(f"✅ Bot complete: {answered}/{checked} answered")
+            
+        except Exception as e:
+            logging.error(f"❌ Bot error: {e}")
+            self.db.update_stats(0, 0, 1)
+        finally:
+            self.db.close()
+    
+    def _extract_question(self, msg):
+        body = ""
+        
+        if msg.is_multipart():
+            for part in msg.walk():
+                if part.get_content_type() == "text/plain":
+                    try:
+                        body = part.get_payload(decode=True).decode('utf-8', errors='ignore')
+                        break
+                    except:
+                        continue
+        else:
+            try:
+                body = msg.get_payload(decode=True).decode('utf-8', errors='ignore')
+            except:
+                body = str(msg.get_payload())
+        
+        lines = []
+        for line in body.split('\n'):
+            if any(m in line.lower() for m in ['wrote:', 'from:', 'sent:', '----', 'on ', 'date:']):
+                break
+            if line.strip().startswith('>') or 'please view' in line.lower():
+                continue
+            if line.strip():
+                lines.append(line.strip())
+        
+        return re.sub(r'\s+', ' ', ' '.join(lines).strip())
+    
+    def _is_valid_question(self, question):
+        if not question or len(question) < 10:
+            return False
+        
+        skip = ['automated', 'auto-reply', 'out of office', 'unsubscribe', 'no-reply']
+        return not any(kw in question.lower() for kw in skip)
+    
+    def _send_email(self, to_email, question, html_body, original_subject=""):
+        try:
+            msg = MIMEMultipart('alternative')
+            
+            subject = f"Re: {original_subject}" if original_subject and not original_subject.startswith('Re:') \
+                      else original_subject or f"Market Analysis - {datetime.datetime.now().strftime('%b %d')}"
+            
+            msg['Subject'] = subject
+            msg['From'] = self.smtp_user
+            msg['To'] = to_email
+            msg['Date'] = email.utils.formatdate(localtime=True)
+            
+            text_part = MIMEText(f"Your question: {question}\n\nPlease view in HTML format.", 'plain')
+            html_part = MIMEText(html_body, 'html')
+            
+            msg.attach(text_part)
+            msg.attach(html_part)
+            
+            with smtplib.SMTP("smtp.gmail.com", 587, timeout=30) as server:
+                server.starttls()
+                server.login(self.smtp_user, self.smtp_pass)
+                server.send_message(msg)
+            
+            return True
+        except Exception as e:
+            logging.error(f"Send failed: {e}")
+            return False
+
+
+async def run_email_bot():
+    """Entry point for email bot mode"""
+    bot = EmailBotEngine()
+    await bot.check_and_respond()
+
+# ========================================
+# 🆕 END EMAIL BOT SYSTEM
+# ========================================
+
+
+# ========================================
 # PROGRAM ENTRY POINT
 # ========================================
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Market Intelligence System - Daily Analysis"
+        description="Market Intelligence System v2.1.0"
     )
     parser.add_argument(
         "--output", 
@@ -1585,8 +2055,6 @@ if __name__ == "__main__":
         choices=["print", "email"], 
         help="Where to send analysis: 'print' to console or 'email' to inbox"
     )
-    
-    # 🆕 NEW: Add email bot argument
     parser.add_argument(
         "--check-emails",
         action="store_true",
@@ -1601,12 +2069,11 @@ if __name__ == "__main__":
     
     logging.info("=" * 60)
     
-    # 🆕 NEW: Route to correct mode
     if args.check_emails:
         logging.info("🤖 EMAIL BOT MODE - Market Q&A System")
         logging.info("=" * 60)
-        asyncio.run(run_email_bot())  # ← Bot mode
+        asyncio.run(run_email_bot())
     else:
-        logging.info("🚀 MARKET INTELLIGENCE SYSTEM v2.0.1 (Briefing-Only)")
+        logging.info("🚀 MARKET INTELLIGENCE SYSTEM v2.1.0")
         logging.info("=" * 60)
-        asyncio.run(main(output=args.output))  # ← Your existing daily report
+        asyncio.run(main(output=args.output))
