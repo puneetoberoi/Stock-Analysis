@@ -1789,9 +1789,9 @@ class EmailBotDatabase:
 class MarketQuestionAnalyzer:
     """Extract topics from user questions"""
     
-        @staticmethod
-        def extract_topics(question):
-            topics = {}
+    @staticmethod
+    def extract_topics(question):
+        topics = {}
         
         if not question:
             return topics
