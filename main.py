@@ -24,6 +24,47 @@ import email
 import email.utils
 import re
 
+# 🆕 INTELLIGENT SYSTEM IMPORTS (Add after existing imports)
+try:
+    import spacy
+    SPACY_AVAILABLE = True
+except ImportError:
+    SPACY_AVAILABLE = False
+    logging.warning("spaCy not available - using basic NLP")
+
+try:
+    from textblob import TextBlob
+    TEXTBLOB_AVAILABLE = True
+except ImportError:
+    TEXTBLOB_AVAILABLE = False
+    logging.warning("TextBlob not available - using basic sentiment")
+
+try:
+    import wikipediaapi
+    WIKIPEDIA_AVAILABLE = True
+except ImportError:
+    WIKIPEDIA_AVAILABLE = False
+    logging.warning("Wikipedia not available - using web search only")
+
+try:
+    import markdown
+    MARKDOWN_AVAILABLE = True
+except ImportError:
+    MARKDOWN_AVAILABLE = False
+    logging.warning("Markdown not available - using plain text")
+
+try:
+    import groq
+    GROQ_AVAILABLE = True
+except ImportError:
+    GROQ_AVAILABLE = False
+
+try:
+    import cohere
+    COHERE_AVAILABLE = True
+except ImportError:
+    COHERE_AVAILABLE = False
+
 # 🆕 DuckDuckGo search (with fallback)
 try:
     from duckduckgo_search import DDGS
@@ -1750,7 +1791,7 @@ class MarketQuestionAnalyzer:
     
         @staticmethod
         def extract_topics(question):
-        topics = {}
+            topics = {}
         
         if not question:
             return topics
