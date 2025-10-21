@@ -2656,16 +2656,16 @@ class IntelligentMarketAnalyzer:
         return context
     
     async def _generate_llm_response(self, question, intent, context, ticker_data):
-    """Generate response using free LLM APIs with fallback chain"""
+        """Generate response using free LLM APIs with fallback chain"""
     
-    prompt = self._build_llm_prompt(question, intent, context, ticker_data)
-    response = None
+        prompt = self._build_llm_prompt(question, intent, context, ticker_data)
+            response = None
     
-    # Try Groq first (fastest, 30K tokens/day)
-    if 'groq' in self.llm_clients:
-        try:
-            logging.info("Trying Groq LLM...")
-            client = self.llm_clients['groq']
+        # Try Groq first (fastest, 30K tokens/day)
+        if 'groq' in self.llm_clients:
+            try:
+                logging.info("Trying Groq LLM...")
+                client = self.llm_clients['groq']
             
             completion = client.chat.completions.create(
                 model="llama-3.1-70b-versatile",  # FIXED: Updated model
