@@ -1664,11 +1664,6 @@ def send_email(html_body):
 
 
 # ========================================
-# 🆕 EMAIL BOT SYSTEM - v3.0.0 (PRODUCTION-READY)
-# Audited, Corrected, and Guaranteed to Run
-# ========================================
-
-# ========================================
 # 🆕 EMAIL BOT SYSTEM - v3.1.0 (FINAL, AUDITED)
 # This version is guaranteed to be free of syntax and indentation errors.
 # ========================================
