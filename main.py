@@ -1749,7 +1749,7 @@ class MarketQuestionAnalyzer:
     """Extract topics from user questions"""
     
         @staticmethod
-    def extract_topics(question):
+        def extract_topics(question):
         topics = {}
         
         if not question:
@@ -2139,8 +2139,26 @@ class EmailBotEngine:
                             if data:
                                 market_data[key] = {**info, **data}
                     
-                    # Generate response
-                    html_response = EmailBotResponder.generate_html_response(question, market_data)
+                    # 🆕 INTELLIGENT RESPONSE GENERATION
+                    html_response = None
+                    
+                    # Check if intelligent responder is available
+                    try:
+                        # Try to use intelligent responder if it exists
+                        if 'IntelligentEmailBotResponder' in globals():
+                            logging.info("🧠 Using intelligent responder...")
+                            intelligent_responder = IntelligentEmailBotResponder()
+                            html_response = await intelligent_responder.generate_intelligent_html(question, market_data)
+                            logging.info("✅ Intelligent response generated")
+                        else:
+                            logging.info("⚠️ Intelligent responder not found, using basic")
+                    except Exception as e:
+                        logging.warning(f"Intelligent responder failed: {e}, falling back to basic")
+                    
+                    # Fallback to basic responder if intelligent failed
+                    if not html_response:
+                        logging.info("📊 Using basic responder")
+                        html_response = EmailBotResponder.generate_html_response(question, market_data)
                     
                     # Send response
                     if self._send_email(sender, question, html_response, subject):
