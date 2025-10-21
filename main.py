@@ -31,6 +31,47 @@ try:
 except ImportError:
     DDGS_AVAILABLE = False
     logging.warning("⚠️ duckduckgo-search not available - bot news search will be limited")
+
+# 🆕 INTELLIGENT SYSTEM IMPORTS (Add after existing imports)
+try:
+    import spacy
+    SPACY_AVAILABLE = True
+except ImportError:
+    SPACY_AVAILABLE = False
+    logging.warning("spaCy not available - using basic NLP")
+
+try:
+    from textblob import TextBlob
+    TEXTBLOB_AVAILABLE = True
+except ImportError:
+    TEXTBLOB_AVAILABLE = False
+    logging.warning("TextBlob not available - using basic sentiment")
+
+try:
+    import wikipediaapi
+    WIKIPEDIA_AVAILABLE = True
+except ImportError:
+    WIKIPEDIA_AVAILABLE = False
+    logging.warning("Wikipedia not available - using web search only")
+
+try:
+    import markdown
+    MARKDOWN_AVAILABLE = True
+except ImportError:
+    MARKDOWN_AVAILABLE = False
+    logging.warning("Markdown not available - using plain text")
+
+try:
+    import groq
+    GROQ_AVAILABLE = True
+except ImportError:
+    GROQ_AVAILABLE = False
+
+try:
+    import cohere
+    COHERE_AVAILABLE = True
+except ImportError:
+    COHERE_AVAILABLE = False
 # ========================================
 # 🔒 STABLE FOUNDATION - v2.0.0
 # Last stable: 2024-12-20
@@ -1707,7 +1748,7 @@ class EmailBotDatabase:
 class MarketQuestionAnalyzer:
     """Extract topics from user questions"""
     
-    @staticmethod
+        @staticmethod
     def extract_topics(question):
         topics = {}
         
@@ -1721,6 +1762,9 @@ class MarketQuestionAnalyzer:
             'btc': {'type': 'crypto', 'ticker': 'BTC-USD', 'name': 'Bitcoin'},
             'ethereum': {'type': 'crypto', 'ticker': 'ETH-USD', 'name': 'Ethereum'},
             'eth': {'type': 'crypto', 'ticker': 'ETH-USD', 'name': 'Ethereum'},
+            # 🆕 ADD XRP:
+            'xrp': {'type': 'crypto', 'ticker': 'XRP-USD', 'name': 'Ripple'},
+            'ripple': {'type': 'crypto', 'ticker': 'XRP-USD', 'name': 'Ripple'},
             'gold': {'type': 'commodity', 'ticker': 'GC=F', 'name': 'Gold'},
             'silver': {'type': 'commodity', 'ticker': 'SI=F', 'name': 'Silver'},
             'oil': {'type': 'commodity', 'ticker': 'CL=F', 'name': 'Crude Oil'},
@@ -1731,16 +1775,21 @@ class MarketQuestionAnalyzer:
             'dow': {'type': 'index', 'ticker': '^DJI', 'name': 'Dow Jones'},
         }
         
+        # Extract topics (with deduplication)
+        seen = set()
         for keyword, data in mappings.items():
-            if keyword in q_lower:
+            if keyword in q_lower and data['ticker'] not in seen:
                 topics[keyword] = data
+                seen.add(data['ticker'])  # 🆕 Prevent duplicates
         
         # Extract stock tickers
         try:
             ticker_matches = re.findall(r'\$?([A-Z]{1,5})\b', question)
             for ticker in ticker_matches:
                 if ticker not in ['USD', 'ETH', 'BTC', 'CEO', 'USA', 'AI', 'Q', 'A'] and len(ticker) <= 5:
-                    topics[ticker.lower()] = {'type': 'stock', 'ticker': ticker, 'name': ticker}
+                    if ticker not in seen:  # 🆕 Prevent duplicates
+                        topics[ticker.lower()] = {'type': 'stock', 'ticker': ticker, 'name': ticker}
+                        seen.add(ticker)
         except:
             pass
         
@@ -2237,6 +2286,906 @@ async def run_email_bot():
 # ========================================
 # 🆕 END EMAIL BOT SYSTEM
 # ========================================
+
+# ========================================
+# 🆕 INTELLIGENT ANALYSIS ENGINE
+# ========================================
+
+class IntelligentMarketAnalyzer:
+    """Real intelligence without hardcoding - Level 2 Deep Analysis"""
+    
+    def __init__(self):
+        # Initialize NLP
+        self.nlp = None
+        if SPACY_AVAILABLE:
+            try:
+                self.nlp = spacy.load("en_core_web_sm")
+            except:
+                logging.warning("spaCy model not loaded")
+        
+        # Initialize Wikipedia
+        self.wiki = None
+        if WIKIPEDIA_AVAILABLE:
+            self.wiki = wikipediaapi.Wikipedia('MarketBot/1.0', 'en')
+        
+        # Initialize LLM clients
+        self.llm_clients = self._setup_llm_clients()
+    
+    def _setup_llm_clients(self):
+        """Setup free LLM API clients"""
+        clients = {}
+        
+        # Groq (30K tokens/day free)
+        if GROQ_AVAILABLE and os.getenv("GROQ_API_KEY"):
+            try:
+                from groq import Groq
+                clients['groq'] = Groq(api_key=os.getenv("GROQ_API_KEY"))
+                logging.info("✅ Groq LLM available")
+            except Exception as e:
+                logging.warning(f"Groq setup failed: {e}")
+        
+        # Cohere (1000 requests/month free)
+        if COHERE_AVAILABLE and os.getenv("COHERE_API_KEY"):
+            try:
+                import cohere
+                clients['cohere'] = cohere.Client(os.getenv("COHERE_API_KEY"))
+                logging.info("✅ Cohere LLM available")
+            except Exception as e:
+                logging.warning(f"Cohere setup failed: {e}")
+        
+        # Hugging Face (1000 requests/day free)
+        if os.getenv("HUGGINGFACE_API_KEY"):
+            clients['huggingface'] = {
+                'api_key': os.getenv("HUGGINGFACE_API_KEY"),
+                'url': 'https://api-inference.huggingface.co/models/'
+            }
+            logging.info("✅ Hugging Face LLM available")
+        
+        return clients
+    
+    async def answer_intelligently(self, question, ticker_data):
+        """Generate truly intelligent answers using Level 2 deep analysis"""
+        
+        logging.info(f"🧠 Generating intelligent answer for: {question[:50]}...")
+        
+        # 1. Understand question intent
+        intent = self._analyze_question_intent(question)
+        
+        # 2. Gather comprehensive context
+        context = await self._gather_deep_context(question, ticker_data, intent)
+        
+        # 3. Generate intelligent response using LLMs
+        response = await self._generate_llm_response(question, intent, context, ticker_data)
+        
+        # 4. If LLM fails, use intelligent assembly
+        if not response or len(response) < 100:
+            response = await self._intelligent_assembly(question, intent, context, ticker_data)
+        
+        return response
+    
+    def _analyze_question_intent(self, question):
+        """Deep intent analysis"""
+        intent = {
+            'wants_reasons': False,
+            'wants_applications': False,
+            'wants_prediction': False,
+            'wants_comparison': False,
+            'wants_technical': False,
+            'wants_fundamental': False,
+            'wants_news': False,
+            'entities': [],
+            'key_topics': [],
+            'question_type': 'general'
+        }
+        
+        q_lower = question.lower()
+        
+        # Detect what user wants
+        if any(word in q_lower for word in ['why', 'reason', 'cause', 'because', 'driver']):
+            intent['wants_reasons'] = True
+            intent['question_type'] = 'explanation'
+        
+        if any(word in q_lower for word in ['application', 'use', 'utility', 'commercial', 'practical', 'purpose']):
+            intent['wants_applications'] = True
+            intent['question_type'] = 'use_cases'
+        
+        if any(word in q_lower for word in ['will', 'future', 'prediction', 'forecast', 'outlook', 'target']):
+            intent['wants_prediction'] = True
+            intent['question_type'] = 'forecast'
+        
+        if any(word in q_lower for word in ['compare', 'versus', 'vs', 'difference', 'better']):
+            intent['wants_comparison'] = True
+            intent['question_type'] = 'comparison'
+        
+        if any(word in q_lower for word in ['technical', 'rsi', 'macd', 'support', 'resistance']):
+            intent['wants_technical'] = True
+        
+        if any(word in q_lower for word in ['fundamental', 'earnings', 'revenue', 'profit']):
+            intent['wants_fundamental'] = True
+        
+        if any(word in q_lower for word in ['news', 'latest', 'recent', 'today', 'update']):
+            intent['wants_news'] = True
+        
+        # Extract entities using spaCy if available
+        if self.nlp:
+            try:
+                doc = self.nlp(question)
+                for ent in doc.ents:
+                    if ent.label_ in ['ORG', 'PRODUCT', 'MONEY', 'PERSON']:
+                        intent['entities'].append(ent.text)
+                
+                # Extract key nouns
+                for token in doc:
+                    if token.pos_ in ['NOUN', 'PROPN'] and not token.is_stop:
+                        intent['key_topics'].append(token.text)
+            except:
+                pass
+        
+        return intent
+    
+    async def _gather_deep_context(self, question, ticker_data, intent):
+        """Level 2: Comprehensive context gathering from multiple sources"""
+        context = {
+            'news': [],
+            'wikipedia': {},
+            'github': {},
+            'reddit': {},
+            'technical': {},
+            'fundamental': {},
+            'web_search': [],
+            'historical_patterns': {},
+            'social_sentiment': {}
+        }
+        
+        asset_name = ticker_data.get('name', '')
+        ticker = ticker_data.get('ticker', '')
+        
+        # 1. Deep news search with multiple queries
+        try:
+            with DDGS() as ddgs:
+                queries = []
+                
+                if intent['wants_reasons']:
+                    queries.append(f"{asset_name} price movement reasons {datetime.datetime.now().year}")
+                    queries.append(f"why {asset_name} rising falling analysis")
+                
+                if intent['wants_applications']:
+                    queries.append(f"{asset_name} commercial applications enterprise use cases")
+                    queries.append(f"{asset_name} real world adoption examples")
+                
+                if intent['wants_news']:
+                    queries.append(f"{asset_name} latest news today")
+                
+                # Default query
+                if not queries:
+                    queries.append(f"{asset_name} analysis {datetime.datetime.now().strftime('%B %Y')}")
+                
+                all_news = []
+                for query in queries[:2]:  # Limit to 2 queries
+                    try:
+                        news = list(ddgs.news(query, max_results=3))
+                        all_news.extend(news)
+                    except:
+                        # Fallback to text search
+                        text = list(ddgs.text(query, max_results=3))
+                        all_news.extend(text)
+                
+                # Process and deduplicate news
+                seen_titles = set()
+                for item in all_news:
+                    title = item.get('title', '')
+                    if title and title not in seen_titles:
+                        seen_titles.add(title)
+                        context['news'].append({
+                            'title': title,
+                            'body': item.get('body', ''),
+                            'url': item.get('url', ''),
+                            'date': item.get('date', '')
+                        })
+                
+                context['news'] = context['news'][:5]  # Keep top 5
+        except Exception as e:
+            logging.warning(f"News search failed: {e}")
+        
+        # 2. Wikipedia deep dive
+        if self.wiki and asset_name:
+            try:
+                # Try multiple variations
+                search_terms = [
+                    asset_name,
+                    f"{asset_name} (cryptocurrency)" if 'crypto' in str(ticker_data.get('type', '')).lower() else asset_name,
+                    ticker.replace('-USD', '') if ticker else asset_name
+                ]
+                
+                for term in search_terms:
+                    page = self.wiki.page(term)
+                    if page.exists():
+                        context['wikipedia']['summary'] = page.summary[:1000]
+                        
+                        # Extract specific sections
+                        if intent['wants_applications']:
+                            for section in ['Applications', 'Use cases', 'Commercial use', 'Adoption']:
+                                if section in page.sections:
+                                    context['wikipedia']['applications'] = page.section(section)[:800]
+                                    break
+                        
+                        if intent['wants_reasons']:
+                            for section in ['History', 'Development', 'Technology']:
+                                if section in page.sections:
+                                    context['wikipedia']['background'] = page.section(section)[:800]
+                                    break
+                        break
+            except Exception as e:
+                logging.warning(f"Wikipedia failed: {e}")
+        
+        # 3. GitHub activity for crypto projects
+        if 'crypto' in str(ticker_data.get('type', '')).lower():
+            try:
+                async with aiohttp.ClientSession() as session:
+                    repo_map = {
+                        'bitcoin': 'bitcoin/bitcoin',
+                        'ethereum': 'ethereum/go-ethereum',
+                        'cardano': 'input-output-hk/cardano-node',
+                        'solana': 'solana-labs/solana',
+                        'polkadot': 'paritytech/polkadot',
+                        'chainlink': 'smartcontractkit/chainlink',
+                        'ripple': 'ripple/rippled',
+                        'xrp': 'ripple/rippled'
+                    }
+                    
+                    asset_lower = asset_name.lower()
+                    repo = None
+                    
+                    for key, repo_path in repo_map.items():
+                        if key in asset_lower:
+                            repo = repo_path
+                            break
+                    
+                    if repo:
+                        url = f"https://api.github.com/repos/{repo}"
+                        async with session.get(url) as resp:
+                            if resp.status == 200:
+                                data = await resp.json()
+                                
+                                # Get recent commits
+                                commits_url = f"https://api.github.com/repos/{repo}/commits"
+                                async with session.get(commits_url) as commits_resp:
+                                    if commits_resp.status == 200:
+                                        commits = await commits_resp.json()
+                                        recent_commits = len(commits[:30])  # Last 30 commits
+                                
+                                context['github'] = {
+                                    'stars': data.get('stargazers_count', 0),
+                                    'forks': data.get('forks_count', 0),
+                                    'open_issues': data.get('open_issues_count', 0),
+                                    'watchers': data.get('watchers_count', 0),
+                                    'description': data.get('description', ''),
+                                    'recent_activity': recent_commits,
+                                    'last_update': data.get('pushed_at', '')
+                                }
+            except Exception as e:
+                logging.warning(f"GitHub fetch failed: {e}")
+        
+        # 4. Reddit sentiment analysis
+        try:
+            async with aiohttp.ClientSession() as session:
+                subreddits = ['cryptocurrency', 'wallstreetbets', 'stocks', 'investing']
+                all_sentiments = []
+                
+                for subreddit in subreddits:
+                    url = f"https://www.reddit.com/r/{subreddit}/search.json?q={asset_name}&sort=hot&limit=10&t=week"
+                    
+                    try:
+                        async with session.get(url, headers={'User-Agent': 'MarketBot/1.0'}) as resp:
+                            if resp.status == 200:
+                                data = await resp.json()
+                                posts = data.get('data', {}).get('children', [])
+                                
+                                for post in posts[:5]:
+                                    title = post['data'].get('title', '')
+                                    score = post['data'].get('score', 0)
+                                    num_comments = post['data'].get('num_comments', 0)
+                                    
+                                    # Sentiment analysis
+                                    if TEXTBLOB_AVAILABLE:
+                                        sentiment = TextBlob(title).sentiment.polarity
+                                        all_sentiments.append({
+                                            'sentiment': sentiment,
+                                            'weight': score + num_comments
+                                        })
+                    except:
+                        continue
+                
+                if all_sentiments:
+                    # Weighted average sentiment
+                    total_weight = sum(s['weight'] for s in all_sentiments)
+                    if total_weight > 0:
+                        weighted_sentiment = sum(s['sentiment'] * s['weight'] for s in all_sentiments) / total_weight
+                        
+                        context['reddit'] = {
+                            'sentiment': weighted_sentiment,
+                            'sentiment_label': 'Bullish' if weighted_sentiment > 0.1 else 'Bearish' if weighted_sentiment < -0.1 else 'Neutral',
+                            'post_count': len(all_sentiments),
+                            'total_engagement': total_weight
+                        }
+        except Exception as e:
+            logging.warning(f"Reddit analysis failed: {e}")
+        
+        # 5. Technical analysis from yfinance
+        if ticker:
+            try:
+                stock = yf.Ticker(ticker)
+                info = stock.info
+                
+                context['fundamental'] = {
+                    'market_cap': info.get('marketCap', 0),
+                    'volume': info.get('volume', 0),
+                    'avg_volume': info.get('averageVolume', 0),
+                    'pe_ratio': info.get('trailingPE'),
+                    'forward_pe': info.get('forwardPE'),
+                    'peg_ratio': info.get('pegRatio'),
+                    'beta': info.get('beta'),
+                    'description': info.get('longBusinessSummary', '')[:500],
+                    'website': info.get('website', ''),
+                    'industry': info.get('industry', ''),
+                    'sector': info.get('sector', ''),
+                    'employees': info.get('fullTimeEmployees', 0)
+                }
+                
+                # Get recent analyst recommendations
+                try:
+                    rec = stock.recommendations
+                    if rec is not None and not rec.empty:
+                        recent_rec = rec.tail(5)
+                        context['fundamental']['analyst_recommendations'] = recent_rec.to_dict('records')
+                except:
+                    pass
+                
+                # Get institutional holders
+                try:
+                    inst = stock.institutional_holders
+                    if inst is not None and not inst.empty:
+                        context['fundamental']['top_holders'] = inst.head(5).to_dict('records')
+                except:
+                    pass
+            except Exception as e:
+                logging.warning(f"Fundamental data failed: {e}")
+        
+        # 6. Historical patterns
+        if ticker:
+            try:
+                stock = yf.Ticker(ticker)
+                hist = stock.history(period="1y")
+                
+                if not hist.empty:
+                    # Find similar historical patterns
+                    current_rsi = ticker_data.get('rsi', 50)
+                    current_price = ticker_data.get('price', 0)
+                    
+                    # Simple pattern matching
+                    similar_periods = []
+                    for i in range(30, len(hist) - 30, 5):
+                        period_close = hist['Close'].iloc[i]
+                        period_rsi = RSIIndicator(hist['Close'].iloc[i-14:i+1]).rsi().iloc[-1] if len(hist['Close'].iloc[i-14:i+1]) > 0 else 50
+                        
+                        if abs(period_rsi - current_rsi) < 5:  # Similar RSI
+                            future_return = (hist['Close'].iloc[min(i+30, len(hist)-1)] / period_close - 1) * 100
+                            similar_periods.append({
+                                'date': hist.index[i].strftime('%Y-%m-%d'),
+                                'rsi': period_rsi,
+                                'future_30d_return': future_return
+                            })
+                    
+                    if similar_periods:
+                        avg_return = sum(p['future_30d_return'] for p in similar_periods) / len(similar_periods)
+                        context['historical_patterns'] = {
+                            'similar_periods': len(similar_periods),
+                            'avg_30d_return': avg_return,
+                            'pattern_signal': 'Bullish' if avg_return > 5 else 'Bearish' if avg_return < -5 else 'Neutral'
+                        }
+            except Exception as e:
+                logging.warning(f"Pattern analysis failed: {e}")
+        
+        return context
+    
+    async def _generate_llm_response(self, question, intent, context, ticker_data):
+        """Generate response using free LLM APIs with fallback chain"""
+        
+        # Build comprehensive prompt
+        prompt = self._build_llm_prompt(question, intent, context, ticker_data)
+        
+        response = None
+        
+        # Try Groq first (fastest, 30K tokens/day)
+        if 'groq' in self.llm_clients:
+            try:
+                logging.info("Trying Groq LLM...")
+                client = self.llm_clients['groq']
+                
+                completion = client.chat.completions.create(
+                    model="mixtral-8x7b-32768",  # Or "llama2-70b-4096"
+                    messages=[
+                        {"role": "system", "content": "You are a professional market analyst. Provide detailed, accurate analysis based on the given context."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    temperature=0.7,
+                    max_tokens=1000
+                )
+                
+                response = completion.choices[0].message.content
+                logging.info("✅ Groq response generated")
+                
+            except Exception as e:
+                logging.warning(f"Groq failed: {e}")
+        
+        # Try Cohere if Groq failed
+        if not response and 'cohere' in self.llm_clients:
+            try:
+                logging.info("Trying Cohere LLM...")
+                client = self.llm_clients['cohere']
+                
+                result = client.generate(
+                    model='command-light',  # Free tier model
+                    prompt=prompt,
+                    max_tokens=800,
+                    temperature=0.7
+                )
+                
+                response = result.generations[0].text
+                logging.info("✅ Cohere response generated")
+                
+            except Exception as e:
+                logging.warning(f"Cohere failed: {e}")
+        
+        # Try Hugging Face if others failed
+        if not response and 'huggingface' in self.llm_clients:
+            try:
+                logging.info("Trying Hugging Face LLM...")
+                
+                api_key = self.llm_clients['huggingface']['api_key']
+                
+                async with aiohttp.ClientSession() as session:
+                    url = "https://api-inference.huggingface.co/models/facebook/bart-large-cnn"
+                    headers = {"Authorization": f"Bearer {api_key}"}
+                    
+                    # Summarization model as fallback
+                    payload = {
+                        "inputs": prompt[:1024],  # Limit input
+                        "parameters": {"max_length": 500}
+                    }
+                    
+                    async with session.post(url, headers=headers, json=payload) as resp:
+                        if resp.status == 200:
+                            result = await resp.json()
+                            response = result[0]['summary_text'] if isinstance(result, list) else result.get('summary_text', '')
+                            logging.info("✅ Hugging Face response generated")
+            
+            except Exception as e:
+                logging.warning(f"Hugging Face failed: {e}")
+        
+        return response
+    
+    def _build_llm_prompt(self, question, intent, context, ticker_data):
+        """Build comprehensive prompt for LLM"""
+        
+        asset_name = ticker_data.get('name', 'Asset')
+        ticker = ticker_data.get('ticker', '')
+        
+        prompt = f"""Analyze this market question and provide a comprehensive answer:
+
+QUESTION: {question}
+
+ASSET: {asset_name} ({ticker})
+
+CURRENT DATA:
+- Price: ${ticker_data.get('price', 0):,.2f}
+- Daily Change: {ticker_data.get('daily_change', 0):+.2f}%
+- Weekly Change: {ticker_data.get('weekly_change', 0):+.2f}%
+- Monthly Change: {ticker_data.get('monthly_change', 0):+.2f}%
+- RSI: {ticker_data.get('rsi', 50):.0f}
+
+"""
+        
+        # Add relevant context based on intent
+        if intent['wants_reasons'] and context['news']:
+            prompt += "\nRECENT NEWS:\n"
+            for news in context['news'][:3]:
+                prompt += f"- {news['title']}\n"
+        
+        if intent['wants_applications'] and context['wikipedia'].get('applications'):
+            prompt += f"\nAPPLICATIONS:\n{context['wikipedia']['applications'][:500]}\n"
+        
+        if context['reddit']:
+            prompt += f"\nSOCIAL SENTIMENT: {context['reddit'].get('sentiment_label', 'Unknown')} (Score: {context['reddit'].get('sentiment', 0):.2f})\n"
+        
+        if context['github']:
+            prompt += f"\nDEVELOPER ACTIVITY:\n"
+            prompt += f"- GitHub Stars: {context['github'].get('stars', 0):,}\n"
+            prompt += f"- Recent Activity: {context['github'].get('recent_activity', 0)} commits\n"
+        
+        if context['historical_patterns']:
+            prompt += f"\nHISTORICAL PATTERNS:\n"
+            prompt += f"- Similar periods: {context['historical_patterns'].get('similar_periods', 0)}\n"
+            prompt += f"- Average 30-day return: {context['historical_patterns'].get('avg_30d_return', 0):.1f}%\n"
+        
+        # Specific instructions based on intent
+        if intent['wants_reasons']:
+            prompt += "\nFocus on explaining WHY the price is moving. Include market drivers, catalysts, and fundamental reasons."
+        
+        if intent['wants_applications']:
+            prompt += "\nFocus on practical applications, commercial use cases, and real-world adoption examples."
+        
+        if intent['wants_prediction']:
+            prompt += "\nProvide outlook and potential price targets based on the data. Include both bullish and bearish scenarios."
+        
+        prompt += "\n\nProvide a detailed, professional response that directly answers the question. Use the context provided to support your analysis."
+        
+        return prompt
+    
+    async def _intelligent_assembly(self, question, intent, context, ticker_data):
+        """Fallback: Assemble intelligent response without LLM"""
+        
+        sections = []
+        asset_name = ticker_data.get('name', 'Asset')
+        
+        # Title
+        sections.append(f"# {asset_name} Analysis\n")
+        
+        # Current market data
+        sections.append(f"""## 📊 Current Market Data
+- **Price**: ${ticker_data.get('price', 0):,.2f}
+- **24h Change**: {ticker_data.get('daily_change', 0):+.2f}%
+- **Weekly**: {ticker_data.get('weekly_change', 0):+.2f}%
+- **Monthly**: {ticker_data.get('monthly_change', 0):+.2f}%
+- **RSI**: {ticker_data.get('rsi', 50):.0f} ({'Overbought' if ticker_data.get('rsi', 50) > 70 else 'Oversold' if ticker_data.get('rsi', 50) < 30 else 'Neutral'})
+""")
+        
+        # Reasons for price movement
+        if intent['wants_reasons']:
+            reasons = ["## 📈 Why the Price is Moving\n"]
+            
+            # From news
+            if context['news']:
+                reasons.append("### Recent Developments:")
+                for i, article in enumerate(context['news'][:3], 1):
+                    if article['title']:
+                        # Simple sentiment
+                        sentiment = "📈" if any(word in article['title'].lower() for word in ['surge', 'rise', 'gain', 'bull']) else "📉" if any(word in article['title'].lower() for word in ['fall', 'drop', 'bear', 'decline']) else "📰"
+                        reasons.append(f"{i}. {sentiment} {article['title']}")
+            
+            # From Reddit sentiment
+            if context['reddit']:
+                sentiment_label = context['reddit'].get('sentiment_label', 'Neutral')
+                engagement = context['reddit'].get('total_engagement', 0)
+                reasons.append(f"\n### Social Sentiment: {sentiment_label}")
+                reasons.append(f"- Community engagement: {engagement:,} interactions")
+                reasons.append(f"- Overall mood: {'Positive 🟢' if sentiment_label == 'Bullish' else 'Negative 🔴' if sentiment_label == 'Bearish' else 'Mixed 🟡'}")
+            
+            # From historical patterns
+            if context['historical_patterns']:
+                avg_return = context['historical_patterns'].get('avg_30d_return', 0)
+                similar = context['historical_patterns'].get('similar_periods', 0)
+                reasons.append(f"\n### Historical Pattern Analysis:")
+                reasons.append(f"- Found {similar} similar historical periods")
+                reasons.append(f"- Average 30-day return: {avg_return:+.1f}%")
+                reasons.append(f"- Pattern suggests: {'Bullish continuation 📈' if avg_return > 5 else 'Bearish reversal 📉' if avg_return < -5 else 'Consolidation phase ➡️'}")
+            
+            sections.append('\n'.join(reasons))
+        
+        # Applications and use cases
+        if intent['wants_applications']:
+            apps = ["## 🏢 Commercial Applications & Use Cases\n"]
+            
+            # From Wikipedia
+            if context['wikipedia'].get('applications'):
+                apps.append("### Overview:")
+                apps.append(context['wikipedia']['applications'][:500])
+            elif context['wikipedia'].get('summary'):
+                # Extract use cases from summary
+                summary = context['wikipedia']['summary']
+                if 'use' in summary.lower() or 'application' in summary.lower():
+                    apps.append("### Overview:")
+                    apps.append(summary[:500])
+            
+            # From fundamental data
+            if context['fundamental'].get('description'):
+                apps.append("\n### Business Description:")
+                apps.append(context['fundamental']['description'])
+            
+            # GitHub activity (for crypto)
+            if context['github']:
+                apps.append(f"\n### Developer Ecosystem:")
+                apps.append(f"- **GitHub Stars**: {context['github'].get('stars', 0):,} developers following")
+                apps.append(f"- **Forks**: {context['github'].get('forks', 0):,} projects building on it")
+                apps.append(f"- **Active Development**: {context['github'].get('recent_activity', 0)} recent commits")
+                apps.append(f"- **Use Case**: {context['github'].get('description', 'Decentralized platform')}")
+            
+            # Generic applications based on asset type
+            if 'crypto' in str(ticker_data.get('type', '')).lower():
+                if 'bitcoin' in asset_name.lower():
+                    apps.append("\n### Key Applications:")
+                    apps.append("- **Digital Gold**: Store of value and inflation hedge")
+                    apps.append("- **Payments**: Cross-border remittances and settlements")
+                    apps.append("- **Treasury Reserve**: Corporate balance sheet asset")
+                    apps.append("- **DeFi Collateral**: Wrapped BTC in decentralized finance")
+                    apps.append("- **Lightning Network**: Instant micropayments")
+                elif 'ethereum' in asset_name.lower():
+                    apps.append("\n### Key Applications:")
+                    apps.append("- **Smart Contracts**: Programmable agreements and automation")
+                    apps.append("- **DeFi**: Decentralized finance protocols ($100B+ TVL)")
+                    apps.append("- **NFTs**: Digital art, gaming, and collectibles")
+                    apps.append("- **DAOs**: Decentralized autonomous organizations")
+                    apps.append("- **Enterprise**: JPMorgan, Microsoft Azure blockchain")
+                elif 'xrp' in asset_name.lower() or 'ripple' in asset_name.lower():
+                    apps.append("\n### Key Applications:")
+                    apps.append("- **Bank Settlements**: Real-time gross settlement system")
+                    apps.append("- **Cross-Border Payments**: 3-5 seconds vs 3-5 days")
+                    apps.append("- **Central Bank Digital Currencies**: CBDC infrastructure")
+                    apps.append("- **Remittances**: Low-cost international money transfers")
+                    apps.append("- **Liquidity**: On-Demand Liquidity (ODL) for institutions")
+            
+            sections.append('\n'.join(apps))
+        
+        # Technical outlook
+        if ticker_data:
+            outlook = ["## 📊 Technical Analysis\n"]
+            
+            rsi = ticker_data.get('rsi', 50)
+            if rsi > 70:
+                outlook.append("- **Signal**: OVERBOUGHT ⚠️")
+                outlook.append("- **Action**: Consider taking profits or waiting for pullback")
+            elif rsi < 30:
+                outlook.append("- **Signal**: OVERSOLD 🟢")
+                outlook.append("- **Action**: Potential bounce incoming, accumulation zone")
+            else:
+                outlook.append("- **Signal**: NEUTRAL ➡️")
+                outlook.append("- **Action**: Wait for clearer signals")
+            
+            # Price levels
+            price = ticker_data.get('price', 0)
+            outlook.append(f"\n### Key Levels:")
+            outlook.append(f"- **Support**: ${price * 0.95:,.2f} (-5%)")
+            outlook.append(f"- **Resistance**: ${price * 1.05:,.2f} (+5%)")
+            outlook.append(f"- **52W High**: ${ticker_data.get('year_high', price * 1.2):,.2f}")
+            outlook.append(f"- **52W Low**: ${ticker_data.get('year_low', price * 0.8):,.2f}")
+            
+            sections.append('\n'.join(outlook))
+        
+        # Fundamental data
+        if context['fundamental'] and any(context['fundamental'].values()):
+            fundamental = ["## 💼 Fundamental Metrics\n"]
+            
+            if context['fundamental'].get('market_cap'):
+                fundamental.append(f"- **Market Cap**: ${context['fundamental']['market_cap']:,.0f}")
+            if context['fundamental'].get('pe_ratio'):
+                fundamental.append(f"- **P/E Ratio**: {context['fundamental']['pe_ratio']:.2f}")
+            if context['fundamental'].get('volume'):
+                fundamental.append(f"- **Volume**: {context['fundamental']['volume']:,}")
+            if context['fundamental'].get('beta'):
+                fundamental.append(f"- **Beta**: {context['fundamental']['beta']:.2f}")
+            
+            if context['fundamental'].get('analyst_recommendations'):
+                fundamental.append("\n### Recent Analyst Recommendations:")
+                for rec in context['fundamental']['analyst_recommendations'][:3]:
+                    fundamental.append(f"- {rec.get('firm', 'Analyst')}: {rec.get('toGrade', 'N/A')}")
+            
+            sections.append('\n'.join(fundamental))
+        
+        # Summary
+        sections.append("\n## 📝 Summary\n")
+        
+        # Generate summary based on all signals
+        summary_points = []
+        
+        # Price action summary
+        if ticker_data.get('monthly_change', 0) > 10:
+            summary_points.append("✅ Strong uptrend with +10% monthly gains")
+        elif ticker_data.get('monthly_change', 0) < -10:
+            summary_points.append("⚠️ Downtrend with -10% monthly decline")
+        else:
+            summary_points.append("➡️ Consolidating in current range")
+        
+        # Sentiment summary
+        if context['reddit'] and context['reddit'].get('sentiment_label') == 'Bullish':
+            summary_points.append("✅ Positive social sentiment")
+        elif context['reddit'] and context['reddit'].get('sentiment_label') == 'Bearish':
+            summary_points.append("⚠️ Negative social sentiment")
+        
+        # Pattern summary
+        if context['historical_patterns'] and context['historical_patterns'].get('avg_30d_return', 0) > 5:
+            summary_points.append("✅ Historical patterns suggest upside")
+        elif context['historical_patterns'] and context['historical_patterns'].get('avg_30d_return', 0) < -5:
+            summary_points.append("⚠️ Historical patterns suggest downside")
+        
+        sections.append('\n'.join(f"- {point}" for point in summary_points))
+        
+        return '\n\n'.join(sections)
+
+
+# ========================================
+# 🆕 ENHANCED EMAIL BOT RESPONDER
+# ========================================
+
+class IntelligentEmailBotResponder:
+    """Enhanced responder using intelligent analysis"""
+    
+    def __init__(self):
+        self.analyzer = IntelligentMarketAnalyzer()
+    
+    async def generate_intelligent_html(self, question, market_data):
+        """Generate truly intelligent HTML responses"""
+        
+        # Process each asset with intelligence
+        intelligent_analyses = {}
+        
+        for asset_key, asset_data in market_data.items():
+            if asset_data:
+                try:
+                    # Get intelligent analysis
+                    analysis = await self.analyzer.answer_intelligently(question, asset_data)
+                    intelligent_analyses[asset_key] = {
+                        'data': asset_data,
+                        'analysis': analysis
+                    }
+                except Exception as e:
+                    logging.error(f"Analysis failed for {asset_key}: {e}")
+        
+        # Build HTML response
+        return self._build_intelligent_html(question, intelligent_analyses)
+    
+    def _build_intelligent_html(self, question, analyses):
+        """Build beautiful HTML with intelligent content"""
+        
+        # Convert markdown to HTML if available
+        def md_to_html(text):
+            if MARKDOWN_AVAILABLE:
+                import markdown
+                return markdown.markdown(text)
+            else:
+                # Basic conversion
+                text = text.replace('\n## ', '\n<h2>').replace('\n', '</h2>\n', 1)
+                text = text.replace('\n### ', '\n<h3>').replace('\n', '</h3>\n', 1)
+                text = text.replace('\n- ', '\n<li>').replace('\n', '</li>\n')
+                text = text.replace('**', '<strong>').replace('**', '</strong>')
+                return text
+        
+        # Build price cards
+        price_cards = []
+        for key, item in analyses.items():
+            data = item['data']
+            change_color = '#16a34a' if data.get('daily_change', 0) >= 0 else '#dc2626'
+            
+            price_cards.append(f"""
+            <div style="background: linear-gradient(135deg, #e0f2fe, #bae6fd); 
+                        padding: 20px; border-radius: 12px; margin: 15px 0; 
+                        display: inline-block; width: 45%; margin-right: 3%; 
+                        vertical-align: top; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                <h3 style="margin: 0; color: #1e40af; text-transform: uppercase;">
+                    {data.get('name', 'Unknown')}
+                </h3>
+                <p style="font-size: 32px; font-weight: bold; margin: 10px 0;">
+                    ${data.get('price', 0):,.2f}
+                </p>
+                <p style="color: {change_color}; font-size: 18px; margin: 5px 0;">
+                    {data.get('daily_change', 0):+.2f}% today
+                </p>
+                <p style="font-size: 12px; color: #6b7280;">
+                    Week: {data.get('weekly_change', 0):+.1f}% | Month: {data.get('monthly_change', 0):+.1f}%<br>
+                    RSI: {data.get('rsi', 50):.0f} | Range: ${data.get('year_low', 0):,.2f} - ${data.get('year_high', 0):,.2f}
+                </p>
+            </div>
+            """)
+        
+        # Build analysis sections
+        analysis_sections = []
+        for key, item in analyses.items():
+            analysis_html = md_to_html(item['analysis'])
+            analysis_sections.append(f"""
+            <div style="margin-top: 30px; padding: 20px; background: #f9fafb; 
+                        border-radius: 10px; border-left: 4px solid #3b82f6;">
+                {analysis_html}
+            </div>
+            """)
+        
+        # Complete HTML
+        html = f"""
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+body {{
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    max-width: 900px;
+    margin: 0 auto;
+    background: linear-gradient(135deg, #f5f5f5 0%, #e5e5e5 100%);
+    padding: 20px;
+}}
+.container {{
+    background: white;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+}}
+.header {{
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 40px;
+    text-align: center;
+}}
+.content {{
+    padding: 40px;
+}}
+.question-box {{
+    background: linear-gradient(135deg, #fef3c7, #fed7aa);
+    border-left: 5px solid #f59e0b;
+    padding: 25px;
+    border-radius: 10px;
+    margin-bottom: 30px;
+}}
+h2 {{
+    color: #1e40af;
+    margin-top: 30px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #e5e7eb;
+}}
+h3 {{
+    color: #374151;
+    margin-top: 20px;
+}}
+ul {{
+    line-height: 1.8;
+}}
+li {{
+    margin-bottom: 8px;
+}}
+.footer {{
+    background: #f3f4f6;
+    padding: 25px;
+    text-align: center;
+    color: #6b7280;
+}}
+</style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>📊 Intelligent Market Analysis</h1>
+        <p style="margin: 15px 0 0 0; font-size: 18px;">
+            {datetime.datetime.now().strftime('%B %d, %Y at %I:%M %p')}
+        </p>
+    </div>
+    
+    <div class="content">
+        <div class="question-box">
+            <h2 style="margin: 0; color: #92400e; border: none;">Your Question</h2>
+            <p style="margin: 10px 0 0 0; font-size: 16px; color: #451a03;">
+                "{question}"
+            </p>
+        </div>
+        
+        <div style="margin: 30px 0;">
+            {''.join(price_cards)}
+        </div>
+        
+        <div style="clear: both;"></div>
+        
+        {''.join(analysis_sections)}
+        
+        <div class="footer">
+            <p style="margin: 0;">
+                <strong>Analysis Powered By:</strong> AI Intelligence, Market Data, Social Sentiment<br>
+                <strong>Sources:</strong> Yahoo Finance, Wikipedia, GitHub, Reddit, News APIs<br>
+                <strong>Disclaimer:</strong> For informational purposes only. Not financial advice.
+            </p>
+        </div>
+    </div>
+</div>
+</body>
+</html>
+"""
+        
+        return html
 
 
 # ========================================
