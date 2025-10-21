@@ -24,6 +24,7 @@ jobs:
           pip install pandas yfinance requests numpy aiohttp beautifulsoup4 lxml matplotlib seaborn pytrends requests-html nest_asyncio
           pip install vaderSentiment ta asyncio-throttle
           pip install google-generativeai
+          pip install duckduckgo-search
       
       - name: Check and respond to emails
         env:
