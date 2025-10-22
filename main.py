@@ -1874,24 +1874,28 @@ class IntelligentEmailBotResponder:
 
 class EmailBotEngine:
     def __init__(self):
-        self.db = None; self.smtp_user = os.getenv("SMTP_USER"); self.smtp_pass = os.getenv("SMTP_PASS")
-        if not self.smtp_user or not self.smtp_pass: raise ValueError("❌ SMTP credentials required!")
+        self.db = None
+        self.smtp_user = os.getenv("SMTP_USER")
+        self.smtp_pass = os.getenv("SMTP_PASS")
+        if not self.smtp_user or not self.smtp_pass:
+            raise ValueError("❌ SMTP credentials required!")
         logging.info(f"📧 Bot initialized for: {self.smtp_user}")
-        try: self.db = EmailBotDatabase()
-        except Exception as e: logging.error(f"DB init failed: {e}")
+        try:
+            self.db = EmailBotDatabase()
+        except Exception as e:
+            logging.error(f"DB init failed: {e}")
 
-        async def check_and_respond(self):
-            logging.info("📧 Checking inbox for your questions...")
-            checked, answered, errors = 0, 0, 0
-            mail = None
-            try:
-                # 1. CONNECT
-                mail = imaplib.IMAP4_SSL("imap.gmail.com", timeout=20)
-                mail.login(self.smtp_user, self.smtp_pass)
-                mail.select('inbox')
+    async def check_and_respond(self):
+        logging.info("📧 Checking inbox for your questions...")
+        checked, answered, errors = 0, 0, 0
+        mail = None
+        try:
+            # 1. CONNECT
+            mail = imaplib.IMAP4_SSL("imap.gmail.com", timeout=20)
+            mail.login(self.smtp_user, self.smtp_pass)
+            mail.select('inbox')
             
             # 2. FOCUSED SEARCH: Find UNSEEN emails that are replies to the briefing.
-            # This is the most robust way to ensure we only process your questions.
             search_criteria = '(UNSEEN SUBJECT "Re: Daily Market Briefing")'
             
             status, data = mail.search(None, search_criteria)
@@ -1927,7 +1931,6 @@ class EmailBotEngine:
 
                     logging.info(f"❓ Processing your question: {question[:70]}")
                     
-                    # (The rest of the logic is the same...)
                     topics = MarketQuestionAnalyzer.extract_topics(question)
                     if not topics:
                         html = EmailBotResponder.generate_help_response(question)
@@ -1943,9 +1946,10 @@ class EmailBotEngine:
                             logging.warning(f"Intelligent responder failed: {e}. Falling back.")
                             html = EmailBotResponder.generate_html_response(question, final_market_data)
                     
-                    if self._send_email(sender, question, html, msg.get('Subject','')):
+                    if self._send_email(sender, question, html, msg.get('Subject', '')):
                         answered += 1
-                        if self.db: self.db.log_conversation(sender, question, topics, True)
+                        if self.db:
+                            self.db.log_conversation(sender, question, topics, True)
                     else:
                         errors += 1
                     
@@ -1963,8 +1967,11 @@ class EmailBotEngine:
             logging.error(f"❌ Bot main loop error: {e}", exc_info=True)
         finally:
             if mail:
-                try: mail.close(); mail.logout()
-                except: pass
+                try:
+                    mail.close()
+                    mail.logout()
+                except:
+                    pass
             if self.db:
                 self.db.update_stats(checked, answered, errors)
                 self.db.close()
@@ -1974,10 +1981,12 @@ class EmailBotEngine:
             msg = MIMEMultipart('alternative')
             subject = f"Re: {original_subject}" if original_subject and not original_subject.startswith('Re:') else original_subject or "Market Analysis"
             msg['Subject'], msg['From'], msg['To'], msg['Date'] = subject, self.smtp_user, to_email, email.utils.formatdate(localtime=True)
-            msg.attach(MIMEText(f"Q: {question}\n\nSee HTML for analysis.",'plain'))
-            msg.attach(MIMEText(html_body,'html'))
+            msg.attach(MIMEText(f"Q: {question}\n\nSee HTML for analysis.", 'plain'))
+            msg.attach(MIMEText(html_body, 'html'))
             with smtplib.SMTP("smtp.gmail.com", 587, 30) as s:
-                s.starttls(); s.login(self.smtp_user, self.smtp_pass); s.send_message(msg)
+                s.starttls()
+                s.login(self.smtp_user, self.smtp_pass)
+                s.send_message(msg)
             return True
         except Exception as e:
             logging.error(f"Send failed: {e}")
@@ -1988,20 +1997,25 @@ class EmailBotEngine:
         try:
             if msg.is_multipart():
                 for part in msg.walk():
-                    if part.get_content_type()=="text/plain":
+                    if part.get_content_type() == "text/plain":
                         try:
                             payload = part.get_payload(decode=True)
-                            if payload: body = payload.decode('utf-8','ignore'); break
-                        except: continue
+                            if payload:
+                                body = payload.decode('utf-8', 'ignore')
+                                break
+                        except:
+                            continue
             else:
                 payload = msg.get_payload(decode=True)
-                if payload: body = payload.decode('utf-8','ignore')
+                if payload:
+                    body = payload.decode('utf-8', 'ignore')
             lines = [l.strip() for l in (body or "").split('\n') if l.strip() and not l.strip().startswith('>') and 'wrote:' not in l.lower()]
-            return re.sub(r'\s+',' ', ' '.join(lines))[:1000]
-        except: return ""
+            return re.sub(r'\s+', ' ', ' '.join(lines))[:1000]
+        except:
+            return ""
 
     def _is_valid(self, question):
-        return bool(question and len(question.strip()) > 5 and not any(k in question.lower() for k in ['automated','auto-reply']))
+        return bool(question and len(question.strip()) > 5 and not any(k in question.lower() for k in ['automated', 'auto-reply']))
 
 
 async def run_email_bot():
