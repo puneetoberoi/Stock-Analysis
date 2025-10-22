@@ -1871,14 +1871,14 @@ class EmailBotEngine:
         except Exception as e: logging.error(f"DB init failed: {e}")
 
         async def check_and_respond(self):
-        logging.info("📧 Checking inbox for your questions...")
-        checked, answered, errors = 0, 0, 0
-        mail = None
-        try:
-            # 1. CONNECT
-            mail = imaplib.IMAP4_SSL("imap.gmail.com", timeout=20)
-            mail.login(self.smtp_user, self.smtp_pass)
-            mail.select('inbox')
+            logging.info("📧 Checking inbox for your questions...")
+            checked, answered, errors = 0, 0, 0
+            mail = None
+            try:
+                # 1. CONNECT
+                mail = imaplib.IMAP4_SSL("imap.gmail.com", timeout=20)
+                mail.login(self.smtp_user, self.smtp_pass)
+                mail.select('inbox')
             
             # 2. PERFORM MULTIPLE, SIMPLE, RELIABLE SEARCHES
             # This is the guaranteed fix for the IMAP search error.
