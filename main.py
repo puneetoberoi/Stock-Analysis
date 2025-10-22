@@ -1748,28 +1748,38 @@ class MarketQuestionAnalyzer:
             return {'ticker':ticker,'price':float(current),'daily_change':float(((current-day_ago)/day_ago*100) if day_ago else 0),'rsi':rsi}
         except Exception as e: logging.warning(f"Data fetch failed for {ticker}: {e}"); return None
 
+# ========================================
+# FINAL, AUDITED BOT SYSTEM - v4.2
+# ========================================
+
 class IntelligentMarketAnalyzer:
     def __init__(self):
-        self.nlp = None; self.wiki = None; self.llm_clients = {}
+        self.nlp = None
+        self.wiki = None
+        self.llm_clients = {}
         if 'SPACY_AVAILABLE' in globals() and SPACY_AVAILABLE:
             try: self.nlp = spacy.load("en_core_web_sm")
             except: logging.warning("spaCy model not loaded")
-        if 'WIKIPEDIA_AVAILABLE' in globals() and WIKIPEDIA_AVAILABLE: self.wiki = wikipediaapi.Wikipedia('MarketBot/1.0','en')
+        if 'WIKIPEDIA_AVAILABLE' in globals() and WIKIPEDIA_AVAILABLE:
+            self.wiki = wikipediaapi.Wikipedia('MarketBot/1.0','en')
         self._setup_llm_clients()
 
     def _setup_llm_clients(self):
+        # CORRECTED: try/except blocks are now properly structured.
         if 'GROQ_AVAILABLE' in globals() and GROQ_AVAILABLE and os.getenv("GROQ_API_KEY"):
             try:
                 from groq import Groq
                 self.llm_clients['groq'] = Groq(api_key=os.getenv("GROQ_API_KEY"))
                 logging.info("✅ Groq LLM available")
-            except Exception as e: logging.warning(f"Groq setup failed: {e}")
+            except Exception as e:
+                logging.warning(f"Groq setup failed: {e}")
         if 'COHERE_AVAILABLE' in globals() and COHERE_AVAILABLE and os.getenv("COHERE_API_KEY"):
             try:
                 import cohere
                 self.llm_clients['cohere'] = cohere.Client(os.getenv("COHERE_API_KEY"))
                 logging.info("✅ Cohere LLM available")
-            except Exception as e: logging.warning(f"Cohere setup failed: {e}")
+            except Exception as e:
+                logging.warning(f"Cohere setup failed: {e}")
 
     async def answer_intelligently(self, question, ticker_data):
         logging.info(f"🧠 Generating intelligent answer for: {ticker_data.get('name', 'asset')}")
@@ -1782,10 +1792,10 @@ class IntelligentMarketAnalyzer:
     
     def _analyze_question_intent(self, question):
         q = (question or "").lower()
-        return {'reasons':any(w in q for w in ['why','reason']),'applications':any(w in q for w in ['application','use'])}
+        return {'reasons': any(w in q for w in ['why','reason']),'applications': any(w in q for w in ['application','use'])}
 
     async def _gather_context(self, asset_name, intent):
-        context = {'news':[],'wikipedia':{}}
+        context = {'news': [], 'wikipedia': {}}
         async def fetch_news():
             if DDGS_AVAILABLE and asset_name:
                 try:
@@ -1860,7 +1870,7 @@ class IntelligentEmailBotResponder:
         cards = [EmailBotResponder.create_price_card(item['data']) for item in analyses.values()]
         sections = [f'<div style="margin-top:20px;padding:20px;background:#f9fafb;border-radius:10px;">{md_to_html(item["analysis"])}</div>' for item in analyses.values()]
         
-        return f"""<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{{font-family:-apple-system,sans-serif;max-width:800px;margin:auto;background:#f1f5f9;padding:20px;}}h1,h2{{color:#312e81;}}</style></head><body><h1>Intelligent Analysis</h1><div><b>Q:</b> {question}</div><div>{''.join(cards)}</div>{''.join(sections)}</body></html>"""
+        return f"""<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{{font-family:-apple-system,sans-serif;max-width:800px;margin:auto;}}</style></head><body><h1>Intelligent Analysis</h1><div><b>Q:</b> {question}</div><div>{''.join(cards)}</div>{''.join(sections)}</body></html>"""
 
 class EmailBotEngine:
     def __init__(self):
@@ -1870,58 +1880,48 @@ class EmailBotEngine:
         try: self.db = EmailBotDatabase()
         except Exception as e: logging.error(f"DB init failed: {e}")
 
-        async def check_and_respond(self):
-            logging.info("📧 Checking inbox for your questions...")
-            checked, answered, errors = 0, 0, 0
-            mail = None
-            try:
-                # 1. CONNECT
-                mail = imaplib.IMAP4_SSL("imap.gmail.com", timeout=20)
-                mail.login(self.smtp_user, self.smtp_pass)
-                mail.select('inbox')
+    async def check_and_respond(self):
+        logging.info("📧 Checking inbox for your questions...")
+        checked, answered, errors = 0, 0, 0
+        mail = None
+        try:
+            mail = imaplib.IMAP4_SSL("imap.gmail.com", timeout=20)
+            mail.login(self.smtp_user, self.smtp_pass)
+            mail.select('inbox')
             
-            # 2. PERFORM MULTIPLE, SIMPLE, RELIABLE SEARCHES
-            # This is the guaranteed fix for the IMAP search error.
+            search_queries = [
+                f'(UNSEEN FROM "{self.smtp_user}")',
+                '(UNSEEN SUBJECT "Daily Market Briefing")',
+                '(UNSEEN SUBJECT "Market Analysis")'
+            ]
+            
             all_email_ids = set()
-            
-            # Query 1: Unread emails FROM you
-            status, data = mail.search(None, '(UNSEEN)', f'(FROM "{self.smtp_user}")')
-            if status == 'OK' and data[0]:
-                for eid in data[0].split(): all_email_ids.add(eid)
-            
-            # Query 2: Unread emails with subject "Daily Market Briefing"
-            status, data = mail.search(None, '(UNSEEN)', '(SUBJECT "Daily Market Briefing")')
-            if status == 'OK' and data[0]:
-                for eid in data[0].split(): all_email_ids.add(eid)
-
-            # Query 3: Unread emails with subject "Market Analysis"
-            status, data = mail.search(None, '(UNSEEN)', '(SUBJECT "Market Analysis")')
-            if status == 'OK' and data[0]:
-                for eid in data[0].split(): all_email_ids.add(eid)
+            for query in search_queries:
+                status, data = mail.search(None, query)
+                if status == 'OK' and data[0]:
+                    for eid in data[0].split(): all_email_ids.add(eid)
 
             if not all_email_ids:
                 logging.info("✅ No new questions found matching criteria.")
                 return
 
             logging.info(f"📬 Found {len(all_email_ids)} new question(s) matching criteria.")
-
-            # 3. PROCESS THE QUESTIONS
+            
             for eid in sorted(list(all_email_ids), key=int, reverse=True)[:5]:
                 try:
                     checked += 1
                     _, fdata = mail.fetch(eid, '(RFC822)')
                     msg = email.message_from_bytes(fdata[0][1])
-                    sender = email.utils.parseaddr(msg['From'])[1]
-
-                    # Final safety check: only reply to yourself
+                    sender, subject = email.utils.parseaddr(msg['From'])[1], msg.get('Subject','') or ''
+                    
                     if sender.lower() != self.smtp_user.lower():
                         logging.warning(f"Skipping email from unexpected sender: {sender}")
-                        mail.store(eid, '+FLAGS', '\\Seen') # Mark as read to avoid re-processing
+                        mail.store(eid, '+FLAGS', '\\Seen')
                         continue
                         
                     question = self._extract_question(msg)
                     if not self._is_valid(question):
-                        logging.warning(f"⏭️ Invalid or empty question. Marking as read.")
+                        logging.warning(f"⏭️ Invalid/empty question extracted. Marking as read.")
                         mail.store(eid, '+FLAGS', '\\Seen')
                         continue
 
@@ -1942,11 +1942,10 @@ class EmailBotEngine:
                             logging.warning(f"Intelligent responder failed: {e}. Falling back.")
                             html = EmailBotResponder.generate_html_response(question, final_market_data)
                     
-                    if self._send_email(sender, question, html, msg.get('Subject','')):
+                    if self._send_email(sender, question, html, subject):
                         answered += 1
                         if self.db: self.db.log_conversation(sender, question, topics, True)
-                    else:
-                        errors += 1
+                    else: errors += 1
                     
                     mail.store(eid, '+FLAGS', '\\Seen')
                     await asyncio.sleep(2)
@@ -1961,7 +1960,6 @@ class EmailBotEngine:
             errors += 1
             logging.error(f"❌ Bot main loop error: {e}", exc_info=True)
         finally:
-            # 4. CLEANUP
             if mail:
                 try: mail.close(); mail.logout()
                 except: pass
@@ -1974,11 +1972,10 @@ class EmailBotEngine:
             msg = MIMEMultipart('alternative')
             subject = f"Re: {original_subject}" if original_subject and not original_subject.startswith('Re:') else original_subject or "Market Analysis"
             msg['Subject'], msg['From'], msg['To'], msg['Date'] = subject, self.smtp_user, to_email, email.utils.formatdate(localtime=True)
-            msg.attach(MIMEText(f"Q: {question}\n\nPlease see HTML for analysis.", 'plain'))
-            msg.attach(MIMEText(html_body, 'html'))
+            msg.attach(MIMEText(f"Q: {question}\n\nSee HTML for analysis.",'plain'))
+            msg.attach(MIMEText(html_body,'html'))
             with smtplib.SMTP("smtp.gmail.com", 587, 30) as s:
                 s.starttls(); s.login(self.smtp_user, self.smtp_pass); s.send_message(msg)
-            logging.info(f"📧 Email sent to {to_email}")
             return True
         except Exception as e:
             logging.error(f"Send failed: {e}")
@@ -1989,7 +1986,7 @@ class EmailBotEngine:
         try:
             if msg.is_multipart():
                 for part in msg.walk():
-                    if part.get_content_type() == "text/plain":
+                    if part.get_content_type()=="text/plain":
                         try:
                             payload = part.get_payload(decode=True)
                             if payload: body = payload.decode('utf-8','ignore'); break
@@ -2026,6 +2023,10 @@ def verify_intelligence_available():
     }
     for component, available in components.items():
         logging.info(f"  {'✅' if available else '❌'} {component}: {'Available' if available else 'Not Available'}")
+
+# ========================================
+# 🆕 END EMAIL BOT SYSTEM
+# ========================================
 
 # ========================================
 # 🆕 END EMAIL BOT SYSTEM
