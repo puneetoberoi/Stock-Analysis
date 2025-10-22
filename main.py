@@ -1873,22 +1873,30 @@ class IntelligentEmailBotResponder:
         return f"""<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{{font-family:-apple-system,sans-serif;max-width:800px;margin:auto;}}</style></head><body><h1>Intelligent Analysis</h1><div><b>Q:</b> {question}</div><div>{''.join(cards)}</div>{''.join(sections)}</body></html>"""
 
 class EmailBotEngine:
+    """
+    COMPLETE WORKING VERSION - Replace entire class with this
+    """
     def __init__(self):
         self.db = None
         self.smtp_user = os.getenv("SMTP_USER")
         self.smtp_pass = os.getenv("SMTP_PASS")
+        
         if not self.smtp_user or not self.smtp_pass:
             raise ValueError("❌ SMTP credentials required!")
+        
         logging.info(f"📧 Bot initialized for: {self.smtp_user}")
+        
         try:
             self.db = EmailBotDatabase()
         except Exception as e:
             logging.error(f"DB init failed: {e}")
 
     async def check_and_respond(self):
+        """Main method to check inbox and respond to questions"""
         logging.info("📧 Checking inbox for your questions...")
         checked, answered, errors = 0, 0, 0
         mail = None
+        
         try:
             # 1. CONNECT
             mail = imaplib.IMAP4_SSL("imap.gmail.com", timeout=20)
@@ -1931,14 +1939,22 @@ class EmailBotEngine:
 
                     logging.info(f"❓ Processing your question: {question[:70]}")
                     
+                    # Extract topics and get market data
                     topics = MarketQuestionAnalyzer.extract_topics(question)
                     if not topics:
                         html = EmailBotResponder.generate_help_response(question)
                     else:
                         tickers = [info['ticker'] for info in topics.values()]
-                        results = await asyncio.gather(*(MarketQuestionAnalyzer.get_market_data(t) for t in tickers))
-                        final_market_data = {key: {**info, **data} for (key, info), data in zip(topics.items(), results) if data}
+                        results = await asyncio.gather(
+                            *(MarketQuestionAnalyzer.get_market_data(t) for t in tickers)
+                        )
+                        final_market_data = {
+                            key: {**info, **data} 
+                            for (key, info), data in zip(topics.items(), results) 
+                            if data
+                        }
                         
+                        # Try intelligent response, fallback to basic
                         try:
                             responder = IntelligentEmailBotResponder()
                             html = await responder.generate_intelligent_html(question, final_market_data)
@@ -1946,6 +1962,7 @@ class EmailBotEngine:
                             logging.warning(f"Intelligent responder failed: {e}. Falling back.")
                             html = EmailBotResponder.generate_html_response(question, final_market_data)
                     
+                    # Send the response
                     if self._send_email(sender, question, html, msg.get('Subject', '')):
                         answered += 1
                         if self.db:
@@ -1965,6 +1982,7 @@ class EmailBotEngine:
         except Exception as e:
             errors += 1
             logging.error(f"❌ Bot main loop error: {e}", exc_info=True)
+        
         finally:
             if mail:
                 try:
@@ -1977,22 +1995,34 @@ class EmailBotEngine:
                 self.db.close()
 
     def _send_email(self, to_email, question, html_body, original_subject=""):
+        """Send email response"""
         try:
             msg = MIMEMultipart('alternative')
-            subject = f"Re: {original_subject}" if original_subject and not original_subject.startswith('Re:') else original_subject or "Market Analysis"
-            msg['Subject'], msg['From'], msg['To'], msg['Date'] = subject, self.smtp_user, to_email, email.utils.formatdate(localtime=True)
+            subject = (
+                f"Re: {original_subject}" 
+                if original_subject and not original_subject.startswith('Re:') 
+                else original_subject or "Market Analysis"
+            )
+            msg['Subject'] = subject
+            msg['From'] = self.smtp_user
+            msg['To'] = to_email
+            msg['Date'] = email.utils.formatdate(localtime=True)
+            
             msg.attach(MIMEText(f"Q: {question}\n\nSee HTML for analysis.", 'plain'))
             msg.attach(MIMEText(html_body, 'html'))
+            
             with smtplib.SMTP("smtp.gmail.com", 587, 30) as s:
                 s.starttls()
                 s.login(self.smtp_user, self.smtp_pass)
                 s.send_message(msg)
+            
             return True
         except Exception as e:
             logging.error(f"Send failed: {e}")
             return False
 
     def _extract_question(self, msg):
+        """Extract question text from email message"""
         body = ""
         try:
             if msg.is_multipart():
@@ -2009,13 +2039,26 @@ class EmailBotEngine:
                 payload = msg.get_payload(decode=True)
                 if payload:
                     body = payload.decode('utf-8', 'ignore')
-            lines = [l.strip() for l in (body or "").split('\n') if l.strip() and not l.strip().startswith('>') and 'wrote:' not in l.lower()]
+            
+            # Clean up the body
+            lines = [
+                l.strip() 
+                for l in (body or "").split('\n') 
+                if l.strip() 
+                and not l.strip().startswith('>') 
+                and 'wrote:' not in l.lower()
+            ]
             return re.sub(r'\s+', ' ', ' '.join(lines))[:1000]
         except:
             return ""
 
     def _is_valid(self, question):
-        return bool(question and len(question.strip()) > 5 and not any(k in question.lower() for k in ['automated', 'auto-reply']))
+        """Validate that question is not empty or automated"""
+        return bool(
+            question 
+            and len(question.strip()) > 5 
+            and not any(k in question.lower() for k in ['automated', 'auto-reply'])
+        )
 
 
 async def run_email_bot():
