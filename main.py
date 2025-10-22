@@ -1958,11 +1958,30 @@ class EmailBotEngine:
                     msg = email.message_from_bytes(fdata[0][1])
                     sender = email.utils.parseaddr(msg['From'])[1]
 
-                    # THE ONLY CHECK THAT MATTERS: Is the sender you?
-                    if sender.lower() != self.smtp_user.lower():
-                        logging.warning(f"Skipping email from unauthorized sender: {sender}")
+                    # DEBUG: Show sender comparison
+                    logging.info(f"🔍 Email from: {sender}, Bot email: {self.smtp_user}")
+                    
+                    # Check if sender is authorized (either matches SMTP_USER or is in whitelist)
+                    authorized_senders = [
+                        self.smtp_user.lower(),
+                        'puneetbr44@gmail.com',  # Add your actual email here
+                    ]
+                    
+                    # Also allow if it's in the same domain
+                    sender_domain = sender.split('@')[1] if '@' in sender else ''
+                    smtp_domain = self.smtp_user.split('@')[1] if '@' in self.smtp_user else ''
+                    
+                    is_authorized = (
+                        sender.lower() in authorized_senders or
+                        (sender_domain and sender_domain == smtp_domain)
+                    )
+                    
+                    if not is_authorized:
+                        logging.warning(f"⛔ Skipping email from unauthorized sender: {sender}")
                         mail.store(eid, '+FLAGS', '\\Seen')
                         continue
+                    
+                    logging.info(f"✅ Authorized sender: {sender}")
                         
                     question = self._extract_question(msg)
                     if not self._is_valid(question):
