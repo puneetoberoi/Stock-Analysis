@@ -1870,41 +1870,58 @@ class EmailBotEngine:
         try: self.db = EmailBotDatabase()
         except Exception as e: logging.error(f"DB init failed: {e}")
 
-    async def check_and_respond(self):
+        async def check_and_respond(self):
         logging.info("📧 Checking inbox for your questions...")
         checked, answered, errors = 0, 0, 0
         mail = None
         try:
+            # 1. CONNECT
             mail = imaplib.IMAP4_SSL("imap.gmail.com", timeout=20)
             mail.login(self.smtp_user, self.smtp_pass)
             mail.select('inbox')
             
-            # The most critical fix: ONLY search for emails from you with specific subjects
-            search_criteria = f'(UNSEEN FROM "{self.smtp_user}" OR (UNSEEN SUBJECT "Daily Market Briefing") OR (UNSEEN SUBJECT "Market Analysis"))'
+            # 2. PERFORM MULTIPLE, SIMPLE, RELIABLE SEARCHES
+            # This is the guaranteed fix for the IMAP search error.
+            all_email_ids = set()
             
-            status, data = mail.search(None, search_criteria)
-            if status != 'OK' or not data[0]:
+            # Query 1: Unread emails FROM you
+            status, data = mail.search(None, '(UNSEEN)', f'(FROM "{self.smtp_user}")')
+            if status == 'OK' and data[0]:
+                for eid in data[0].split(): all_email_ids.add(eid)
+            
+            # Query 2: Unread emails with subject "Daily Market Briefing"
+            status, data = mail.search(None, '(UNSEEN)', '(SUBJECT "Daily Market Briefing")')
+            if status == 'OK' and data[0]:
+                for eid in data[0].split(): all_email_ids.add(eid)
+
+            # Query 3: Unread emails with subject "Market Analysis"
+            status, data = mail.search(None, '(UNSEEN)', '(SUBJECT "Market Analysis")')
+            if status == 'OK' and data[0]:
+                for eid in data[0].split(): all_email_ids.add(eid)
+
+            if not all_email_ids:
                 logging.info("✅ No new questions found matching criteria.")
                 return
-            
-            email_ids = data[0].split()
-            logging.info(f"📬 Found {len(email_ids)} new question(s) matching criteria.")
-            
-            for eid in reversed(email_ids[:5]):
+
+            logging.info(f"📬 Found {len(all_email_ids)} new question(s) matching criteria.")
+
+            # 3. PROCESS THE QUESTIONS
+            for eid in sorted(list(all_email_ids), key=int, reverse=True)[:5]:
                 try:
                     checked += 1
                     _, fdata = mail.fetch(eid, '(RFC822)')
                     msg = email.message_from_bytes(fdata[0][1])
-                    sender, subject = email.utils.parseaddr(msg['From'])[1], msg.get('Subject','') or ''
+                    sender = email.utils.parseaddr(msg['From'])[1]
 
-                    # Double check sender is you
+                    # Final safety check: only reply to yourself
                     if sender.lower() != self.smtp_user.lower():
                         logging.warning(f"Skipping email from unexpected sender: {sender}")
+                        mail.store(eid, '+FLAGS', '\\Seen') # Mark as read to avoid re-processing
                         continue
                         
                     question = self._extract_question(msg)
                     if not self._is_valid(question):
-                        logging.warning(f"⏭️ Invalid/empty question extracted. Marking as read.")
+                        logging.warning(f"⏭️ Invalid or empty question. Marking as read.")
                         mail.store(eid, '+FLAGS', '\\Seen')
                         continue
 
@@ -1925,8 +1942,9 @@ class EmailBotEngine:
                             logging.warning(f"Intelligent responder failed: {e}. Falling back.")
                             html = EmailBotResponder.generate_html_response(question, final_market_data)
                     
-                    if self._send_email(sender, question, html, subject):
+                    if self._send_email(sender, question, html, msg.get('Subject','')):
                         answered += 1
+                        if self.db: self.db.log_conversation(sender, question, topics, True)
                     else:
                         errors += 1
                     
@@ -1943,6 +1961,7 @@ class EmailBotEngine:
             errors += 1
             logging.error(f"❌ Bot main loop error: {e}", exc_info=True)
         finally:
+            # 4. CLEANUP
             if mail:
                 try: mail.close(); mail.logout()
                 except: pass
