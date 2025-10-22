@@ -1880,54 +1880,55 @@ class EmailBotEngine:
         try: self.db = EmailBotDatabase()
         except Exception as e: logging.error(f"DB init failed: {e}")
 
-    async def check_and_respond(self):
+        async def check_and_respond(self):
         logging.info("📧 Checking inbox for your questions...")
         checked, answered, errors = 0, 0, 0
         mail = None
         try:
+            # 1. CONNECT
             mail = imaplib.IMAP4_SSL("imap.gmail.com", timeout=20)
             mail.login(self.smtp_user, self.smtp_pass)
             mail.select('inbox')
             
-            search_queries = [
-                f'(UNSEEN FROM "{self.smtp_user}")',
-                '(UNSEEN SUBJECT "Daily Market Briefing")',
-                '(UNSEEN SUBJECT "Market Analysis")'
-            ]
+            # 2. FOCUSED SEARCH: Find UNSEEN emails that are replies to the briefing.
+            # This is the most robust way to ensure we only process your questions.
+            search_criteria = '(UNSEEN SUBJECT "Re: Daily Market Briefing")'
             
-            all_email_ids = set()
-            for query in search_queries:
-                status, data = mail.search(None, query)
-                if status == 'OK' and data[0]:
-                    for eid in data[0].split(): all_email_ids.add(eid)
+            status, data = mail.search(None, search_criteria)
+            if status != 'OK' or not data[0]:
+                # As a fallback, check for emails sent directly from you to the bot
+                status, data = mail.search(None, f'(UNSEEN FROM "{self.smtp_user}")')
+                if status != 'OK' or not data[0]:
+                    logging.info("✅ No new questions found from you.")
+                    return
 
-            if not all_email_ids:
-                logging.info("✅ No new questions found matching criteria.")
-                return
+            email_ids = data[0].split()
+            logging.info(f"📬 Found {len(email_ids)} new question(s) matching criteria.")
 
-            logging.info(f"📬 Found {len(all_email_ids)} new question(s) matching criteria.")
-            
-            for eid in sorted(list(all_email_ids), key=int, reverse=True)[:5]:
+            # 3. PROCESS THE QUESTIONS
+            for eid in sorted(list(set(email_ids)), key=int, reverse=True)[:5]:
                 try:
                     checked += 1
                     _, fdata = mail.fetch(eid, '(RFC822)')
                     msg = email.message_from_bytes(fdata[0][1])
-                    sender, subject = email.utils.parseaddr(msg['From'])[1], msg.get('Subject','') or ''
-                    
+                    sender = email.utils.parseaddr(msg['From'])[1]
+
+                    # THE ONLY CHECK THAT MATTERS: Is the sender you?
                     if sender.lower() != self.smtp_user.lower():
-                        logging.warning(f"Skipping email from unexpected sender: {sender}")
+                        logging.warning(f"Skipping email from unauthorized sender: {sender}")
                         mail.store(eid, '+FLAGS', '\\Seen')
                         continue
                         
                     question = self._extract_question(msg)
                     if not self._is_valid(question):
-                        logging.warning(f"⏭️ Invalid/empty question extracted. Marking as read.")
+                        logging.warning(f"⏭️ Invalid/empty question from you. Marking as read.")
                         mail.store(eid, '+FLAGS', '\\Seen')
                         continue
 
                     logging.info(f"❓ Processing your question: {question[:70]}")
-                    topics = MarketQuestionAnalyzer.extract_topics(question)
                     
+                    # (The rest of the logic is the same...)
+                    topics = MarketQuestionAnalyzer.extract_topics(question)
                     if not topics:
                         html = EmailBotResponder.generate_help_response(question)
                     else:
@@ -1942,10 +1943,11 @@ class EmailBotEngine:
                             logging.warning(f"Intelligent responder failed: {e}. Falling back.")
                             html = EmailBotResponder.generate_html_response(question, final_market_data)
                     
-                    if self._send_email(sender, question, html, subject):
+                    if self._send_email(sender, question, html, msg.get('Subject','')):
                         answered += 1
                         if self.db: self.db.log_conversation(sender, question, topics, True)
-                    else: errors += 1
+                    else:
+                        errors += 1
                     
                     mail.store(eid, '+FLAGS', '\\Seen')
                     await asyncio.sleep(2)
