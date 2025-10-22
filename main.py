@@ -1903,19 +1903,52 @@ class EmailBotEngine:
             mail.login(self.smtp_user, self.smtp_pass)
             mail.select('inbox')
             
-            # 2. FOCUSED SEARCH: Find UNSEEN emails that are replies to the briefing.
-            search_criteria = '(UNSEEN SUBJECT "Re: Daily Market Briefing")'
+            # 2. DEBUG: Let's see what's actually in the inbox
+            logging.info("🔍 DEBUG: Searching for emails...")
             
-            status, data = mail.search(None, search_criteria)
-            if status != 'OK' or not data[0]:
-                # As a fallback, check for emails sent directly from you to the bot
+            # First, try to find ANY unseen emails
+            status, data = mail.search(None, 'UNSEEN')
+            logging.info(f"🔍 DEBUG: UNSEEN emails search status: {status}, data: {data}")
+            
+            if status == 'OK' and data[0]:
+                all_unseen = data[0].split()
+                logging.info(f"🔍 DEBUG: Found {len(all_unseen)} total UNSEEN emails")
+                
+                # Check subjects of these emails
+                for eid in all_unseen[:5]:  # Check first 5
+                    _, msg_data = mail.fetch(eid, '(BODY[HEADER.FIELDS (FROM SUBJECT)])')
+                    if msg_data and msg_data[0]:
+                        header = msg_data[0][1].decode('utf-8', 'ignore')
+                        logging.info(f"🔍 DEBUG: Email {eid.decode()}: {header[:200]}")
+            
+            # 3. FOCUSED SEARCH: Try multiple search strategies
+            email_ids = []
+            
+            # Strategy 1: Look for replies to briefing
+            status, data = mail.search(None, '(UNSEEN SUBJECT "Daily Market Briefing")')
+            logging.info(f"🔍 Strategy 1 (Briefing replies): {status}, found: {len(data[0].split()) if data[0] else 0}")
+            if status == 'OK' and data[0]:
+                email_ids = data[0].split()
+            
+            # Strategy 2: If nothing found, look for emails FROM your own address
+            if not email_ids:
                 status, data = mail.search(None, f'(UNSEEN FROM "{self.smtp_user}")')
-                if status != 'OK' or not data[0]:
-                    logging.info("✅ No new questions found from you.")
-                    return
+                logging.info(f"🔍 Strategy 2 (From self): {status}, found: {len(data[0].split()) if data[0] else 0}")
+                if status == 'OK' and data[0]:
+                    email_ids = data[0].split()
+            
+            # Strategy 3: If still nothing, just get ALL unseen emails and filter manually
+            if not email_ids:
+                status, data = mail.search(None, 'UNSEEN')
+                logging.info(f"🔍 Strategy 3 (All unseen): {status}, found: {len(data[0].split()) if data[0] else 0}")
+                if status == 'OK' and data[0]:
+                    email_ids = data[0].split()
+            
+            if not email_ids:
+                logging.info("✅ No new questions found from you.")
+                return
 
-            email_ids = data[0].split()
-            logging.info(f"📬 Found {len(email_ids)} new question(s) matching criteria.")
+            logging.info(f"📬 Found {len(email_ids)} email(s) to process.")
 
             # 3. PROCESS THE QUESTIONS
             for eid in sorted(list(set(email_ids)), key=int, reverse=True)[:5]:
