@@ -1816,7 +1816,7 @@ async def main(output="print"):
             "previous_top_stock_name": df_stocks.iloc[0]['name'],
             "previous_top_stock_ticker": df_stocks.iloc[0]['ticker'],
             "previous_macro_score": macro_data.get('overall_macro_score', 0),
-            "date": datetime.datetime.now().date().isoformat()
+            "date": date.today().date().isoformat()
         })
     
     logging.info("✅ Analysis complete with v2.0.0 features.")
