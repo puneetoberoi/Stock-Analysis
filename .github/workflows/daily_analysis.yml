@@ -40,7 +40,7 @@ jobs:
           SMTP_USER: ${{ secrets.SMTP_USER }}
           SMTP_PASS: ${{ secrets.SMTP_PASS }}
         run: |
-          python main.py --output email
+          python src/main.py --output email
 
       - name: Commit memory file
         run: |
