@@ -1163,7 +1163,7 @@ async def main(output="print"):
         if ENABLE_V2_FEATURES:
             portfolio_task = analyze_portfolio_with_v2_features(session)
         else:
-            portfolio_task = analyze_portfolio_watchlist(session)
+            portfolio_task = analyze_portfolio_with_predictions(session)
         
         results = await asyncio.gather(
             asyncio.gather(*stock_tasks), 
