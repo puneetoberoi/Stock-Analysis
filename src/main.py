@@ -66,6 +66,26 @@ try:
     COHERE_AVAILABLE = True
 except ImportError:
     COHERE_AVAILABLE = False
+
+
+# Add this after your imports, before any other functions:
+class DateTimeEncoder(json.JSONEncoder):
+    """Custom JSON encoder for datetime objects"""
+    def default(self, obj):
+        if isinstance(obj, (datetime.datetime, datetime.date)):
+            return obj.isoformat()
+        if isinstance(obj, datetime.timedelta):
+            return str(obj)
+        if isinstance(obj, pd.Timestamp):
+            return obj.isoformat()
+        return super().default(obj)
+
+# Then update ALL json.dump calls to use it:
+def save_memory(data):
+    with open(MEMORY_FILE, 'w') as f: 
+        json.dump(data, f, cls=DateTimeEncoder)
+
+
 # ========================================
 # 🔒 STABLE FOUNDATION - v2.0.0
 # Last stable: 2024-12-20
@@ -332,8 +352,16 @@ def load_memory():
     return {}
 
 def save_memory(data):
+    """Save memory with proper date handling"""
+    # Convert any date objects to strings before saving
+    def json_serial(obj):
+        """JSON serializer for objects not serializable by default"""
+        if isinstance(obj, (datetime.datetime, datetime.date)):
+            return obj.isoformat()
+        raise TypeError(f"Type {type(obj)} not serializable")
+    
     with open(MEMORY_FILE, 'w') as f: 
-        json.dump(data, f)
+        json.dump(data, f, default=json_serial)
 
 async def analyze_portfolio_watchlist(session, portfolio_file='portfolio.json'):
     """Deep analysis of personal portfolio"""
@@ -1816,7 +1844,7 @@ async def main(output="print"):
             "previous_top_stock_name": df_stocks.iloc[0]['name'],
             "previous_top_stock_ticker": df_stocks.iloc[0]['ticker'],
             "previous_macro_score": macro_data.get('overall_macro_score', 0),
-            "date": date.today()
+            "date": date.today()  # Ensure it's a string
         })
     
     logging.info("✅ Analysis complete with v2.0.0 features.")
