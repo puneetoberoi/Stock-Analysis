@@ -662,7 +662,7 @@ def generate_fallback_analysis(market_data, portfolio_data, pattern_data):
     
     return {
         'analysis': final_text,
-        'generated_at': datetime.datetime.now().isoformat()
+        'generated_at': datetime.now().isoformat()
     }
 
 async def generate_ai_oracle_analysis(market_data, portfolio_data, pattern_data):
@@ -678,10 +678,10 @@ async def generate_ai_oracle_analysis(market_data, portfolio_data, pattern_data)
         
         model = None
         
-        # Try ONLY the stable model that works
+        # Try the current working model
         try:
-            model = genai.GenerativeModel('gemini-pro')  # This model definitely works
-            logging.info(f"✅ Successfully loaded Gemini model: gemini-pro")
+            model = genai.GenerativeModel('gemini-1.5-flash')  # FIXED: Updated model name
+            logging.info(f"✅ Successfully loaded Gemini model: gemini-1.5-flash")
         except Exception as e:
             logging.warning(f"Failed to load Gemini: {str(e)[:100]}")
             return generate_fallback_analysis(market_data, portfolio_data, pattern_data)
@@ -722,7 +722,7 @@ Focus on AI, geopolitical plays, and hidden opportunities. Be specific with pric
         )
         
         logging.info("✅ Gemini AI analysis generated successfully")
-        return {'analysis': response.text, 'generated_at': datetime.datetime.now().isoformat()}
+        return {'analysis': response.text, 'generated_at': datetime.now().isoformat()}  # FIXED: datetime.now()
         
     except Exception as e:
         logging.error(f"Gemini API error: {str(e)[:200]}")
