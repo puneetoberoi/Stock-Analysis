@@ -2121,7 +2121,7 @@ def generate_enhanced_html_email(df_stocks, context, market_news, macro_data, me
     <div class="container">
         <div class="header">
             <h1>Your Daily Intelligence Briefing</h1>
-            <p style="font-size:1.1em; color:#aaa;">{datetime.date.today().strftime('%A, %B %d, %Y')}</p>
+            <p style="font-size:1.1em; color:#aaa;">{datetime.datetime.now().strftime('%A, %B %d, %Y')}</p>
         </div>
         
         <div class="section">
