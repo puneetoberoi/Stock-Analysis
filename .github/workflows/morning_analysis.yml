@@ -1,0 +1,41 @@
+name: Morning Market Analysis
+
+on:
+  schedule:
+    - cron: '0 11 * * 1-5'  # 6 AM EST (11 UTC) on weekdays
+  workflow_dispatch:  # Allow manual trigger for testing
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt
+    
+    - name: Run market analysis
+      env:
+        GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        FINNHUB_KEY: ${{ secrets.FINNHUB_KEY }}
+        NEWSAPI_KEY: ${{ secrets.NEWSAPI_KEY }}
+        SMTP_USER: ${{ secrets.SMTP_USER }}
+        SMTP_PASS: ${{ secrets.SMTP_PASS }}
+      run: |
+        python src/main.py --output email
+    
+    - name: Commit predictions
+      run: |
+        git config --global user.email "action@github.com"
+        git config --global user.name "GitHub Action"
+        git add data/*.json
+        git diff --quiet && git diff --staged --quiet || git commit -m "Update predictions [skip ci]"
+        git push
