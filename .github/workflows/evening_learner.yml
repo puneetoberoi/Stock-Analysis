@@ -1,0 +1,34 @@
+name: Evening Learning Check
+
+on:
+  schedule:
+    - cron: '0 22 * * 1-5'  # 5 PM EST (22 UTC) on weekdays
+  workflow_dispatch:
+
+jobs:
+  learn:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt
+    
+    - name: Check prediction outcomes
+      run: |
+        python src/check_outcomes.py
+    
+    - name: Commit learning updates
+      run: |
+        git config --global user.email "action@github.com"
+        git config --global user.name "GitHub Action"
+        git add data/*.json
+        git diff --quiet && git diff --staged --quiet || git commit -m "Learning update [skip ci]"
+        git push
