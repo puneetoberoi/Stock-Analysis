@@ -2213,7 +2213,7 @@ def send_email(html_body):
         return
     
     msg = MIMEMultipart('alternative')
-    msg["Subject"] = f"⛵ Your Daily Market Briefing - {datetime.datetime.now().date()}"
+    msg["Subject"] = f"⛵ Your Daily Market Briefing - {datetime.today().date()}"
     msg["From"] = SMTP_USER
     msg["To"] = SMTP_USER
     msg.attach(MIMEText(html_body, 'html'))
