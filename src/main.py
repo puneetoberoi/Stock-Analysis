@@ -17,6 +17,7 @@ import google.generativeai as genai
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from datetime import date
 
 # 🆕 Email bot imports
 import sqlite3
