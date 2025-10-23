@@ -1873,18 +1873,20 @@ class IntelligentEmailBotResponder:
         return f"""<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{{font-family:-apple-system,sans-serif;max-width:800px;margin:auto;}}</style></head><body><h1>Intelligent Analysis</h1><div><b>Q:</b> {question}</div><div>{''.join(cards)}</div>{''.join(sections)}</body></html>"""
 
 class EmailBotEngine:
-    """
-    COMPLETE WORKING VERSION - Replace entire class with this
-    """
+    """SIMPLE VERSION - Just processes YOUR emails only"""
+    
     def __init__(self):
         self.db = None
         self.smtp_user = os.getenv("SMTP_USER")
         self.smtp_pass = os.getenv("SMTP_PASS")
         
+        # YOUR EMAIL ADDRESS - hardcode it here
+        self.authorized_email = "puneetbr44@gmail.com"
+        
         if not self.smtp_user or not self.smtp_pass:
             raise ValueError("❌ SMTP credentials required!")
         
-        logging.info(f"📧 Bot initialized for: {self.smtp_user}")
+        logging.info(f"📧 Bot initialized. Will only respond to: {self.authorized_email}")
         
         try:
             self.db = EmailBotDatabase()
@@ -1892,8 +1894,8 @@ class EmailBotEngine:
             logging.error(f"DB init failed: {e}")
 
     async def check_and_respond(self):
-        """Main method to check inbox and respond to questions"""
-        logging.info("📧 Checking inbox for your questions...")
+        """SIMPLIFIED: Only process emails from YOUR address"""
+        logging.info(f"📧 Checking inbox for emails from {self.authorized_email}...")
         checked, answered, errors = 0, 0, 0
         mail = None
         
@@ -1903,96 +1905,37 @@ class EmailBotEngine:
             mail.login(self.smtp_user, self.smtp_pass)
             mail.select('inbox')
             
-            # 2. DEBUG: Let's see what's actually in the inbox
-            logging.info("🔍 DEBUG: Searching for emails...")
+            # 2. SIMPLE SEARCH: Get UNSEEN emails from YOUR address only
+            search_query = f'(UNSEEN FROM "{self.authorized_email}")'
+            status, data = mail.search(None, search_query)
             
-            # First, try to find ANY unseen emails
-            status, data = mail.search(None, 'UNSEEN')
-            logging.info(f"🔍 DEBUG: UNSEEN emails search status: {status}, data: {data}")
-            
-            if status == 'OK' and data[0]:
-                all_unseen = data[0].split()
-                logging.info(f"🔍 DEBUG: Found {len(all_unseen)} total UNSEEN emails")
-                
-                # Check subjects of these emails
-                for eid in all_unseen[:5]:  # Check first 5
-                    _, msg_data = mail.fetch(eid, '(BODY[HEADER.FIELDS (FROM SUBJECT)])')
-                    if msg_data and msg_data[0]:
-                        header = msg_data[0][1].decode('utf-8', 'ignore')
-                        logging.info(f"🔍 DEBUG: Email {eid.decode()}: {header[:200]}")
-            
-            # 3. FOCUSED SEARCH: Try multiple search strategies
-            email_ids = []
-            
-            # Strategy 1: Look for replies to briefing
-            status, data = mail.search(None, '(UNSEEN SUBJECT "Daily Market Briefing")')
-            logging.info(f"🔍 Strategy 1 (Briefing replies): {status}, found: {len(data[0].split()) if data[0] else 0}")
-            if status == 'OK' and data[0]:
-                email_ids = data[0].split()
-            
-            # Strategy 2: If nothing found, look for emails FROM your own address
-            if not email_ids:
-                status, data = mail.search(None, f'(UNSEEN FROM "{self.smtp_user}")')
-                logging.info(f"🔍 Strategy 2 (From self): {status}, found: {len(data[0].split()) if data[0] else 0}")
-                if status == 'OK' and data[0]:
-                    email_ids = data[0].split()
-            
-            # Strategy 3: If still nothing, just get ALL unseen emails and filter manually
-            if not email_ids:
-                status, data = mail.search(None, 'UNSEEN')
-                logging.info(f"🔍 Strategy 3 (All unseen): {status}, found: {len(data[0].split()) if data[0] else 0}")
-                if status == 'OK' and data[0]:
-                    email_ids = data[0].split()
-            
-            if not email_ids:
-                logging.info("✅ No new questions found from you.")
+            if status != 'OK' or not data[0]:
+                logging.info(f"✅ No new emails from {self.authorized_email}")
                 return
+            
+            email_ids = data[0].split()
+            logging.info(f"📬 Found {len(email_ids)} new email(s) from you")
 
-            logging.info(f"📬 Found {len(email_ids)} email(s) to process.")
-
-            # 3. PROCESS THE QUESTIONS
-            for eid in sorted(list(set(email_ids)), key=int, reverse=True)[:5]:
+            # 3. PROCESS ONLY THE MOST RECENT 5
+            for eid in sorted(email_ids, key=int, reverse=True)[:5]:
                 try:
                     checked += 1
                     _, fdata = mail.fetch(eid, '(RFC822)')
                     msg = email.message_from_bytes(fdata[0][1])
-                    sender = email.utils.parseaddr(msg['From'])[1]
-
-                    # DEBUG: Show sender comparison
-                    logging.info(f"🔍 Email from: {sender}, Bot email: {self.smtp_user}")
                     
-                    # Check if sender is authorized (either matches SMTP_USER or is in whitelist)
-                    authorized_senders = [
-                        self.smtp_user.lower(),
-                        'puneetbr44@gmail.com',  # Add your actual email here
-                    ]
-                    
-                    # Also allow if it's in the same domain
-                    sender_domain = sender.split('@')[1] if '@' in sender else ''
-                    smtp_domain = self.smtp_user.split('@')[1] if '@' in self.smtp_user else ''
-                    
-                    is_authorized = (
-                        sender.lower() in authorized_senders or
-                        (sender_domain and sender_domain == smtp_domain)
-                    )
-                    
-                    if not is_authorized:
-                        logging.warning(f"⛔ Skipping email from unauthorized sender: {sender}")
-                        mail.store(eid, '+FLAGS', '\\Seen')
-                        continue
-                    
-                    logging.info(f"✅ Authorized sender: {sender}")
-                        
                     question = self._extract_question(msg)
+                    subject = msg.get('Subject', 'Market Question')
+                    
+                    logging.info(f"❓ Question: {question[:100]}")
+                    
                     if not self._is_valid(question):
-                        logging.warning(f"⏭️ Invalid/empty question from you. Marking as read.")
+                        logging.warning(f"⏭️ Skipping invalid/empty question")
                         mail.store(eid, '+FLAGS', '\\Seen')
                         continue
-
-                    logging.info(f"❓ Processing your question: {question[:70]}")
                     
                     # Extract topics and get market data
                     topics = MarketQuestionAnalyzer.extract_topics(question)
+                    
                     if not topics:
                         html = EmailBotResponder.generate_help_response(question)
                     else:
@@ -2006,19 +1949,20 @@ class EmailBotEngine:
                             if data
                         }
                         
-                        # Try intelligent response, fallback to basic
+                        # Try intelligent response
                         try:
                             responder = IntelligentEmailBotResponder()
                             html = await responder.generate_intelligent_html(question, final_market_data)
                         except Exception as e:
-                            logging.warning(f"Intelligent responder failed: {e}. Falling back.")
+                            logging.warning(f"Intelligent responder failed: {e}. Using basic.")
                             html = EmailBotResponder.generate_html_response(question, final_market_data)
                     
-                    # Send the response
-                    if self._send_email(sender, question, html, msg.get('Subject', '')):
+                    # Send response
+                    if self._send_email(self.authorized_email, question, html, subject):
                         answered += 1
+                        logging.info(f"✅ Response sent!")
                         if self.db:
-                            self.db.log_conversation(sender, question, topics, True)
+                            self.db.log_conversation(self.authorized_email, question, topics, True)
                     else:
                         errors += 1
                     
@@ -2027,13 +1971,13 @@ class EmailBotEngine:
                 
                 except Exception as e:
                     errors += 1
-                    logging.error(f"Error processing email {eid.decode()}: {e}", exc_info=True)
+                    logging.error(f"Error processing email {eid.decode()}: {e}")
 
-            logging.info(f"✅ Bot complete: {answered}/{checked} answered, {errors} errors.")
+            logging.info(f"✅ Complete: {answered}/{checked} answered, {errors} errors")
 
         except Exception as e:
             errors += 1
-            logging.error(f"❌ Bot main loop error: {e}", exc_info=True)
+            logging.error(f"❌ Bot error: {e}", exc_info=True)
         
         finally:
             if mail:
@@ -2044,17 +1988,12 @@ class EmailBotEngine:
                     pass
             if self.db:
                 self.db.update_stats(checked, answered, errors)
-                self.db.close()
 
     def _send_email(self, to_email, question, html_body, original_subject=""):
         """Send email response"""
         try:
             msg = MIMEMultipart('alternative')
-            subject = (
-                f"Re: {original_subject}" 
-                if original_subject and not original_subject.startswith('Re:') 
-                else original_subject or "Market Analysis"
-            )
+            subject = f"Re: {original_subject}" if original_subject else "Market Analysis"
             msg['Subject'] = subject
             msg['From'] = self.smtp_user
             msg['To'] = to_email
@@ -2074,7 +2013,7 @@ class EmailBotEngine:
             return False
 
     def _extract_question(self, msg):
-        """Extract question text from email message"""
+        """Extract question text from email"""
         body = ""
         try:
             if msg.is_multipart():
@@ -2092,7 +2031,7 @@ class EmailBotEngine:
                 if payload:
                     body = payload.decode('utf-8', 'ignore')
             
-            # Clean up the body
+            # Clean reply markers
             lines = [
                 l.strip() 
                 for l in (body or "").split('\n') 
@@ -2105,11 +2044,11 @@ class EmailBotEngine:
             return ""
 
     def _is_valid(self, question):
-        """Validate that question is not empty or automated"""
+        """Check if question is valid"""
         return bool(
             question 
             and len(question.strip()) > 5 
-            and not any(k in question.lower() for k in ['automated', 'auto-reply'])
+            and not any(k in question.lower() for k in ['automated', 'auto-reply', 'unsubscribe'])
         )
 
 
