@@ -61,305 +61,7 @@ try:
 except ImportError:
     COHERE_AVAILABLE = False
 
-# ========================================
-# 🧠 INTELLIGENT LEARNING SYSTEM v3.0
-# 100% Free, GitHub Actions Compatible
-# ========================================
 
-import json
-import hashlib
-from datetime import datetime, timedelta
-from pathlib import Path
-
-class PredictionTracker:
-    """Tracks all predictions and learns from outcomes - JSON based for free storage"""
-    
-    def __init__(self, predictions_file='data/predictions.json'):
-        self.predictions_file = Path(predictions_file)
-        self.predictions_file.parent.mkdir(exist_ok=True)
-        self.predictions = self._load_predictions()
-        
-    def _load_predictions(self):
-        """Load existing predictions from JSON"""
-        if self.predictions_file.exists():
-            try:
-                with open(self.predictions_file, 'r') as f:
-                    return json.load(f)
-            except:
-                return {}
-        return {}
-    
-    def _save_predictions(self):
-        """Save predictions to JSON"""
-        with open(self.predictions_file, 'w') as f:
-            json.dump(self.predictions, f, indent=2, default=str)
-    
-    def store_prediction(self, ticker, action, confidence, reasoning, candle_pattern=None, indicators=None):
-        """Store a new prediction with all context"""
-        prediction_id = hashlib.md5(f"{ticker}{datetime.now().isoformat()}".encode()).hexdigest()[:8]
-        
-        prediction = {
-            'id': prediction_id,
-            'timestamp': datetime.now().isoformat(),
-            'ticker': ticker,
-            'action': action,  # BUY, SELL, HOLD
-            'confidence': confidence,  # 0-100
-            'reasoning': reasoning,
-            'candle_pattern': candle_pattern,
-            'indicators': indicators or {},
-            'price_at_prediction': None,  # Will be filled
-            'outcome': None,  # Will be updated later
-            'was_correct': None  # Will be calculated
-        }
-        
-        # Get current price
-        try:
-            import yfinance as yf
-            current_price = yf.Ticker(ticker).history(period='1d')['Close'].iloc[-1]
-            prediction['price_at_prediction'] = float(current_price)
-        except:
-            pass
-        
-        self.predictions[prediction_id] = prediction
-        self._save_predictions()
-        logging.info(f"📝 Stored prediction {prediction_id}: {ticker} - {action} (confidence: {confidence}%)")
-        return prediction_id
-    
-    def check_outcomes(self, days_to_check=1):
-        """Check outcomes of past predictions"""
-        results = {'checked': 0, 'correct': 0, 'wrong': 0}
-        cutoff_date = datetime.now() - timedelta(days=days_to_check)
-        
-        for pred_id, pred in self.predictions.items():
-            if pred['outcome'] is not None:  # Already checked
-                continue
-                
-            pred_date = datetime.fromisoformat(pred['timestamp'])
-            if pred_date > cutoff_date:  # Too recent
-                continue
-            
-            try:
-                ticker = pred['ticker']
-                stock = yf.Ticker(ticker)
-                
-                # Get price from prediction date to now
-                hist = stock.history(start=pred_date.date(), end=datetime.now().date())
-                if len(hist) < 2:
-                    continue
-                
-                current_price = hist['Close'].iloc[-1]
-                pred_price = pred['price_at_prediction']
-                
-                if not pred_price:
-                    continue
-                
-                price_change_pct = ((current_price - pred_price) / pred_price) * 100
-                
-                # Determine if prediction was correct
-                was_correct = False
-                if pred['action'] == 'BUY' and price_change_pct > 0.5:
-                    was_correct = True
-                elif pred['action'] == 'SELL' and price_change_pct < -0.5:
-                    was_correct = True
-                elif pred['action'] == 'HOLD' and abs(price_change_pct) < 2:
-                    was_correct = True
-                
-                # Update prediction
-                pred['outcome'] = {
-                    'checked_date': datetime.now().isoformat(),
-                    'price_change_pct': price_change_pct,
-                    'current_price': float(current_price)
-                }
-                pred['was_correct'] = was_correct
-                
-                results['checked'] += 1
-                if was_correct:
-                    results['correct'] += 1
-                else:
-                    results['wrong'] += 1
-                    
-                logging.info(f"✅ Outcome: {ticker} {pred['action']} was {'CORRECT' if was_correct else 'WRONG'} ({price_change_pct:+.2f}%)")
-                
-            except Exception as e:
-                logging.error(f"Error checking outcome for {pred_id}: {e}")
-        
-        self._save_predictions()
-        return results
-
-
-class CandlePatternAnalyzer:
-    """Identifies candlestick patterns and their historical success rates"""
-    
-    def __init__(self, patterns_file='data/patterns.json'):
-        self.patterns_file = Path(patterns_file)
-        self.patterns_file.parent.mkdir(exist_ok=True)
-        self.pattern_history = self._load_patterns()
-    
-    def _load_patterns(self):
-        """Load pattern success history"""
-        if self.patterns_file.exists():
-            try:
-                with open(self.patterns_file, 'r') as f:
-                    return json.load(f)
-            except:
-                return {}
-        return {}
-    
-    def _save_patterns(self):
-        """Save pattern history"""
-        with open(self.patterns_file, 'w') as f:
-            json.dump(self.pattern_history, f, indent=2)
-    
-    def identify_pattern(self, ohlc_today, ohlc_yesterday=None):
-        """Identify today's candlestick pattern"""
-        o, h, l, c = ohlc_today['Open'], ohlc_today['High'], ohlc_today['Low'], ohlc_today['Close']
-        body = abs(c - o)
-        full_range = h - l if h != l else 0.01
-        body_ratio = body / full_range if full_range > 0 else 0
-        
-        # Basic pattern identification
-        patterns = []
-        
-        # Doji - tiny body
-        if body_ratio < 0.1:
-            patterns.append('doji')
-        
-        # Hammer - small body at top, long lower shadow
-        if (min(o, c) - l) > body * 2 and (h - max(o, c)) < body:
-            patterns.append('hammer')
-        
-        # Shooting Star - small body at bottom, long upper shadow
-        if (h - max(o, c)) > body * 2 and (min(o, c) - l) < body:
-            patterns.append('shooting_star')
-        
-        # Bullish/Bearish based on close vs open
-        if c > o:
-            patterns.append('bullish_candle')
-        elif c < o:
-            patterns.append('bearish_candle')
-        else:
-            patterns.append('neutral_candle')
-        
-        # Check for engulfing patterns if we have yesterday's data
-        if ohlc_yesterday:
-            yo, yc = ohlc_yesterday['Open'], ohlc_yesterday['Close']
-            if c > o and o < yc and c > yo:  # Bullish engulfing
-                patterns.append('bullish_engulfing')
-            elif c < o and o > yc and c < yo:  # Bearish engulfing
-                patterns.append('bearish_engulfing')
-        
-        return patterns
-    
-    def get_pattern_success_rate(self, pattern, ticker=None):
-        """Get historical success rate for a pattern"""
-        key = f"{ticker}_{pattern}" if ticker else pattern
-        if key in self.pattern_history:
-            stats = self.pattern_history[key]
-            total = stats.get('total', 0)
-            successful = stats.get('successful', 0)
-            if total > 0:
-                return (successful / total) * 100
-        return 50.0  # Default to 50% if no history
-    
-    def update_pattern_outcome(self, pattern, ticker, was_successful):
-        """Update pattern success history after checking outcome"""
-        key = f"{ticker}_{pattern}"
-        if key not in self.pattern_history:
-            self.pattern_history[key] = {'total': 0, 'successful': 0}
-        
-        self.pattern_history[key]['total'] += 1
-        if was_successful:
-            self.pattern_history[key]['successful'] += 1
-        
-        self._save_patterns()
-
-
-class LearningMemory:
-    """System memory that improves over time"""
-    
-    def __init__(self, memory_file='data/learning_memory.json'):
-        self.memory_file = Path(memory_file)
-        self.memory_file.parent.mkdir(exist_ok=True)
-        self.memory = self._load_memory()
-    
-    def _load_memory(self):
-        """Load system memory"""
-        if self.memory_file.exists():
-            try:
-                with open(self.memory_file, 'r') as f:
-                    return json.load(f)
-            except:
-                pass
-        
-        # Initialize with default structure
-        return {
-            'llm_accuracy': {
-                'groq': {'total': 0, 'correct': 0},
-                'gemini': {'total': 0, 'correct': 0}
-            },
-            'indicator_reliability': {
-                'rsi_oversold_buy': {'total': 0, 'successful': 0},
-                'rsi_overbought_sell': {'total': 0, 'successful': 0},
-                'macd_crossover': {'total': 0, 'successful': 0}
-            },
-            'market_conditions': {
-                'high_vix_predictions': {'total': 0, 'correct': 0},
-                'low_vix_predictions': {'total': 0, 'correct': 0}
-            },
-            'insights': []
-        }
-    
-    def _save_memory(self):
-        """Save memory to file"""
-        with open(self.memory_file, 'w') as f:
-            json.dump(self.memory, f, indent=2)
-    
-    def update_llm_accuracy(self, llm_name, was_correct):
-        """Track LLM prediction accuracy"""
-        if llm_name not in self.memory['llm_accuracy']:
-            self.memory['llm_accuracy'][llm_name] = {'total': 0, 'correct': 0}
-        
-        self.memory['llm_accuracy'][llm_name]['total'] += 1
-        if was_correct:
-            self.memory['llm_accuracy'][llm_name]['correct'] += 1
-        
-        self._save_memory()
-    
-    def get_llm_weights(self):
-        """Get reliability weights for each LLM based on past performance"""
-        weights = {}
-        for llm, stats in self.memory['llm_accuracy'].items():
-            if stats['total'] > 0:
-                accuracy = stats['correct'] / stats['total']
-                weights[llm] = max(0.1, accuracy)  # Minimum weight of 0.1
-            else:
-                weights[llm] = 0.5  # Default weight
-        
-        # Normalize weights
-        total = sum(weights.values())
-        if total > 0:
-            weights = {k: v/total for k, v in weights.items()}
-        
-        return weights
-    
-    def add_insight(self, insight):
-        """Store a learned insight"""
-        self.memory['insights'].append({
-            'timestamp': datetime.now().isoformat(),
-            'insight': insight
-        })
-        # Keep only last 100 insights
-        self.memory['insights'] = self.memory['insights'][-100:]
-        self._save_memory()
-    
-    def get_recent_insights(self, count=10):
-        """Get recent learned insights"""
-        return self.memory['insights'][-count:]
-
-# Initialize the learning system components
-prediction_tracker = PredictionTracker()
-candle_analyzer = CandlePatternAnalyzer()
-learning_memory = LearningMemory()
 
 
 # ========================================
@@ -2377,8 +2079,304 @@ def verify_intelligence_available():
 # ========================================
 
 # ========================================
-# 🆕 END EMAIL BOT SYSTEM
+# 🧠 INTELLIGENT LEARNING SYSTEM v3.0
+# 100% Free, GitHub Actions Compatible
 # ========================================
+
+import json
+import hashlib
+from datetime import datetime, timedelta
+from pathlib import Path
+
+class PredictionTracker:
+    """Tracks all predictions and learns from outcomes - JSON based for free storage"""
+    
+    def __init__(self, predictions_file='data/predictions.json'):
+        self.predictions_file = Path(predictions_file)
+        self.predictions_file.parent.mkdir(exist_ok=True)
+        self.predictions = self._load_predictions()
+        
+    def _load_predictions(self):
+        """Load existing predictions from JSON"""
+        if self.predictions_file.exists():
+            try:
+                with open(self.predictions_file, 'r') as f:
+                    return json.load(f)
+            except:
+                return {}
+        return {}
+    
+    def _save_predictions(self):
+        """Save predictions to JSON"""
+        with open(self.predictions_file, 'w') as f:
+            json.dump(self.predictions, f, indent=2, default=str)
+    
+    def store_prediction(self, ticker, action, confidence, reasoning, candle_pattern=None, indicators=None):
+        """Store a new prediction with all context"""
+        prediction_id = hashlib.md5(f"{ticker}{datetime.now().isoformat()}".encode()).hexdigest()[:8]
+        
+        prediction = {
+            'id': prediction_id,
+            'timestamp': datetime.now().isoformat(),
+            'ticker': ticker,
+            'action': action,  # BUY, SELL, HOLD
+            'confidence': confidence,  # 0-100
+            'reasoning': reasoning,
+            'candle_pattern': candle_pattern,
+            'indicators': indicators or {},
+            'price_at_prediction': None,  # Will be filled
+            'outcome': None,  # Will be updated later
+            'was_correct': None  # Will be calculated
+        }
+        
+        # Get current price
+        try:
+            import yfinance as yf
+            current_price = yf.Ticker(ticker).history(period='1d')['Close'].iloc[-1]
+            prediction['price_at_prediction'] = float(current_price)
+        except:
+            pass
+        
+        self.predictions[prediction_id] = prediction
+        self._save_predictions()
+        logging.info(f"📝 Stored prediction {prediction_id}: {ticker} - {action} (confidence: {confidence}%)")
+        return prediction_id
+    
+    def check_outcomes(self, days_to_check=1):
+        """Check outcomes of past predictions"""
+        results = {'checked': 0, 'correct': 0, 'wrong': 0}
+        cutoff_date = datetime.now() - timedelta(days=days_to_check)
+        
+        for pred_id, pred in self.predictions.items():
+            if pred['outcome'] is not None:  # Already checked
+                continue
+                
+            pred_date = datetime.fromisoformat(pred['timestamp'])
+            if pred_date > cutoff_date:  # Too recent
+                continue
+            
+            try:
+                ticker = pred['ticker']
+                stock = yf.Ticker(ticker)
+                
+                # Get price from prediction date to now
+                hist = stock.history(start=pred_date.date(), end=datetime.now().date())
+                if len(hist) < 2:
+                    continue
+                
+                current_price = hist['Close'].iloc[-1]
+                pred_price = pred['price_at_prediction']
+                
+                if not pred_price:
+                    continue
+                
+                price_change_pct = ((current_price - pred_price) / pred_price) * 100
+                
+                # Determine if prediction was correct
+                was_correct = False
+                if pred['action'] == 'BUY' and price_change_pct > 0.5:
+                    was_correct = True
+                elif pred['action'] == 'SELL' and price_change_pct < -0.5:
+                    was_correct = True
+                elif pred['action'] == 'HOLD' and abs(price_change_pct) < 2:
+                    was_correct = True
+                
+                # Update prediction
+                pred['outcome'] = {
+                    'checked_date': datetime.now().isoformat(),
+                    'price_change_pct': price_change_pct,
+                    'current_price': float(current_price)
+                }
+                pred['was_correct'] = was_correct
+                
+                results['checked'] += 1
+                if was_correct:
+                    results['correct'] += 1
+                else:
+                    results['wrong'] += 1
+                    
+                logging.info(f"✅ Outcome: {ticker} {pred['action']} was {'CORRECT' if was_correct else 'WRONG'} ({price_change_pct:+.2f}%)")
+                
+            except Exception as e:
+                logging.error(f"Error checking outcome for {pred_id}: {e}")
+        
+        self._save_predictions()
+        return results
+
+
+class CandlePatternAnalyzer:
+    """Identifies candlestick patterns and their historical success rates"""
+    
+    def __init__(self, patterns_file='data/patterns.json'):
+        self.patterns_file = Path(patterns_file)
+        self.patterns_file.parent.mkdir(exist_ok=True)
+        self.pattern_history = self._load_patterns()
+    
+    def _load_patterns(self):
+        """Load pattern success history"""
+        if self.patterns_file.exists():
+            try:
+                with open(self.patterns_file, 'r') as f:
+                    return json.load(f)
+            except:
+                return {}
+        return {}
+    
+    def _save_patterns(self):
+        """Save pattern history"""
+        with open(self.patterns_file, 'w') as f:
+            json.dump(self.pattern_history, f, indent=2)
+    
+    def identify_pattern(self, ohlc_today, ohlc_yesterday=None):
+        """Identify today's candlestick pattern"""
+        o, h, l, c = ohlc_today['Open'], ohlc_today['High'], ohlc_today['Low'], ohlc_today['Close']
+        body = abs(c - o)
+        full_range = h - l if h != l else 0.01
+        body_ratio = body / full_range if full_range > 0 else 0
+        
+        # Basic pattern identification
+        patterns = []
+        
+        # Doji - tiny body
+        if body_ratio < 0.1:
+            patterns.append('doji')
+        
+        # Hammer - small body at top, long lower shadow
+        if (min(o, c) - l) > body * 2 and (h - max(o, c)) < body:
+            patterns.append('hammer')
+        
+        # Shooting Star - small body at bottom, long upper shadow
+        if (h - max(o, c)) > body * 2 and (min(o, c) - l) < body:
+            patterns.append('shooting_star')
+        
+        # Bullish/Bearish based on close vs open
+        if c > o:
+            patterns.append('bullish_candle')
+        elif c < o:
+            patterns.append('bearish_candle')
+        else:
+            patterns.append('neutral_candle')
+        
+        # Check for engulfing patterns if we have yesterday's data
+        if ohlc_yesterday:
+            yo, yc = ohlc_yesterday['Open'], ohlc_yesterday['Close']
+            if c > o and o < yc and c > yo:  # Bullish engulfing
+                patterns.append('bullish_engulfing')
+            elif c < o and o > yc and c < yo:  # Bearish engulfing
+                patterns.append('bearish_engulfing')
+        
+        return patterns
+    
+    def get_pattern_success_rate(self, pattern, ticker=None):
+        """Get historical success rate for a pattern"""
+        key = f"{ticker}_{pattern}" if ticker else pattern
+        if key in self.pattern_history:
+            stats = self.pattern_history[key]
+            total = stats.get('total', 0)
+            successful = stats.get('successful', 0)
+            if total > 0:
+                return (successful / total) * 100
+        return 50.0  # Default to 50% if no history
+    
+    def update_pattern_outcome(self, pattern, ticker, was_successful):
+        """Update pattern success history after checking outcome"""
+        key = f"{ticker}_{pattern}"
+        if key not in self.pattern_history:
+            self.pattern_history[key] = {'total': 0, 'successful': 0}
+        
+        self.pattern_history[key]['total'] += 1
+        if was_successful:
+            self.pattern_history[key]['successful'] += 1
+        
+        self._save_patterns()
+
+
+class LearningMemory:
+    """System memory that improves over time"""
+    
+    def __init__(self, memory_file='data/learning_memory.json'):
+        self.memory_file = Path(memory_file)
+        self.memory_file.parent.mkdir(exist_ok=True)
+        self.memory = self._load_memory()
+    
+    def _load_memory(self):
+        """Load system memory"""
+        if self.memory_file.exists():
+            try:
+                with open(self.memory_file, 'r') as f:
+                    return json.load(f)
+            except:
+                pass
+        
+        # Initialize with default structure
+        return {
+            'llm_accuracy': {
+                'groq': {'total': 0, 'correct': 0},
+                'gemini': {'total': 0, 'correct': 0}
+            },
+            'indicator_reliability': {
+                'rsi_oversold_buy': {'total': 0, 'successful': 0},
+                'rsi_overbought_sell': {'total': 0, 'successful': 0},
+                'macd_crossover': {'total': 0, 'successful': 0}
+            },
+            'market_conditions': {
+                'high_vix_predictions': {'total': 0, 'correct': 0},
+                'low_vix_predictions': {'total': 0, 'correct': 0}
+            },
+            'insights': []
+        }
+    
+    def _save_memory(self):
+        """Save memory to file"""
+        with open(self.memory_file, 'w') as f:
+            json.dump(self.memory, f, indent=2)
+    
+    def update_llm_accuracy(self, llm_name, was_correct):
+        """Track LLM prediction accuracy"""
+        if llm_name not in self.memory['llm_accuracy']:
+            self.memory['llm_accuracy'][llm_name] = {'total': 0, 'correct': 0}
+        
+        self.memory['llm_accuracy'][llm_name]['total'] += 1
+        if was_correct:
+            self.memory['llm_accuracy'][llm_name]['correct'] += 1
+        
+        self._save_memory()
+    
+    def get_llm_weights(self):
+        """Get reliability weights for each LLM based on past performance"""
+        weights = {}
+        for llm, stats in self.memory['llm_accuracy'].items():
+            if stats['total'] > 0:
+                accuracy = stats['correct'] / stats['total']
+                weights[llm] = max(0.1, accuracy)  # Minimum weight of 0.1
+            else:
+                weights[llm] = 0.5  # Default weight
+        
+        # Normalize weights
+        total = sum(weights.values())
+        if total > 0:
+            weights = {k: v/total for k, v in weights.items()}
+        
+        return weights
+    
+    def add_insight(self, insight):
+        """Store a learned insight"""
+        self.memory['insights'].append({
+            'timestamp': datetime.now().isoformat(),
+            'insight': insight
+        })
+        # Keep only last 100 insights
+        self.memory['insights'] = self.memory['insights'][-100:]
+        self._save_memory()
+    
+    def get_recent_insights(self, count=10):
+        """Get recent learned insights"""
+        return self.memory['insights'][-count:]
+
+# Initialize the learning system components
+prediction_tracker = PredictionTracker()
+candle_analyzer = CandlePatternAnalyzer()
+learning_memory = LearningMemory()
 
 
 # ========================================
