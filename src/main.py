@@ -1815,7 +1815,7 @@ async def main(output="print"):
             "previous_top_stock_name": df_stocks.iloc[0]['name'],
             "previous_top_stock_ticker": df_stocks.iloc[0]['ticker'],
             "previous_macro_score": macro_data.get('overall_macro_score', 0),
-            "date": datetime.date.today().isoformat()
+            "date": datetime.datetime.now().date().isoformat()
         })
     
     logging.info("✅ Analysis complete with v2.0.0 features.")
@@ -2212,7 +2212,7 @@ def send_email(html_body):
         return
     
     msg = MIMEMultipart('alternative')
-    msg["Subject"] = f"⛵ Your Daily Market Briefing - {datetime.date.today()}"
+    msg["Subject"] = f"⛵ Your Daily Market Briefing - {datetime.datetime.now().date()}"
     msg["From"] = SMTP_USER
     msg["To"] = SMTP_USER
     msg.attach(MIMEText(html_body, 'html'))
@@ -2289,7 +2289,7 @@ class EmailBotDatabase:
         except Exception as e: logging.error(f"Conversation log failed: {e}")
 
     def update_stats(self, checked=0, answered=0, errors=0):
-        today = datetime.date.today().isoformat()
+        today = datetime.datetime.now().date().isoformat()
         try:
             self.conn.execute('INSERT INTO bot_stats (date, checked, answered, errors) VALUES (?, ?, ?, ?) ON CONFLICT(date) DO UPDATE SET checked=checked+excluded.checked, answered=answered+excluded.answered, errors=errors+excluded.errors',(today,checked,answered,errors))
             self.conn.commit()
