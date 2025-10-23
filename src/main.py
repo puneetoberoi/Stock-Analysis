@@ -2378,6 +2378,313 @@ prediction_tracker = PredictionTracker()
 candle_analyzer = CandlePatternAnalyzer()
 learning_memory = LearningMemory()
 
+# ========================================
+# 🔗 INTEGRATION LAYER - Connects to existing code
+# This READS from your existing functions without changing them
+# ========================================
+
+class IntelligentPredictionEngine:
+    """Makes predictions using your existing analyze_stock results + learning system"""
+    
+    def __init__(self):
+        self.prediction_tracker = prediction_tracker
+        self.candle_analyzer = candle_analyzer
+        self.learning_memory = learning_memory
+        self.llm_clients = {}
+        self._setup_llm_clients()
+    
+    def _setup_llm_clients(self):
+        """Setup free LLM clients"""
+        # Groq - Free tier
+        if os.getenv("GROQ_API_KEY"):
+            try:
+                from groq import Groq
+                self.llm_clients['groq'] = Groq(api_key=os.getenv("GROQ_API_KEY"))
+                logging.info("✅ Groq LLM initialized")
+            except Exception as e:
+                logging.warning(f"Groq setup failed: {e}")
+        
+        # Gemini - Already in your code, we'll reuse
+        if os.getenv("GEMINI_API_KEY"):
+            try:
+                import google.generativeai as genai
+                genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+                self.llm_clients['gemini'] = genai.GenerativeModel('gemini-1.5-flash')
+                logging.info("✅ Gemini LLM initialized")
+            except Exception as e:
+                logging.warning(f"Gemini setup failed: {e}")
+    
+    async def analyze_with_learning(self, ticker, existing_analysis, hist_data):
+        """
+        Takes your existing analyze_stock output and adds intelligence
+        WITHOUT modifying your original function
+        """
+        
+        # 1. Extract candle pattern from hist_data
+        candle_patterns = []
+        if hist_data is not None and len(hist_data) >= 2:
+            today_ohlc = hist_data.iloc[-1]
+            yesterday_ohlc = hist_data.iloc[-2]
+            candle_patterns = self.candle_analyzer.identify_pattern(today_ohlc, yesterday_ohlc)
+        
+        # 2. Get pattern success rates
+        pattern_insights = {}
+        for pattern in candle_patterns:
+            success_rate = self.candle_analyzer.get_pattern_success_rate(pattern, ticker)
+            pattern_insights[pattern] = success_rate
+        
+        # 3. Get LLM consensus prediction
+        prediction = await self._get_llm_consensus(
+            ticker=ticker,
+            existing_analysis=existing_analysis,
+            candle_patterns=candle_patterns,
+            pattern_insights=pattern_insights
+        )
+        
+        # 4. Store the prediction for later learning
+        if prediction:
+            pred_id = self.prediction_tracker.store_prediction(
+                ticker=ticker,
+                action=prediction['action'],
+                confidence=prediction['confidence'],
+                reasoning=prediction['reasoning'],
+                candle_pattern=candle_patterns[0] if candle_patterns else None,
+                indicators={
+                    'rsi': existing_analysis.get('rsi', 50),
+                    'score': existing_analysis.get('score', 50)
+                }
+            )
+            prediction['prediction_id'] = pred_id
+        
+        # 5. Return enhanced analysis (your original + new intelligence)
+        return {
+            **existing_analysis,  # All your original analysis preserved
+            'candle_patterns': candle_patterns,
+            'pattern_success_rates': pattern_insights,
+            'ai_prediction': prediction,
+            'learning_insights': self.learning_memory.get_recent_insights(3)
+        }
+    
+    async def _get_llm_consensus(self, ticker, existing_analysis, candle_patterns, pattern_insights):
+        """Get consensus from multiple LLMs"""
+        
+        # Build context from your existing analysis
+        context = f"""
+        Stock: {ticker}
+        Current Score: {existing_analysis.get('score', 'N/A')}
+        Sector: {existing_analysis.get('sector', 'N/A')}
+        
+        Today's Candle Patterns: {', '.join(candle_patterns) if candle_patterns else 'None identified'}
+        Pattern Success Rates: {json.dumps(pattern_insights, indent=2)}
+        
+        Based on this data, should we BUY, HOLD, or SELL {ticker}?
+        Provide reasoning and confidence (0-100).
+        """
+        
+        predictions = {}
+        
+        # Get predictions from each available LLM
+        if 'groq' in self.llm_clients:
+            try:
+                response = self.llm_clients['groq'].chat.completions.create(
+                    model="llama3-70b-8192",
+                    messages=[{"role": "user", "content": context}],
+                    temperature=0.3,
+                    max_tokens=200
+                )
+                predictions['groq'] = self._parse_llm_response(response.choices[0].message.content)
+            except Exception as e:
+                logging.warning(f"Groq prediction failed: {e}")
+        
+        if 'gemini' in self.llm_clients:
+            try:
+                response = self.llm_clients['gemini'].generate_content(context)
+                predictions['gemini'] = self._parse_llm_response(response.text)
+            except Exception as e:
+                logging.warning(f"Gemini prediction failed: {e}")
+        
+        # Calculate weighted consensus
+        if predictions:
+            weights = self.learning_memory.get_llm_weights()
+            return self._calculate_weighted_consensus(predictions, weights)
+        
+        # Fallback to rule-based if no LLM available
+        return self._rule_based_prediction(existing_analysis, candle_patterns, pattern_insights)
+    
+    def _parse_llm_response(self, response_text):
+        """Parse LLM response to extract action and confidence"""
+        action = "HOLD"  # Default
+        confidence = 50  # Default
+        
+        response_lower = response_text.lower()
+        
+        # Extract action
+        if 'buy' in response_lower and 'sell' not in response_lower:
+            action = "BUY"
+        elif 'sell' in response_lower:
+            action = "SELL"
+        
+        # Extract confidence (look for percentage)
+        import re
+        confidence_match = re.search(r'(\d+)%|confidence[:\s]+(\d+)', response_lower)
+        if confidence_match:
+            confidence = int(confidence_match.group(1) or confidence_match.group(2))
+        
+        return {
+            'action': action,
+            'confidence': min(100, max(0, confidence)),
+            'reasoning': response_text[:500]
+        }
+    
+    def _calculate_weighted_consensus(self, predictions, weights):
+        """Calculate weighted consensus from multiple LLM predictions"""
+        actions = {"BUY": 0, "HOLD": 0, "SELL": 0}
+        total_confidence = 0
+        reasonings = []
+        
+        for llm_name, pred in predictions.items():
+            weight = weights.get(llm_name, 0.5)
+            actions[pred['action']] += weight
+            total_confidence += pred['confidence'] * weight
+            reasonings.append(f"{llm_name}: {pred['reasoning'][:200]}")
+        
+        # Get action with highest weight
+        final_action = max(actions.items(), key=lambda x: x[1])[0]
+        
+        # Weighted confidence
+        final_confidence = int(total_confidence / len(predictions)) if predictions else 50
+        
+        return {
+            'action': final_action,
+            'confidence': final_confidence,
+            'reasoning': " | ".join(reasonings),
+            'llm_count': len(predictions)
+        }
+    
+    def _rule_based_prediction(self, analysis, patterns, pattern_insights):
+        """Fallback rule-based prediction when LLMs unavailable"""
+        score = analysis.get('score', 50)
+        action = "HOLD"
+        confidence = 50
+        reasoning = []
+        
+        # Simple rules based on your existing scoring
+        if score > 70:
+            action = "BUY"
+            confidence = min(90, score)
+            reasoning.append(f"High score ({score})")
+        elif score < 40:
+            action = "SELL"
+            confidence = min(90, 100 - score)
+            reasoning.append(f"Low score ({score})")
+        
+        # Adjust based on candle patterns
+        if patterns:
+            avg_success = sum(pattern_insights.values()) / len(pattern_insights)
+            if avg_success > 60:
+                if action == "HOLD":
+                    action = "BUY"
+                confidence = min(100, confidence + 10)
+                reasoning.append(f"Bullish pattern success rate: {avg_success:.1f}%")
+            elif avg_success < 40:
+                if action == "HOLD":
+                    action = "SELL"
+                confidence = min(100, confidence + 10)
+                reasoning.append(f"Bearish pattern success rate: {avg_success:.1f}%")
+        
+        return {
+            'action': action,
+            'confidence': confidence,
+            'reasoning': " | ".join(reasoning) if reasoning else "Rule-based analysis",
+            'llm_count': 0
+        }
+
+
+# ========================================
+# 🎯 ENHANCED PORTFOLIO ANALYZER
+# Wraps your existing portfolio analysis with predictions
+# ========================================
+
+async def analyze_portfolio_with_predictions(session, portfolio_file='portfolio.json'):
+    """
+    This WRAPS your existing analyze_portfolio_watchlist function
+    Adds predictions WITHOUT changing the original
+    """
+    
+    # 1. Call YOUR EXISTING portfolio analysis
+    original_portfolio_data = await analyze_portfolio_watchlist(session, portfolio_file)
+    
+    if not original_portfolio_data:
+        return original_portfolio_data
+    
+    # 2. Initialize our prediction engine
+    prediction_engine = IntelligentPredictionEngine()
+    
+    # 3. Add predictions to each stock WITHOUT modifying original
+    enhanced_stocks = []
+    for stock in original_portfolio_data['stocks']:
+        try:
+            # Get historical data for candle analysis
+            ticker = stock['ticker']
+            yf_ticker = yf.Ticker(ticker)
+            hist = await asyncio.to_thread(yf_ticker.history, period="1mo", interval="1d")
+            
+            # Get enhanced analysis with predictions
+            enhanced = await prediction_engine.analyze_with_learning(
+                ticker=ticker,
+                existing_analysis=stock,
+                hist_data=hist
+            )
+            enhanced_stocks.append(enhanced)
+            
+        except Exception as e:
+            logging.warning(f"Enhancement failed for {ticker}: {e}")
+            enhanced_stocks.append(stock)  # Keep original if enhancement fails
+    
+    # 4. Return enhanced portfolio data
+    return {
+        **original_portfolio_data,  # All original data preserved
+        'stocks': enhanced_stocks,   # Stocks now have predictions
+        'predictions_made': len([s for s in enhanced_stocks if 'ai_prediction' in s]),
+        'learning_active': True
+    }
+
+
+# ========================================
+# 🔄 OUTCOME CHECKER - Runs in evening
+# ========================================
+
+async def check_prediction_outcomes():
+    """
+    This runs in the evening to check how our predictions did
+    Standalone function - doesn't modify existing code
+    """
+    logging.info("🔍 Checking prediction outcomes...")
+    
+    # Check outcomes from yesterday
+    results = prediction_tracker.check_outcomes(days_to_check=1)
+    
+    # Update pattern success rates based on outcomes
+    for pred_id, pred in prediction_tracker.predictions.items():
+        if pred.get('was_correct') is not None and pred.get('candle_pattern'):
+            candle_analyzer.update_pattern_outcome(
+                pattern=pred['candle_pattern'],
+                ticker=pred['ticker'],
+                was_successful=pred['was_correct']
+            )
+    
+    # Generate learning insights
+    if results['checked'] > 0:
+        accuracy = (results['correct'] / results['checked']) * 100
+        insight = f"Today's accuracy: {accuracy:.1f}% ({results['correct']}/{results['checked']} correct)"
+        learning_memory.add_insight(insight)
+        
+        # Update LLM accuracy if we tracked which LLM made predictions
+        # This will be implemented in next iteration
+    
+    logging.info(f"✅ Checked {results['checked']} predictions: {results['correct']} correct, {results['wrong']} wrong")
+    
+    return results
 
 # ========================================
 # PROGRAM ENTRY POINT
