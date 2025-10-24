@@ -710,8 +710,9 @@ def generate_fallback_analysis(market_data, portfolio_data, pattern_data):
         'generated_at': datetime.now().isoformat()
     }
 
+# ✅ COMPLETE FIXED FUNCTION
 async def generate_ai_oracle_analysis(market_data, portfolio_data, pattern_data):
-    """AI-powered market analysis using Gemini"""
+    """AI-powered market analysis using Gemini with model fallback"""
     logging.info("🤖 Generating AI Oracle analysis...")
     
     if not GEMINI_API_KEY:
@@ -721,19 +722,36 @@ async def generate_ai_oracle_analysis(market_data, portfolio_data, pattern_data)
     try:
         genai.configure(api_key=GEMINI_API_KEY)
         
+        # Try multiple stable models
+        models_to_try = ['gemini-1.5-flash', 'gemini-pro']
         model = None
         
-        # Try the current working model
-        try:
-            model = genai.GenerativeModel('gemini-1.5-flash-latest')  # FIXED: Updated model name
-            logging.info(f"✅ Successfully loaded Gemini model: gemini-1.5-flash-latest")
-        except Exception as e:
-            logging.warning(f"Failed to load Gemini: {str(e)[:100]}")
-            return generate_fallback_analysis(market_data, portfolio_data, pattern_data)
+        for model_name in models_to_try:
+            try:
+                model = genai.GenerativeModel(model_name)
+                logging.info(f"✅ Successfully loaded Gemini model for Oracle: {model_name}")
+                break
+            except Exception as e:
+                logging.warning(f"Failed to load Gemini model {model_name}: {e}")
         
         if not model:
-            logging.error("❌ Gemini model failed to load")
+            logging.error("❌ Oracle: All Gemini models failed to load. Using fallback.")
             return generate_fallback_analysis(market_data, portfolio_data, pattern_data)
+        
+        # ... rest of the prompt and generate_content call ...
+        prompt = f"..." # Your existing prompt
+        response = await asyncio.to_thread(
+            model.generate_content,
+            prompt,
+            # ... your existing generation_config
+        )
+        
+        logging.info("✅ Gemini AI Oracle analysis generated successfully")
+        return {'analysis': response.text, 'generated_at': datetime.now().isoformat()}
+        
+    except Exception as e:
+        logging.error(f"Gemini API Oracle error: {e}")
+        return generate_fallback_analysis(market_data, portfolio_data, pattern_data)
         
         prompt = f"""You are an elite hedge fund analyst. Analyze this market data and provide sharp, actionable intelligence.
 
@@ -1967,20 +1985,20 @@ class ConfidenceScorer:
         }
 
 
+# ✅ COMPLETE FIXED CLASS
 class IntelligentPredictionEngine:
     """Multi-LLM consensus with confidence scoring"""
     
     def __init__(self):
-        def __init__(self):
-            self.prediction_tracker = prediction_tracker
-            self.candle_analyzer = candle_analyzer
-            self.learning_memory = learning_memory
-            self.confidence_scorer = ConfidenceScorer()
-            self.llm_clients = {}
-            self._setup_llm_clients()
-        
-        def _setup_llm_clients(self):
-            """Setup all available LLM clients with explicit logging"""
+        self.prediction_tracker = prediction_tracker
+        self.candle_analyzer = candle_analyzer
+        self.learning_memory = learning_memory
+        self.confidence_scorer = ConfidenceScorer()
+        self.llm_clients = {}  # This line MUST come before the next one
+        self._setup_llm_clients()
+    
+    def _setup_llm_clients(self):
+        """Setup all available LLM clients with explicit logging"""
         
         # 1. Groq
         if os.getenv("GROQ_API_KEY"):
@@ -1998,7 +2016,8 @@ class IntelligentPredictionEngine:
             try:
                 import google.generativeai as genai
                 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-                self.llm_clients['gemini'] = genai.GenerativeModel('gemini-1.5-flash-latest')
+                # Use a stable model name
+                self.llm_clients['gemini'] = genai.GenerativeModel('gemini-1.5-flash') 
                 logging.info("✅ SUCCESS: Gemini LLM client initialized.")
             except Exception as e:
                 logging.error(f"❌ FAILED: Gemini initialization error: {e}")
@@ -2020,6 +2039,7 @@ class IntelligentPredictionEngine:
             logging.error("❌ CRITICAL: No LLM clients available. System is operating in rule-based mode only.")
         else:
             logging.info(f"✅ LLM clients loaded: {list(self.llm_clients.keys())}")
+    
     
     async def analyze_with_learning(self, ticker, existing_analysis, hist_data, market_context=None):
         """
