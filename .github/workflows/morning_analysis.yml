@@ -33,12 +33,17 @@ jobs:
     
     - name: Run market analysis with predictions
       env:
+        # ✅ ALL THREE LLM KEYS MUST BE HERE
         GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
         GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        COHERE_API_KEY: ${{ secrets.COHERE_API_KEY }}
+        
+        # Your other existing keys
         FINNHUB_KEY: ${{ secrets.FINNHUB_KEY }}
         NEWSAPI_KEY: ${{ secrets.NEWSAPI_KEY }}
         SMTP_USER: ${{ secrets.SMTP_USER }}
         SMTP_PASS: ${{ secrets.SMTP_PASS }}
+        
         ENABLE_V2_FEATURES: true
       run: |
         python src/main.py --output email
