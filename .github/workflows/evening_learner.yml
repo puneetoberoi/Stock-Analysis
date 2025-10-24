@@ -15,11 +15,15 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.10'
+        python-version: '3.11'
     
     - name: Install dependencies
       run: |
-        pip install -r requirements.txt
+        python -m pip install --upgrade pip
+        pip install ta yfinance requests numpy aiohttp beautifulsoup4 lxml matplotlib seaborn pytrends requests-html nest_asyncio spacy textblob transformers wikipedia-api markdown
+        pip install vaderSentiment ta asyncio-throttle
+        pip install google-generativeai  # For Gemini AI
+        pip install duckduckgo-search
     
     - name: Check prediction outcomes
       run: |
