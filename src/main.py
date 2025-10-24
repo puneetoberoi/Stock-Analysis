@@ -2682,8 +2682,8 @@ if portfolio_data and portfolio_data.get('learning_active'):
     commodities_html = create_context_table(["gold", "silver"])
     market_news_html = "".join([f'<div style="margin-bottom:15px;"><b><a href="{article.get("url", "#")}" style="color:#000;">{article["title"]}</a></b><br><span style="color:#666;font-size:0.9em;">{article.get("source", "Unknown")}</span></div>' for article in market_news[:10]]) or "<p><i>Headlines temporarily unavailable.</i></p>"
     
-        # Assemble final email
-        return f"""<!DOCTYPE html><html><head><style>
+        # This return statement is correctly indented within the function
+    return f"""<!DOCTYPE html><html><head><style>
     body{{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0;padding:0;background-color:#f7f7f7;}}
     .container{{width:100%;max-width:700px;margin:20px auto;background-color:#fff;border:1px solid #ddd;}}
     .header{{background-color:#0c0a09;color:#fff;padding:30px;text-align:center;}}
@@ -2710,14 +2710,14 @@ if portfolio_data and portfolio_data.get('learning_active'):
         
         <div class="section">
             <h2>THE BIG PICTURE: The Market Weather Report</h2>
-            <h3>Overall Macro Score: {macro_data['overall_macro_score']:.1f} / 30</h3>
+            <h3>Overall Macro Score: {macro_data.get('overall_macro_score', 0):.1f} / 30</h3>
             <p><b>How it's calculated:</b> This is our "weather forecast" for investors, combining risks and sentiment.</p>
-            <p><b>🌍 Geopolitical Risk ({macro_data['geopolitical_risk']:.0f}/100):</b> Measures global instability.<br>
-            <u>Key Drivers:</u> {format_articles(macro_data['geo_articles'])}</p>
-            <p><b>🚢 Trade Risk ({macro_data['trade_risk']:.0f}/100):</b> Tracks trade tensions.<br>
-            <u>Key Drivers:</u> {format_articles(macro_data['trade_articles'])}</p>
-            <p><b>💼 Economic Sentiment ({macro_data['economic_sentiment']:.2f}):</b> Market mood (-1 to +1).<br>
-            <u>Key Drivers:</u> {format_articles(macro_data['econ_articles'])}</p>
+            <p><b>🌍 Geopolitical Risk ({macro_data.get('geopolitical_risk', 0):.0f}/100):</b> Measures global instability.<br>
+            <u>Key Drivers:</u> {format_articles(macro_data.get('geo_articles', []))}</p>
+            <p><b>🚢 Trade Risk ({macro_data.get('trade_risk', 0):.0f}/100):</b> Tracks trade tensions.<br>
+            <u>Key Drivers:</u> {format_articles(macro_data.get('trade_articles', []))}</p>
+            <p><b>💼 Economic Sentiment ({macro_data.get('economic_sentiment', 0):.2f}):</b> Market mood (-1 to +1).<br>
+            <u>Key Drivers:</u> {format_articles(macro_data.get('econ_articles', []))}</p>
         </div>
         
         <div class="section">
