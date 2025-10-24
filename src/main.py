@@ -1979,7 +1979,7 @@ class IntelligentPredictionEngine:
         self._setup_llm_clients()
     
         def _setup_llm_clients(self):
-        """Setup all available LLM clients with explicit logging"""
+            """Setup all available LLM clients with explicit logging"""
         
         # 1. Groq
         if os.getenv("GROQ_API_KEY"):
