@@ -1978,39 +1978,47 @@ class IntelligentPredictionEngine:
         self.llm_clients = {}
         self._setup_llm_clients()
     
-    def _setup_llm_clients(self):
-        """Setup all available LLM clients"""
+        def _setup_llm_clients(self):
+        """Setup all available LLM clients with explicit logging"""
         
-        # 1. Groq (Fast, Free - Llama 3.1)
+        # 1. Groq
         if os.getenv("GROQ_API_KEY"):
             try:
                 from groq import Groq
                 self.llm_clients['groq'] = Groq(api_key=os.getenv("GROQ_API_KEY"))
-                logging.info("✅ Groq LLM initialized (Llama 3.1 70B)")
+                logging.info("✅ SUCCESS: Groq LLM client initialized.")
             except Exception as e:
-                logging.warning(f"Groq setup failed: {e}")
+                logging.error(f"❌ FAILED: Groq initialization error: {e}")
+        else:
+            logging.warning("⚠️ SKIPPED: GROQ_API_KEY not found in secrets.")
         
-        # 2. Gemini (Smart, Free - Google)
+        # 2. Gemini
         if os.getenv("GEMINI_API_KEY"):
             try:
                 import google.generativeai as genai
                 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
                 self.llm_clients['gemini'] = genai.GenerativeModel('gemini-1.5-flash-latest')
-                logging.info("✅ Gemini LLM initialized (1.5 Flash)")
+                logging.info("✅ SUCCESS: Gemini LLM client initialized.")
             except Exception as e:
-                logging.warning(f"Gemini setup failed: {e}")
+                logging.error(f"❌ FAILED: Gemini initialization error: {e}")
+        else:
+            logging.warning("⚠️ SKIPPED: GEMINI_API_KEY not found in secrets.")
         
-        # 3. Cohere (Optional - Command R)
+        # 3. Cohere
         if os.getenv("COHERE_API_KEY"):
             try:
                 import cohere
                 self.llm_clients['cohere'] = cohere.Client(os.getenv("COHERE_API_KEY"))
-                logging.info("✅ Cohere LLM initialized (Command R)")
+                logging.info("✅ SUCCESS: Cohere LLM client initialized.")
             except Exception as e:
-                logging.warning(f"Cohere setup failed: {e}")
+                logging.error(f"❌ FAILED: Cohere initialization error: {e}")
+        else:
+            logging.warning("⚠️ SKIPPED: COHERE_API_KEY not found in secrets.")
         
         if not self.llm_clients:
-            logging.warning("⚠️ No LLM clients available - will use rule-based predictions")
+            logging.error("❌ CRITICAL: No LLM clients available. System is operating in rule-based mode only.")
+        else:
+            logging.info(f"✅ LLM clients loaded: {list(self.llm_clients.keys())}")
     
     async def analyze_with_learning(self, ticker, existing_analysis, hist_data, market_context=None):
         """
@@ -2094,6 +2102,8 @@ class IntelligentPredictionEngine:
     
     async def _get_multi_llm_consensus(self, ticker, existing_analysis, candle_patterns, pattern_success_rates, market_context):
         """Get predictions from all available LLMs"""
+        # ✅ ADD THIS LOGGING
+        logging.info(f"🔍[{ticker}] Getting LLM consensus. Available models: {list(self.llm_clients.keys())}")
         
         # Build comprehensive prompt
         pattern_text = ""
@@ -2137,12 +2147,18 @@ REASON: Strong hammer pattern with 73% success rate and oversold RSI.
         tasks = []
         
         if 'groq' in self.llm_clients:
+            # ✅ ADD THIS LOGGING
+            logging.info(f"🔍[{ticker}] Adding Groq query to tasks...")
             tasks.append(self._query_groq(context, ticker))
         
         if 'gemini' in self.llm_clients:
+            # ✅ ADD THIS LOGGING
+            logging.info(f"🔍[{ticker}] Adding Gemini query to tasks...")
             tasks.append(self._query_gemini(context, ticker))
         
         if 'cohere' in self.llm_clients:
+            # ✅ ADD THIS LOGGING
+            logging.info(f"🔍[{ticker}] Adding Cohere query to tasks...")
             tasks.append(self._query_cohere(context, ticker))
         
         # Run all LLM queries concurrently
@@ -2160,6 +2176,9 @@ REASON: Strong hammer pattern with 73% success rate and oversold RSI.
             for llm_name, result in zip(llm_names, results):
                 if not isinstance(result, Exception) and result:
                     predictions[llm_name] = result
+
+            # ✅ ADD THIS LOGGING AT THE END
+            logging.info(f"🔍[{ticker}] Received {len(predictions)} LLM predictions.")
         
         return predictions
     
