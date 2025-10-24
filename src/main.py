@@ -1852,10 +1852,10 @@ async def main(output="print"):
     
     if not df_stocks.empty:
         save_memory({
-            "previous_top_stock_name": df_stocks.iloc[0]['name'],
-            "previous_top_stock_ticker": df_stocks.iloc[0]['ticker'],
-            "previous_macro_score": macro_data.get('overall_macro_score', 0),
-            "date": str(date.today().date())  # <-- Simple string conversion
+            "previous_top_stock_name": str(df_stocks.iloc[0]['name']),
+            "previous_top_stock_ticker": str(df_stocks.iloc[0]['ticker']),
+            "previous_macro_score": float(macro_data.get('overall_macro_score', 0)),
+            "date": datetime.datetime.now().strftime('%Y-%m-%d')  # <-- SIMPLE STRING, NO ISSUES
         })
     
     logging.info("✅ Analysis complete with v2.0.0 features.")
