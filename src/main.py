@@ -458,8 +458,15 @@ async def analyze_portfolio_watchlist(session, portfolio_file='portfolio.json'):
 
 def get_historical_context(date):
     """Provide historical context for a given date"""
-    year = date.year
-    month = date.month
+    from datetime import datetime as dt
+    
+    # Handle both datetime and Timestamp objects
+    if hasattr(date, 'year'):
+        year = date.year
+        month = date.month
+    else:
+        year = dt.now().year
+        month = dt.now().month
     
     if year == 2020 and 3 <= month <= 4: return "COVID-19 Crash & Recovery"
     elif year == 2020 and 6 <= month <= 12: return "Post-COVID Rally"
@@ -718,8 +725,8 @@ async def generate_ai_oracle_analysis(market_data, portfolio_data, pattern_data)
         
         # Try the current working model
         try:
-            model = genai.GenerativeModel('gemini-1.5-flash')  # FIXED: Updated model name
-            logging.info(f"✅ Successfully loaded Gemini model: gemini-1.5-flash")
+            model = genai.GenerativeModel('gemini-1.5-flash-latest')  # FIXED: Updated model name
+            logging.info(f"✅ Successfully loaded Gemini model: gemini-1.5-flash-latest")
         except Exception as e:
             logging.warning(f"Failed to load Gemini: {str(e)[:100]}")
             return generate_fallback_analysis(market_data, portfolio_data, pattern_data)
@@ -1304,7 +1311,7 @@ class PredictionTracker:
 
 
 class CandlePatternAnalyzer:
-    """Identifies candlestick patterns and their historical success rates"""
+    """Identifies 20+ candlestick patterns with historical success tracking"""
     
     def __init__(self, patterns_file='data/patterns.json'):
         self.patterns_file = Path(patterns_file)
@@ -1326,66 +1333,381 @@ class CandlePatternAnalyzer:
         with open(self.patterns_file, 'w') as f:
             json.dump(self.pattern_history, f, indent=2)
     
-    def identify_pattern(self, ohlc_today, ohlc_yesterday=None):
-        """Identify today's candlestick pattern"""
-        o, h, l, c = ohlc_today['Open'], ohlc_today['High'], ohlc_today['Low'], ohlc_today['Close']
-        body = abs(c - o)
-        full_range = h - l if h != l else 0.01
-        body_ratio = body / full_range if full_range > 0 else 0
+    def identify_pattern(self, hist_data, min_length=3):
+        """
+        Identify candlestick patterns from historical data
+        hist_data: DataFrame with OHLC columns
+        Returns: List of identified patterns with metadata
+        """
+        if len(hist_data) < min_length:
+            return []
         
-        # Basic pattern identification
         patterns = []
         
-        # Doji - tiny body
-        if body_ratio < 0.1:
-            patterns.append('doji')
+        # Get last 3 candles for pattern detection
+        candles = []
+        for i in range(min(3, len(hist_data))):
+            idx = -(i+1)
+            candles.append({
+                'open': float(hist_data['Open'].iloc[idx]),
+                'high': float(hist_data['High'].iloc[idx]),
+                'low': float(hist_data['Low'].iloc[idx]),
+                'close': float(hist_data['Close'].iloc[idx]),
+            })
         
-        # Hammer - small body at top, long lower shadow
-        if (min(o, c) - l) > body * 2 and (h - max(o, c)) < body:
-            patterns.append('hammer')
+        if len(candles) < 1:
+            return []
         
-        # Shooting Star - small body at bottom, long upper shadow
-        if (h - max(o, c)) > body * 2 and (min(o, c) - l) < body:
-            patterns.append('shooting_star')
+        # Current candle (today)
+        c0 = candles[0]
+        body0 = abs(c0['close'] - c0['open'])
+        range0 = c0['high'] - c0['low'] if c0['high'] != c0['low'] else 0.01
+        body_ratio0 = body0 / range0 if range0 > 0 else 0
         
-        # Bullish/Bearish based on close vs open
-        if c > o:
-            patterns.append('bullish_candle')
-        elif c < o:
-            patterns.append('bearish_candle')
-        else:
-            patterns.append('neutral_candle')
+        # Previous candle (if exists)
+        c1 = candles[1] if len(candles) > 1 else None
         
-        # Check for engulfing patterns if we have yesterday's data
-        if ohlc_yesterday:
-            yo, yc = ohlc_yesterday['Open'], ohlc_yesterday['Close']
-            if c > o and o < yc and c > yo:  # Bullish engulfing
-                patterns.append('bullish_engulfing')
-            elif c < o and o > yc and c < yo:  # Bearish engulfing
-                patterns.append('bearish_engulfing')
+        # 2 candles ago (if exists)
+        c2 = candles[2] if len(candles) > 2 else None
         
-        return patterns
+        # ===== REVERSAL PATTERNS (BULLISH) =====
+        
+        # 1. Hammer (bullish reversal)
+        if (min(c0['open'], c0['close']) - c0['low']) > body0 * 2:
+            if (c0['high'] - max(c0['open'], c0['close'])) < body0:
+                patterns.append({
+                    'name': 'hammer',
+                    'type': 'bullish_reversal',
+                    'strength': 'strong',
+                    'description': 'Hammer - potential bottom reversal'
+                })
+        
+        # 2. Inverted Hammer (bullish reversal)
+        if (c0['high'] - max(c0['open'], c0['close'])) > body0 * 2:
+            if (min(c0['open'], c0['close']) - c0['low']) < body0:
+                patterns.append({
+                    'name': 'inverted_hammer',
+                    'type': 'bullish_reversal',
+                    'strength': 'medium',
+                    'description': 'Inverted Hammer - potential reversal'
+                })
+        
+        # 3. Bullish Engulfing (requires 2 candles)
+        if c1:
+            if c1['close'] < c1['open']:  # Previous was bearish
+                if c0['close'] > c0['open']:  # Current is bullish
+                    if c0['open'] < c1['close'] and c0['close'] > c1['open']:
+                        patterns.append({
+                            'name': 'bullish_engulfing',
+                            'type': 'bullish_reversal',
+                            'strength': 'strong',
+                            'description': 'Bullish Engulfing - strong reversal signal'
+                        })
+        
+        # 4. Piercing Line (requires 2 candles)
+        if c1:
+            if c1['close'] < c1['open']:  # Previous was bearish
+                if c0['close'] > c0['open']:  # Current is bullish
+                    mid_c1 = (c1['open'] + c1['close']) / 2
+                    if c0['open'] < c1['close'] and c0['close'] > mid_c1:
+                        patterns.append({
+                            'name': 'piercing_line',
+                            'type': 'bullish_reversal',
+                            'strength': 'medium',
+                            'description': 'Piercing Line - bullish reversal'
+                        })
+        
+        # 5. Morning Star (requires 3 candles)
+        if c1 and c2:
+            if c2['close'] < c2['open']:  # Day 1: bearish
+                body1 = abs(c1['close'] - c1['open'])
+                if body1 < body0 * 0.3:  # Day 2: small body (star)
+                    if c0['close'] > c0['open']:  # Day 3: bullish
+                        if c0['close'] > (c2['open'] + c2['close']) / 2:
+                            patterns.append({
+                                'name': 'morning_star',
+                                'type': 'bullish_reversal',
+                                'strength': 'very_strong',
+                                'description': 'Morning Star - major reversal signal'
+                            })
+        
+        # 6. Three White Soldiers (requires 3 candles)
+        if c1 and c2:
+            if (c0['close'] > c0['open'] and 
+                c1['close'] > c1['open'] and 
+                c2['close'] > c2['open']):
+                if c0['close'] > c1['close'] > c2['close']:
+                    patterns.append({
+                        'name': 'three_white_soldiers',
+                        'type': 'bullish_continuation',
+                        'strength': 'strong',
+                        'description': 'Three White Soldiers - strong uptrend'
+                    })
+        
+        # ===== REVERSAL PATTERNS (BEARISH) =====
+        
+        # 7. Hanging Man (bearish reversal)
+        if c0['close'] > c0['open']:  # Bullish candle
+            if (min(c0['open'], c0['close']) - c0['low']) > body0 * 2:
+                if (c0['high'] - max(c0['open'], c0['close'])) < body0:
+                    # Check if in uptrend (price higher than 5 days ago)
+                    if len(hist_data) >= 6:
+                        if c0['close'] > hist_data['Close'].iloc[-6]:
+                            patterns.append({
+                                'name': 'hanging_man',
+                                'type': 'bearish_reversal',
+                                'strength': 'medium',
+                                'description': 'Hanging Man - potential top reversal'
+                            })
+        
+        # 8. Shooting Star (bearish reversal)
+        if (c0['high'] - max(c0['open'], c0['close'])) > body0 * 2:
+            if (min(c0['open'], c0['close']) - c0['low']) < body0:
+                # Works best after uptrend
+                if len(hist_data) >= 6:
+                    if c0['close'] > hist_data['Close'].iloc[-6]:
+                        patterns.append({
+                            'name': 'shooting_star',
+                            'type': 'bearish_reversal',
+                            'strength': 'strong',
+                            'description': 'Shooting Star - reversal warning'
+                        })
+        
+        # 9. Bearish Engulfing (requires 2 candles)
+        if c1:
+            if c1['close'] > c1['open']:  # Previous was bullish
+                if c0['close'] < c0['open']:  # Current is bearish
+                    if c0['open'] > c1['close'] and c0['close'] < c1['open']:
+                        patterns.append({
+                            'name': 'bearish_engulfing',
+                            'type': 'bearish_reversal',
+                            'strength': 'strong',
+                            'description': 'Bearish Engulfing - strong reversal signal'
+                        })
+        
+        # 10. Dark Cloud Cover (requires 2 candles)
+        if c1:
+            if c1['close'] > c1['open']:  # Previous was bullish
+                if c0['close'] < c0['open']:  # Current is bearish
+                    mid_c1 = (c1['open'] + c1['close']) / 2
+                    if c0['open'] > c1['high'] and c0['close'] < mid_c1:
+                        patterns.append({
+                            'name': 'dark_cloud_cover',
+                            'type': 'bearish_reversal',
+                            'strength': 'medium',
+                            'description': 'Dark Cloud Cover - bearish reversal'
+                        })
+        
+        # 11. Evening Star (requires 3 candles)
+        if c1 and c2:
+            if c2['close'] > c2['open']:  # Day 1: bullish
+                body1 = abs(c1['close'] - c1['open'])
+                if body1 < body0 * 0.3:  # Day 2: small body (star)
+                    if c0['close'] < c0['open']:  # Day 3: bearish
+                        if c0['close'] < (c2['open'] + c2['close']) / 2:
+                            patterns.append({
+                                'name': 'evening_star',
+                                'type': 'bearish_reversal',
+                                'strength': 'very_strong',
+                                'description': 'Evening Star - major reversal signal'
+                            })
+        
+        # 12. Three Black Crows (requires 3 candles)
+        if c1 and c2:
+            if (c0['close'] < c0['open'] and 
+                c1['close'] < c1['open'] and 
+                c2['close'] < c2['open']):
+                if c0['close'] < c1['close'] < c2['close']:
+                    patterns.append({
+                        'name': 'three_black_crows',
+                        'type': 'bearish_continuation',
+                        'strength': 'strong',
+                        'description': 'Three Black Crows - strong downtrend'
+                    })
+        
+        # ===== CONTINUATION & INDECISION PATTERNS =====
+        
+        # 13. Doji (indecision)
+        if body_ratio0 < 0.1:
+            patterns.append({
+                'name': 'doji',
+                'type': 'indecision',
+                'strength': 'weak',
+                'description': 'Doji - market indecision'
+            })
+        
+        # 14. Spinning Top (indecision)
+        if 0.1 < body_ratio0 < 0.3:
+            if (c0['high'] - max(c0['open'], c0['close'])) > body0:
+                if (min(c0['open'], c0['close']) - c0['low']) > body0:
+                    patterns.append({
+                        'name': 'spinning_top',
+                        'type': 'indecision',
+                        'strength': 'weak',
+                        'description': 'Spinning Top - indecision'
+                    })
+        
+        # 15. Rising Three Methods (bullish continuation - requires 5 candles)
+        if len(hist_data) >= 5:
+            candles_5 = []
+            for i in range(5):
+                idx = -(i+1)
+                candles_5.append({
+                    'open': float(hist_data['Open'].iloc[idx]),
+                    'close': float(hist_data['Close'].iloc[idx]),
+                })
+            
+            # Day 1: Long bullish
+            if candles_5[4]['close'] > candles_5[4]['open']:
+                # Days 2-4: Small bearish candles within day 1 range
+                small_pullback = all(
+                    candles_5[i]['close'] < candles_5[i]['open'] and
+                    candles_5[i]['close'] > candles_5[4]['close']
+                    for i in [3, 2, 1]
+                )
+                # Day 5: Bullish continuation
+                if small_pullback and candles_5[0]['close'] > candles_5[0]['open']:
+                    if candles_5[0]['close'] > candles_5[4]['close']:
+                        patterns.append({
+                            'name': 'rising_three_methods',
+                            'type': 'bullish_continuation',
+                            'strength': 'medium',
+                            'description': 'Rising Three Methods - uptrend continues'
+                        })
+        
+        # 16. Falling Three Methods (bearish continuation - requires 5 candles)
+        if len(hist_data) >= 5:
+            candles_5 = []
+            for i in range(5):
+                idx = -(i+1)
+                candles_5.append({
+                    'open': float(hist_data['Open'].iloc[idx]),
+                    'close': float(hist_data['Close'].iloc[idx]),
+                })
+            
+            # Day 1: Long bearish
+            if candles_5[4]['close'] < candles_5[4]['open']:
+                # Days 2-4: Small bullish candles within day 1 range
+                small_bounce = all(
+                    candles_5[i]['close'] > candles_5[i]['open'] and
+                    candles_5[i]['close'] < candles_5[4]['close']
+                    for i in [3, 2, 1]
+                )
+                # Day 5: Bearish continuation
+                if small_bounce and candles_5[0]['close'] < candles_5[0]['open']:
+                    if candles_5[0]['close'] < candles_5[4]['close']:
+                        patterns.append({
+                            'name': 'falling_three_methods',
+                            'type': 'bearish_continuation',
+                            'strength': 'medium',
+                            'description': 'Falling Three Methods - downtrend continues'
+                        })
+        
+        # ===== ADDITIONAL PATTERNS =====
+        
+        # 17. Marubozu (strong direction)
+        if body0 > range0 * 0.95:  # Almost no wicks
+            if c0['close'] > c0['open']:
+                patterns.append({
+                    'name': 'bullish_marubozu',
+                    'type': 'bullish_continuation',
+                    'strength': 'strong',
+                    'description': 'Bullish Marubozu - strong buying'
+                })
+            else:
+                patterns.append({
+                    'name': 'bearish_marubozu',
+                    'type': 'bearish_continuation',
+                    'strength': 'strong',
+                    'description': 'Bearish Marubozu - strong selling'
+                })
+        
+        # 18. Tweezer Top/Bottom (requires 2 candles)
+        if c1:
+            # Tweezer Top (bearish)
+            if abs(c0['high'] - c1['high']) < range0 * 0.02:  # Similar highs
+                if c1['close'] > c1['open'] and c0['close'] < c0['open']:
+                    patterns.append({
+                        'name': 'tweezer_top',
+                        'type': 'bearish_reversal',
+                        'strength': 'medium',
+                        'description': 'Tweezer Top - potential reversal'
+                    })
+            
+            # Tweezer Bottom (bullish)
+            if abs(c0['low'] - c1['low']) < range0 * 0.02:  # Similar lows
+                if c1['close'] < c1['open'] and c0['close'] > c0['open']:
+                    patterns.append({
+                        'name': 'tweezer_bottom',
+                        'type': 'bullish_reversal',
+                        'strength': 'medium',
+                        'description': 'Tweezer Bottom - potential reversal'
+                    })
+        
+        # Remove duplicates and return
+        unique_patterns = []
+        seen = set()
+        for p in patterns:
+            if p['name'] not in seen:
+                unique_patterns.append(p)
+                seen.add(p['name'])
+        
+        return unique_patterns
     
-    def get_pattern_success_rate(self, pattern, ticker=None):
+    def get_pattern_success_rate(self, pattern_name, ticker=None):
         """Get historical success rate for a pattern"""
-        key = f"{ticker}_{pattern}" if ticker else pattern
+        key = f"{ticker}_{pattern_name}" if ticker else pattern_name
+        
+        # Try ticker-specific first
         if key in self.pattern_history:
             stats = self.pattern_history[key]
             total = stats.get('total', 0)
             successful = stats.get('successful', 0)
+            if total > 3:  # Need at least 3 occurrences for reliability
+                return (successful / total) * 100
+        
+        # Fall back to global pattern stats
+        if pattern_name in self.pattern_history:
+            stats = self.pattern_history[pattern_name]
+            total = stats.get('total', 0)
+            successful = stats.get('successful', 0)
             if total > 0:
                 return (successful / total) * 100
-        return 50.0  # Default to 50% if no history
+        
+        # Default expectations based on pattern type
+        defaults = {
+            'bullish_reversal': 65.0,
+            'bearish_reversal': 65.0,
+            'bullish_continuation': 60.0,
+            'bearish_continuation': 60.0,
+            'indecision': 50.0
+        }
+        
+        # Try to guess from pattern name
+        for pattern_type, default_rate in defaults.items():
+            if pattern_type in pattern_name:
+                return default_rate
+        
+        return 50.0  # Neutral default
     
-    def update_pattern_outcome(self, pattern, ticker, was_successful):
+    def update_pattern_outcome(self, pattern_name, ticker, was_successful):
         """Update pattern success history after checking outcome"""
-        key = f"{ticker}_{pattern}"
+        # Update ticker-specific stats
+        key = f"{ticker}_{pattern_name}"
         if key not in self.pattern_history:
             self.pattern_history[key] = {'total': 0, 'successful': 0}
         
         self.pattern_history[key]['total'] += 1
         if was_successful:
             self.pattern_history[key]['successful'] += 1
+        
+        # Also update global pattern stats
+        if pattern_name not in self.pattern_history:
+            self.pattern_history[pattern_name] = {'total': 0, 'successful': 0}
+        
+        self.pattern_history[pattern_name]['total'] += 1
+        if was_successful:
+            self.pattern_history[pattern_name]['successful'] += 1
         
         self._save_patterns()
 
@@ -1482,220 +1804,503 @@ learning_memory = LearningMemory()
 # This READS from your existing functions without changing them
 # ========================================
 
+class ConfidenceScorer:
+    """Calculates conviction score (0-100) for predictions"""
+    
+    @staticmethod
+    def calculate_confidence(
+        llm_predictions,
+        candle_patterns,
+        pattern_success_rates,
+        technical_indicators,
+        volume_data,
+        market_context=None
+    ):
+        """
+        Calculate comprehensive confidence score
+        Returns: dict with score, breakdown, and action threshold
+        """
+        confidence = 50  # Start neutral
+        breakdown = []
+        
+        # 1. LLM CONSENSUS (0-30 points)
+        llm_score = 0
+        if llm_predictions:
+            actions = [p['action'] for p in llm_predictions.values()]
+            confidences = [p['confidence'] for p in llm_predictions.values()]
+            
+            # Agreement boost
+            if len(set(actions)) == 1:  # All agree
+                llm_score = 30
+                breakdown.append(f"✅ All {len(actions)} LLMs agree ({actions[0]}): +30")
+            elif len(actions) >= 2:
+                most_common = max(set(actions), key=actions.count)
+                agreement_pct = (actions.count(most_common) / len(actions)) * 100
+                llm_score = int(agreement_pct * 0.3)  # Up to 30 points
+                breakdown.append(f"⚖️ {agreement_pct:.0f}% LLM agreement: +{llm_score}")
+            
+            # Average LLM confidence
+            avg_llm_conf = sum(confidences) / len(confidences)
+            if avg_llm_conf > 70:
+                llm_score += 10
+                breakdown.append(f"🎯 High LLM confidence ({avg_llm_conf:.0f}%): +10")
+            elif avg_llm_conf < 40:
+                llm_score -= 10
+                breakdown.append(f"⚠️ Low LLM confidence ({avg_llm_conf:.0f}%): -10")
+        
+        confidence += llm_score
+        
+        # 2. CANDLESTICK PATTERN STRENGTH (0-25 points)
+        pattern_score = 0
+        if candle_patterns:
+            strong_patterns = [p for p in candle_patterns if p.get('strength') in ['strong', 'very_strong']]
+            
+            if strong_patterns:
+                # Get best pattern success rate
+                best_success_rate = 0
+                best_pattern = None
+                for pattern in strong_patterns:
+                    rate = pattern_success_rates.get(pattern['name'], 50)
+                    if rate > best_success_rate:
+                        best_success_rate = rate
+                        best_pattern = pattern
+                
+                if best_success_rate > 70:
+                    pattern_score = 25
+                    breakdown.append(f"📈 Strong {best_pattern['name']} ({best_success_rate:.0f}% success): +25")
+                elif best_success_rate > 60:
+                    pattern_score = 15
+                    breakdown.append(f"📊 {best_pattern['name']} ({best_success_rate:.0f}% success): +15")
+                elif best_success_rate > 50:
+                    pattern_score = 10
+                    breakdown.append(f"➡️ {best_pattern['name']} ({best_success_rate:.0f}% success): +10")
+            
+            # Penalty for conflicting patterns
+            pattern_types = [p.get('type', '') for p in candle_patterns]
+            if 'bullish_reversal' in pattern_types and 'bearish_reversal' in pattern_types:
+                pattern_score -= 15
+                breakdown.append(f"⚠️ Conflicting patterns: -15")
+        
+        confidence += pattern_score
+        
+        # 3. TECHNICAL INDICATORS (0-20 points)
+        indicator_score = 0
+        if technical_indicators:
+            rsi = technical_indicators.get('rsi', 50)
+            macd = technical_indicators.get('macd', 0)
+            score = technical_indicators.get('score', 50)
+            
+            # RSI alignment
+            if 30 < rsi < 70:
+                indicator_score += 10
+                breakdown.append(f"✅ RSI balanced ({rsi:.0f}): +10")
+            elif rsi < 30:
+                indicator_score += 5
+                breakdown.append(f"🔵 RSI oversold ({rsi:.0f}): +5")
+            elif rsi > 70:
+                indicator_score -= 5
+                breakdown.append(f"🔴 RSI overbought ({rsi:.0f}): -5")
+            
+            # System score
+            if score > 70:
+                indicator_score += 10
+                breakdown.append(f"⭐ High system score ({score:.0f}): +10")
+            elif score < 40:
+                indicator_score -= 10
+                breakdown.append(f"⚠️ Low system score ({score:.0f}): -10")
+        
+        confidence += indicator_score
+        
+        # 4. VOLUME CONFIRMATION (0-15 points)
+        volume_score = 0
+        if volume_data:
+            volume_ratio = volume_data.get('volume_ratio', 1.0)
+            
+            if volume_ratio > 2.0:
+                volume_score = 15
+                breakdown.append(f"📊 High volume ({volume_ratio:.1f}x avg): +15")
+            elif volume_ratio > 1.5:
+                volume_score = 10
+                breakdown.append(f"📈 Above avg volume ({volume_ratio:.1f}x): +10")
+            elif volume_ratio < 0.5:
+                volume_score = -10
+                breakdown.append(f"📉 Low volume ({volume_ratio:.1f}x avg): -10")
+        
+        confidence += volume_score
+        
+        # 5. MARKET CONTEXT (0-10 points)
+        context_score = 0
+        if market_context:
+            macro_score = market_context.get('overall_macro_score', 0)
+            
+            if macro_score > 10:
+                context_score = 10
+                breakdown.append(f"🌍 Positive market context (+{macro_score:.0f}): +10")
+            elif macro_score < -10:
+                context_score = -10
+                breakdown.append(f"⚠️ Negative market context ({macro_score:.0f}): -10")
+        
+        confidence += context_score
+        
+        # Cap confidence between 0-100
+        confidence = max(0, min(100, confidence))
+        
+        # Determine action threshold
+        if confidence >= 75:
+            action_strength = "STRONG"
+            action_advice = "High conviction - consider full position"
+        elif confidence >= 60:
+            action_strength = "MODERATE"
+            action_advice = "Medium conviction - consider half position"
+        elif confidence >= 45:
+            action_strength = "WEAK"
+            action_advice = "Low conviction - wait for better setup"
+        else:
+            action_strength = "AVOID"
+            action_advice = "No conviction - do not trade"
+        
+        return {
+            'score': confidence,
+            'breakdown': breakdown,
+            'action_strength': action_strength,
+            'action_advice': action_advice
+        }
+
+
 class IntelligentPredictionEngine:
-    """Makes predictions using your existing analyze_stock results + learning system"""
+    """Multi-LLM consensus with confidence scoring"""
     
     def __init__(self):
         self.prediction_tracker = prediction_tracker
         self.candle_analyzer = candle_analyzer
         self.learning_memory = learning_memory
+        self.confidence_scorer = ConfidenceScorer()
         self.llm_clients = {}
         self._setup_llm_clients()
     
     def _setup_llm_clients(self):
-        """Setup free LLM clients"""
-        # Groq - Free tier
+        """Setup all available LLM clients"""
+        
+        # 1. Groq (Fast, Free - Llama 3.1)
         if os.getenv("GROQ_API_KEY"):
             try:
                 from groq import Groq
                 self.llm_clients['groq'] = Groq(api_key=os.getenv("GROQ_API_KEY"))
-                logging.info("✅ Groq LLM initialized")
+                logging.info("✅ Groq LLM initialized (Llama 3.1 70B)")
             except Exception as e:
                 logging.warning(f"Groq setup failed: {e}")
         
-        # Gemini - Already in your code, we'll reuse
+        # 2. Gemini (Smart, Free - Google)
         if os.getenv("GEMINI_API_KEY"):
             try:
                 import google.generativeai as genai
                 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-                self.llm_clients['gemini'] = genai.GenerativeModel('gemini-1.5-flash')
-                logging.info("✅ Gemini LLM initialized")
+                self.llm_clients['gemini'] = genai.GenerativeModel('gemini-1.5-flash-latest')
+                logging.info("✅ Gemini LLM initialized (1.5 Flash)")
             except Exception as e:
                 logging.warning(f"Gemini setup failed: {e}")
+        
+        # 3. Cohere (Optional - Command R)
+        if os.getenv("COHERE_API_KEY"):
+            try:
+                import cohere
+                self.llm_clients['cohere'] = cohere.Client(os.getenv("COHERE_API_KEY"))
+                logging.info("✅ Cohere LLM initialized (Command R)")
+            except Exception as e:
+                logging.warning(f"Cohere setup failed: {e}")
+        
+        if not self.llm_clients:
+            logging.warning("⚠️ No LLM clients available - will use rule-based predictions")
     
-    async def analyze_with_learning(self, ticker, existing_analysis, hist_data):
+    async def analyze_with_learning(self, ticker, existing_analysis, hist_data, market_context=None):
         """
-        Takes your existing analyze_stock output and adds intelligence
-        WITHOUT modifying your original function
+        Enhanced analysis with multi-LLM consensus and confidence scoring
         """
         
-        # 1. Extract candle pattern from hist_data
+        # 1. Extract candlestick patterns
         candle_patterns = []
         if hist_data is not None and len(hist_data) >= 2:
-            today_ohlc = hist_data.iloc[-1]
-            yesterday_ohlc = hist_data.iloc[-2]
-            candle_patterns = self.candle_analyzer.identify_pattern(today_ohlc, yesterday_ohlc)
+            candle_patterns = self.candle_analyzer.identify_pattern(hist_data)
         
         # 2. Get pattern success rates
-        pattern_insights = {}
+        pattern_success_rates = {}
         for pattern in candle_patterns:
-            success_rate = self.candle_analyzer.get_pattern_success_rate(pattern, ticker)
-            pattern_insights[pattern] = success_rate
+            success_rate = self.candle_analyzer.get_pattern_success_rate(
+                pattern['name'], 
+                ticker
+            )
+            pattern_success_rates[pattern['name']] = success_rate
         
-        # 3. Get LLM consensus prediction
-        prediction = await self._get_llm_consensus(
+        # 3. Get multi-LLM consensus
+        llm_predictions = await self._get_multi_llm_consensus(
             ticker=ticker,
             existing_analysis=existing_analysis,
             candle_patterns=candle_patterns,
-            pattern_insights=pattern_insights
+            pattern_success_rates=pattern_success_rates,
+            market_context=market_context
         )
         
-        # 4. Store the prediction for later learning
-        if prediction:
+        # 4. Calculate comprehensive confidence score
+        volume_data = {
+            'volume_ratio': existing_analysis.get('volume_ratio', 1.0)
+        }
+        
+        confidence_result = self.confidence_scorer.calculate_confidence(
+            llm_predictions=llm_predictions,
+            candle_patterns=candle_patterns,
+            pattern_success_rates=pattern_success_rates,
+            technical_indicators={
+                'rsi': existing_analysis.get('rsi', 50),
+                'macd': existing_analysis.get('macd', 0),
+                'score': existing_analysis.get('score', 50)
+            },
+            volume_data=volume_data,
+            market_context=market_context
+        )
+        
+        # 5. Determine final action based on consensus + confidence
+        final_prediction = self._determine_final_action(
+            llm_predictions, 
+            confidence_result,
+            candle_patterns
+        )
+        
+        # 6. Store prediction for learning
+        if final_prediction:
             pred_id = self.prediction_tracker.store_prediction(
                 ticker=ticker,
-                action=prediction['action'],
-                confidence=prediction['confidence'],
-                reasoning=prediction['reasoning'],
-                candle_pattern=candle_patterns[0] if candle_patterns else None,
+                action=final_prediction['action'],
+                confidence=confidence_result['score'],
+                reasoning=final_prediction['reasoning'],
+                candle_pattern=candle_patterns[0]['name'] if candle_patterns else None,
                 indicators={
                     'rsi': existing_analysis.get('rsi', 50),
-                    'score': existing_analysis.get('score', 50)
+                    'score': existing_analysis.get('score', 50),
+                    'volume_ratio': existing_analysis.get('volume_ratio', 1.0)
                 }
             )
-            prediction['prediction_id'] = pred_id
+            final_prediction['prediction_id'] = pred_id
         
-        # 5. Return enhanced analysis (your original + new intelligence)
+        # 7. Return enhanced analysis
         return {
-            **existing_analysis,  # All your original analysis preserved
+            **existing_analysis,  # Preserve original analysis
             'candle_patterns': candle_patterns,
-            'pattern_success_rates': pattern_insights,
-            'ai_prediction': prediction,
+            'pattern_success_rates': pattern_success_rates,
+            'llm_predictions': llm_predictions,
+            'confidence': confidence_result,
+            'ai_prediction': final_prediction,
             'learning_insights': self.learning_memory.get_recent_insights(3)
         }
     
-    async def _get_llm_consensus(self, ticker, existing_analysis, candle_patterns, pattern_insights):
-        """Get consensus from multiple LLMs"""
+    async def _get_multi_llm_consensus(self, ticker, existing_analysis, candle_patterns, pattern_success_rates, market_context):
+        """Get predictions from all available LLMs"""
         
-        # Build context from your existing analysis
-        context = f"""
-        Stock: {ticker}
-        Current Score: {existing_analysis.get('score', 'N/A')}
-        Sector: {existing_analysis.get('sector', 'N/A')}
+        # Build comprehensive prompt
+        pattern_text = ""
+        if candle_patterns:
+            pattern_list = []
+            for p in candle_patterns[:3]:  # Top 3 patterns
+                success_rate = pattern_success_rates.get(p['name'], 50)
+                pattern_list.append(f"{p['name']} ({p['type']}, {success_rate:.0f}% historical success)")
+            pattern_text = "\n".join(pattern_list)
+        else:
+            pattern_text = "No clear patterns identified"
         
-        Today's Candle Patterns: {', '.join(candle_patterns) if candle_patterns else 'None identified'}
-        Pattern Success Rates: {json.dumps(pattern_insights, indent=2)}
-        
-        Based on this data, should we BUY, HOLD, or SELL {ticker}?
-        Provide reasoning and confidence (0-100).
-        """
+        context = f"""Analyze {ticker} and provide BUY/HOLD/SELL recommendation.
+
+TECHNICAL DATA:
+- Score: {existing_analysis.get('score', 'N/A')}/100
+- RSI: {existing_analysis.get('rsi', 'N/A')}
+- Volume: {existing_analysis.get('volume_ratio', 1.0):.1f}x average
+- Sector: {existing_analysis.get('sector', 'Unknown')}
+
+CANDLESTICK PATTERNS (Today):
+{pattern_text}
+
+MARKET CONTEXT:
+{f"Macro Score: {market_context.get('overall_macro_score', 0):.0f}" if market_context else "Not available"}
+
+Respond with ONLY:
+ACTION: [BUY/HOLD/SELL]
+CONFIDENCE: [0-100]
+REASON: [One sentence]
+
+Example:
+ACTION: BUY
+CONFIDENCE: 75
+REASON: Strong hammer pattern with 73% success rate and oversold RSI.
+"""
         
         predictions = {}
         
-        # Get predictions from each available LLM
+        # Get predictions from each LLM
+        tasks = []
+        
         if 'groq' in self.llm_clients:
-            try:
-                response = self.llm_clients['groq'].chat.completions.create(
-                    model="llama3-70b-8192",
-                    messages=[{"role": "user", "content": context}],
-                    temperature=0.3,
-                    max_tokens=200
-                )
-                predictions['groq'] = self._parse_llm_response(response.choices[0].message.content)
-            except Exception as e:
-                logging.warning(f"Groq prediction failed: {e}")
+            tasks.append(self._query_groq(context, ticker))
         
         if 'gemini' in self.llm_clients:
-            try:
-                response = self.llm_clients['gemini'].generate_content(context)
-                predictions['gemini'] = self._parse_llm_response(response.text)
-            except Exception as e:
-                logging.warning(f"Gemini prediction failed: {e}")
+            tasks.append(self._query_gemini(context, ticker))
         
-        # Calculate weighted consensus
-        if predictions:
-            weights = self.learning_memory.get_llm_weights()
-            return self._calculate_weighted_consensus(predictions, weights)
+        if 'cohere' in self.llm_clients:
+            tasks.append(self._query_cohere(context, ticker))
         
-        # Fallback to rule-based if no LLM available
-        return self._rule_based_prediction(existing_analysis, candle_patterns, pattern_insights)
+        # Run all LLM queries concurrently
+        if tasks:
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            
+            llm_names = []
+            if 'groq' in self.llm_clients:
+                llm_names.append('groq')
+            if 'gemini' in self.llm_clients:
+                llm_names.append('gemini')
+            if 'cohere' in self.llm_clients:
+                llm_names.append('cohere')
+            
+            for llm_name, result in zip(llm_names, results):
+                if not isinstance(result, Exception) and result:
+                    predictions[llm_name] = result
+        
+        return predictions
     
-    def _parse_llm_response(self, response_text):
-        """Parse LLM response to extract action and confidence"""
-        action = "HOLD"  # Default
-        confidence = 50  # Default
-        
-        response_lower = response_text.lower()
-        
-        # Extract action
-        if 'buy' in response_lower and 'sell' not in response_lower:
-            action = "BUY"
-        elif 'sell' in response_lower:
-            action = "SELL"
-        
-        # Extract confidence (look for percentage)
+    async def _query_groq(self, prompt, ticker):
+        """Query Groq LLM"""
+        try:
+            client = self.llm_clients['groq']
+            response = client.chat.completions.create(
+                model="llama-3.1-70b-versatile",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.3,
+                max_tokens=150
+            )
+            text = response.choices[0].message.content
+            return self._parse_llm_response(text, 'groq')
+        except Exception as e:
+            logging.warning(f"Groq query failed for {ticker}: {e}")
+            return None
+    
+    async def _query_gemini(self, prompt, ticker):
+        """Query Gemini LLM"""
+        try:
+            model = self.llm_clients['gemini']
+            response = model.generate_content(
+                prompt,
+                generation_config={'temperature': 0.3, 'max_output_tokens': 150}
+            )
+            return self._parse_llm_response(response.text, 'gemini')
+        except Exception as e:
+            logging.warning(f"Gemini query failed for {ticker}: {e}")
+            return None
+    
+    async def _query_cohere(self, prompt, ticker):
+        """Query Cohere LLM"""
+        try:
+            client = self.llm_clients['cohere']
+            response = client.chat(
+                message=prompt,
+                model='command-r',
+                temperature=0.3
+            )
+            return self._parse_llm_response(response.text, 'cohere')
+        except Exception as e:
+            logging.warning(f"Cohere query failed for {ticker}: {e}")
+            return None
+    
+    def _parse_llm_response(self, response_text, llm_name):
+        """Parse LLM response to extract action, confidence, and reasoning"""
         import re
-        confidence_match = re.search(r'(\d+)%|confidence[:\s]+(\d+)', response_lower)
-        if confidence_match:
-            confidence = int(confidence_match.group(1) or confidence_match.group(2))
         
-        return {
-            'action': action,
-            'confidence': min(100, max(0, confidence)),
-            'reasoning': response_text[:500]
-        }
-    
-    def _calculate_weighted_consensus(self, predictions, weights):
-        """Calculate weighted consensus from multiple LLM predictions"""
-        actions = {"BUY": 0, "HOLD": 0, "SELL": 0}
-        total_confidence = 0
-        reasonings = []
-        
-        for llm_name, pred in predictions.items():
-            weight = weights.get(llm_name, 0.5)
-            actions[pred['action']] += weight
-            total_confidence += pred['confidence'] * weight
-            reasonings.append(f"{llm_name}: {pred['reasoning'][:200]}")
-        
-        # Get action with highest weight
-        final_action = max(actions.items(), key=lambda x: x[1])[0]
-        
-        # Weighted confidence
-        final_confidence = int(total_confidence / len(predictions)) if predictions else 50
-        
-        return {
-            'action': final_action,
-            'confidence': final_confidence,
-            'reasoning': " | ".join(reasonings),
-            'llm_count': len(predictions)
-        }
-    
-    def _rule_based_prediction(self, analysis, patterns, pattern_insights):
-        """Fallback rule-based prediction when LLMs unavailable"""
-        score = analysis.get('score', 50)
-        action = "HOLD"
+        action = "HOLD"  # Default
         confidence = 50
-        reasoning = []
+        reasoning = response_text[:200]
         
-        # Simple rules based on your existing scoring
-        if score > 70:
-            action = "BUY"
-            confidence = min(90, score)
-            reasoning.append(f"High score ({score})")
-        elif score < 40:
-            action = "SELL"
-            confidence = min(90, 100 - score)
-            reasoning.append(f"Low score ({score})")
+        # Extract ACTION
+        action_match = re.search(r'ACTION:\s*(BUY|SELL|HOLD)', response_text, re.IGNORECASE)
+        if action_match:
+            action = action_match.group(1).upper()
+        else:
+            # Fallback: look for keywords
+            text_lower = response_text.lower()
+            if 'buy' in text_lower and 'sell' not in text_lower:
+                action = "BUY"
+            elif 'sell' in text_lower:
+                action = "SELL"
         
-        # Adjust based on candle patterns
-        if patterns:
-            avg_success = sum(pattern_insights.values()) / len(pattern_insights)
-            if avg_success > 60:
-                if action == "HOLD":
-                    action = "BUY"
-                confidence = min(100, confidence + 10)
-                reasoning.append(f"Bullish pattern success rate: {avg_success:.1f}%")
-            elif avg_success < 40:
-                if action == "HOLD":
-                    action = "SELL"
-                confidence = min(100, confidence + 10)
-                reasoning.append(f"Bearish pattern success rate: {avg_success:.1f}%")
+        # Extract CONFIDENCE
+        conf_match = re.search(r'CONFIDENCE:\s*(\d+)', response_text, re.IGNORECASE)
+        if conf_match:
+            confidence = int(conf_match.group(1))
+        else:
+            # Look for percentage
+            pct_match = re.search(r'(\d+)%', response_text)
+            if pct_match:
+                confidence = int(pct_match.group(1))
+        
+        # Extract REASON
+        reason_match = re.search(r'REASON:\s*(.+?)(?:\n|$)', response_text, re.IGNORECASE)
+        if reason_match:
+            reasoning = reason_match.group(1).strip()
+        
+        confidence = max(0, min(100, confidence))
         
         return {
             'action': action,
             'confidence': confidence,
-            'reasoning': " | ".join(reasoning) if reasoning else "Rule-based analysis",
-            'llm_count': 0
+            'reasoning': reasoning,
+            'llm': llm_name
+        }
+    
+    def _determine_final_action(self, llm_predictions, confidence_result, candle_patterns):
+        """Determine final action from LLM consensus and confidence score"""
+        
+        if not llm_predictions:
+            # No LLM predictions - use rule-based with confidence
+            if confidence_result['score'] >= 60:
+                action = "BUY" if candle_patterns and 'bullish' in candle_patterns[0].get('type', '') else "HOLD"
+            elif confidence_result['score'] <= 40:
+                action = "SELL"
+            else:
+                action = "HOLD"
+            
+            return {
+                'action': action,
+                'confidence': confidence_result['score'],
+                'reasoning': f"Rule-based: {confidence_result['action_advice']}",
+                'llm_count': 0
+            }
+        
+        # Get LLM consensus
+        actions = [p['action'] for p in llm_predictions.values()]
+        most_common_action = max(set(actions), key=actions.count)
+        
+        # Weight by learning memory
+        weights = self.learning_memory.get_llm_weights()
+        weighted_actions = {"BUY": 0, "HOLD": 0, "SELL": 0}
+        
+        for llm_name, prediction in llm_predictions.items():
+            weight = weights.get(llm_name, 0.33)
+            weighted_actions[prediction['action']] += weight
+        
+        final_action = max(weighted_actions.items(), key=lambda x: x[1])[0]
+        
+        # Combine all reasoning
+        reasonings = [f"{p['llm']}: {p['reasoning']}" for p in llm_predictions.values()]
+        combined_reasoning = " | ".join(reasonings)
+        
+        # Override action if confidence is too low
+        if confidence_result['score'] < 45:
+            final_action = "HOLD"
+            combined_reasoning = f"Low confidence ({confidence_result['score']}%) - holding. " + combined_reasoning
+        
+        return {
+            'action': final_action,
+            'confidence': confidence_result['score'],
+            'reasoning': combined_reasoning[:500],
+            'llm_count': len(llm_predictions),
+            'llm_agreement': (actions.count(final_action) / len(actions)) * 100,
+            'confidence_breakdown': confidence_result['breakdown'],
+            'action_strength': confidence_result['action_strength'],
+            'action_advice': confidence_result['action_advice']
         }
 
 
@@ -1704,49 +2309,87 @@ class IntelligentPredictionEngine:
 # Wraps your existing portfolio analysis with predictions
 # ========================================
 
-async def analyze_portfolio_with_predictions(session, portfolio_file='portfolio.json'):
+async def analyze_portfolio_with_predictions(session, portfolio_file='portfolio.json', market_context=None):
     """
-    This WRAPS your existing analyze_portfolio_watchlist function
-    Adds predictions WITHOUT changing the original
+    Enhanced portfolio analysis with predictions and market context
     """
     
-    # 1. Call YOUR EXISTING portfolio analysis
-    original_portfolio_data = await analyze_portfolio_watchlist(session, portfolio_file)
+    logging.info("=" * 60)
+    logging.info("🧠 ANALYZE WITH PREDICTIONS - START")
+    logging.info(f"Market context provided: {market_context is not None}")
+    
+    # Call v2.0 portfolio analysis (has Bollinger, ATR, etc.)
+    original_portfolio_data = await analyze_portfolio_with_v2_features(session, portfolio_file)
     
     if not original_portfolio_data:
+        logging.warning("No portfolio data from v2 features")
         return original_portfolio_data
     
-    # 2. Initialize our prediction engine
-    prediction_engine = IntelligentPredictionEngine()
+    logging.info(f"Original portfolio has {len(original_portfolio_data.get('stocks', []))} stocks")
     
-    # 3. Add predictions to each stock WITHOUT modifying original
+    # Initialize prediction engine
+    try:
+        prediction_engine = IntelligentPredictionEngine()
+        logging.info(f"Prediction engine initialized. LLMs available: {list(prediction_engine.llm_clients.keys())}")
+    except Exception as e:
+        logging.error(f"Failed to initialize prediction engine: {e}")
+        # Return original data without predictions
+        return {
+            **original_portfolio_data,
+            'learning_active': False,
+            'predictions_made': 0
+        }
+    
+    # Add predictions to each stock
     enhanced_stocks = []
+    successful_predictions = 0
+    
     for stock in original_portfolio_data['stocks']:
         try:
-            # Get historical data for candle analysis
             ticker = stock['ticker']
-            yf_ticker = yf.Ticker(ticker)
-            hist = await asyncio.to_thread(yf_ticker.history, period="1mo", interval="1d")
+            logging.info(f"🔍 Processing {ticker}...")
             
-            # Get enhanced analysis with predictions
+            yf_ticker = yf.Ticker(ticker)
+            hist = await asyncio.to_thread(yf_ticker.history, period="3mo", interval="1d")
+            
+            if hist.empty:
+                logging.warning(f"No history for {ticker}, skipping predictions")
+                enhanced_stocks.append(stock)
+                continue
+            
+            # Get enhanced analysis with market context
             enhanced = await prediction_engine.analyze_with_learning(
                 ticker=ticker,
                 existing_analysis=stock,
-                hist_data=hist
+                hist_data=hist,
+                market_context=market_context
             )
+            
+            # Verify prediction was added
+            if 'ai_prediction' in enhanced:
+                successful_predictions += 1
+                logging.info(f"✅ {ticker}: Prediction added - {enhanced['ai_prediction']['action']}")
+            else:
+                logging.warning(f"⚠️ {ticker}: No prediction generated")
+            
             enhanced_stocks.append(enhanced)
             
         except Exception as e:
-            logging.warning(f"Enhancement failed for {ticker}: {e}")
-            enhanced_stocks.append(stock)  # Keep original if enhancement fails
+            logging.error(f"Error enhancing {ticker}: {e}")
+            enhanced_stocks.append(stock)  # Keep original
     
-    # 4. Return enhanced portfolio data
-    return {
-        **original_portfolio_data,  # All original data preserved
-        'stocks': enhanced_stocks,   # Stocks now have predictions
-        'predictions_made': len([s for s in enhanced_stocks if 'ai_prediction' in s]),
+    result = {
+        **original_portfolio_data,
+        'stocks': enhanced_stocks,
+        'predictions_made': successful_predictions,
         'learning_active': True
     }
+    
+    logging.info("=" * 60)
+    logging.info(f"✅ PREDICTIONS COMPLETE: {successful_predictions}/{len(enhanced_stocks)} stocks")
+    logging.info("=" * 60)
+    
+    return result
 
 
 # ========================================
@@ -1801,38 +2444,54 @@ async def main(output="print"):
     semaphore = asyncio.Semaphore(10)
     
     async with aiohttp.ClientSession() as session:
+        # Prepare all tasks
         stock_tasks = [analyze_stock(semaphore, throttler, session, ticker) for ticker in universe]
         context_task = fetch_context_data(session)
         news_task = fetch_market_headlines(session)
         macro_task = fetch_macro_sentiment(session)
         
-        # Use v2.0.0 portfolio analysis if enabled
-        if ENABLE_V2_FEATURES:
-            portfolio_task = analyze_portfolio_with_v2_features(session)
-        else:
-            portfolio_task = analyze_portfolio_with_predictions(session)
+        # Step 1: Get macro data FIRST (needed for portfolio predictions)
+        logging.info("🔍 Step 1: Fetching macro data...")
+        macro_data = await macro_task
+        logging.info(f"✅ Macro data received. Score: {macro_data.get('overall_macro_score', 0):.1f}")
         
-        results = await asyncio.gather(
+        # Step 2: Create portfolio task with macro context
+        if ENABLE_V2_FEATURES:
+            logging.info("🔍 Step 2: Calling analyze_portfolio_with_predictions (v3.0)")
+            portfolio_data = await analyze_portfolio_with_predictions(session, market_context=macro_data)
+        else:
+            logging.info("🔍 Step 2: Calling analyze_portfolio_watchlist (v1.0)")
+            portfolio_data = await analyze_portfolio_watchlist(session)
+        
+        logging.info(f"✅ Portfolio analysis complete. Predictions: {portfolio_data.get('predictions_made', 0) if portfolio_data else 0}")
+        
+        # Step 3: Run everything else in parallel
+        logging.info("🔍 Step 3: Fetching stocks, context, news...")
+        stock_results_raw, context_data, market_news = await asyncio.gather(
             asyncio.gather(*stock_tasks), 
             context_task, 
-            news_task, 
-            macro_task, 
-            portfolio_task
+            news_task
         )
         
-        stock_results_raw, context_data, market_news, macro_data, portfolio_data = results
-        
+        # Step 4: Process stock results
         stock_results = sorted([r for r in stock_results_raw if r], key=lambda x: x['score'], reverse=True)
         df_stocks = pd.DataFrame(stock_results) if stock_results else pd.DataFrame()
-
+        logging.info(f"✅ Analyzed {len(stock_results)} stocks")
+        
+        # Step 5: Find historical patterns
+        logging.info("🔍 Step 5: Finding historical patterns...")
         pattern_data = await find_historical_patterns(session, macro_data)
         
+        # Step 6: Generate portfolio recommendations
         portfolio_recommendations = None
         if pattern_data and portfolio_data:
+            logging.info("🔍 Step 6: Generating portfolio recommendations...")
             portfolio_recommendations = await generate_portfolio_recommendations_from_pattern(
                 portfolio_data, pattern_data, macro_data
             )
         
+        # Step 7: Generate AI analysis
+        logging.info("🔍 Step 7: Generating AI analysis...")
         market_summary = {
             'macro': macro_data,
             'top_stock': stock_results[0] if stock_results else {},
@@ -1840,7 +2499,9 @@ async def main(output="print"):
         }
         ai_analysis = await generate_ai_oracle_analysis(market_summary, portfolio_data, pattern_data)
     
+    # Outside session context - generate email
     if output == "email":
+        logging.info("📧 Generating email report...")
         html_email = generate_enhanced_html_email(
             df_stocks, context_data, market_news, macro_data, 
             previous_day_memory, portfolio_data, pattern_data, 
@@ -1848,12 +2509,13 @@ async def main(output="print"):
         )
         send_email(html_email)
     
+    # Save memory
     if not df_stocks.empty:
         save_memory({
             "previous_top_stock_name": str(df_stocks.iloc[0]['name']),
             "previous_top_stock_ticker": str(df_stocks.iloc[0]['ticker']),
             "previous_macro_score": float(macro_data.get('overall_macro_score', 0)),
-            "date": datetime.now().strftime('%Y-%m-%d')  # <-- SIMPLE STRING, NO ISSUES
+            "date": datetime.now().strftime('%Y-%m-%d')
         })
     
     logging.info("✅ Analysis complete with v2.0.0 features.")
@@ -1990,6 +2652,104 @@ def generate_enhanced_html_email(df_stocks, context, market_news, macro_data, me
             <p style="line-height:1.8;">{risks_html}</p>
         </div>
         </div>"""
+
+    # Add this AFTER the portfolio_html section in generate_enhanced_html_email
+
+# ========================================
+# 🎯 AI PREDICTIONS WITH CONFIDENCE SCORING
+# ========================================
+
+ai_predictions_html = ""
+
+# Diagnostic logging
+logging.info("=" * 60)
+logging.info("📧 EMAIL - AI PREDICTIONS SECTION")
+logging.info(f"Portfolio data exists: {portfolio_data is not None}")
+
+if portfolio_data:
+    logging.info(f"Learning active: {portfolio_data.get('learning_active')}")
+    logging.info(f"Predictions made: {portfolio_data.get('predictions_made')}")
+    logging.info(f"Stocks count: {len(portfolio_data.get('stocks', []))}")
+
+if portfolio_data and portfolio_data.get('learning_active'):
+    predictions_made = portfolio_data.get('predictions_made', 0)
+    
+    logging.info(f"Checking {predictions_made} predictions for display...")
+    
+    if predictions_made > 0:
+        prediction_cards = []
+        cards_created = 0
+        
+        for stock in portfolio_data['stocks']:
+            if 'ai_prediction' not in stock or not stock['ai_prediction']:
+                continue
+            
+            try:
+                pred = stock['ai_prediction']
+                conf = stock.get('confidence', {})
+                
+                # Action setup
+                action = pred.get('action', 'HOLD')
+                action_color = {'BUY': '#16a34a', 'SELL': '#dc2626', 'HOLD': '#666'}.get(action, '#666')
+                action_icon = {'BUY': '🟢', 'SELL': '🔴', 'HOLD': '⚪'}.get(action, '⚪')
+                
+                # Confidence
+                conf_score = conf.get('score', pred.get('confidence', 50))
+                conf_color = '#16a34a' if conf_score >= 75 else '#f59e0b' if conf_score >= 60 else '#dc2626'
+                conf_label = 'HIGH' if conf_score >= 75 else 'MEDIUM' if conf_score >= 60 else 'LOW'
+                
+                # Build card
+                prediction_card = f"""
+                <div style="border:2px solid {action_color};border-radius:10px;padding:15px;margin-bottom:15px;background:white;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                        <h3 style="margin:0;color:#111;">{action_icon} {stock['ticker']} - {action}</h3>
+                        <div style="font-size:1.5em;font-weight:bold;color:{conf_color};">{conf_score:.0f}%</div>
+                    </div>
+                    <div style="font-size:0.9em;color:#666;">
+                        {stock.get('name', stock['ticker'])} • ${stock.get('price', 0):.2f}
+                    </div>
+                    <div style="margin:10px 0;background:#e5e5e5;border-radius:10px;height:10px;">
+                        <div style="width:{conf_score}%;background:{conf_color};border-radius:10px;height:100%;"></div>
+                    </div>
+                    <div style="background:#f8f9fa;padding:8px;border-radius:5px;margin-top:10px;font-size:0.9em;">
+                        <b>Reasoning:</b> {pred.get('reasoning', 'N/A')[:200]}...
+                    </div>
+                </div>
+                """
+                
+                prediction_cards.append(prediction_card)
+                cards_created += 1
+                
+            except Exception as e:
+                logging.error(f"Error creating card for {stock.get('ticker')}: {e}")
+        
+        logging.info(f"Created {cards_created} prediction cards")
+        
+        if prediction_cards:
+            ai_predictions_html = f"""
+            <div class="section" style="background-color:#f0f9ff;border-left:4px solid #3b82f6;">
+                <h2>🎯 AI PREDICTIONS & CONFIDENCE ANALYSIS</h2>
+                <p style="font-size:0.9em;color:#666;margin-bottom:15px;">
+                    Generated {predictions_made} AI-powered predictions with confidence scoring.
+                </p>
+                {''.join(prediction_cards)}
+                <div style="margin-top:15px;padding:12px;background:#fffbeb;border-radius:5px;">
+                    <p style="font-size:0.85em;color:#92400e;margin:0;">
+                        <b>💡 How to use:</b> Only act on HIGH confidence (75%+) signals. 
+                        System learns from outcomes daily.
+                    </p>
+                </div>
+            </div>
+            """
+            logging.info("✅ AI predictions HTML generated successfully")
+        else:
+            logging.warning("⚠️ No prediction cards created despite predictions_made > 0")
+    else:
+        logging.info("No predictions to display (predictions_made = 0)")
+
+logging.info("=" * 60)
+
+# Then add predictions_html to your email template where appropriate
     
     # Pattern analysis section (from v1.0.0 - keeping stable)
     pattern_html = ""
@@ -2170,6 +2930,7 @@ def generate_enhanced_html_email(df_stocks, context, market_news, macro_data, me
         {v2_signals_html}
         {ai_oracle_html}
         {portfolio_html}
+        {ai_predictions_html}
         {pattern_html}
         
         <div class="section">
