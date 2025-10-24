@@ -1972,13 +1972,13 @@ class IntelligentPredictionEngine:
     
     def __init__(self):
         def __init__(self):
-        self.prediction_tracker = prediction_tracker
-        self.candle_analyzer = candle_analyzer
-        self.learning_memory = learning_memory
-        self.confidence_scorer = ConfidenceScorer()
-        self.llm_clients = {}
-        self._setup_llm_clients()
-    
+            self.prediction_tracker = prediction_tracker
+            self.candle_analyzer = candle_analyzer
+            self.learning_memory = learning_memory
+            self.confidence_scorer = ConfidenceScorer()
+            self.llm_clients = {}
+            self._setup_llm_clients()
+        
         def _setup_llm_clients(self):
             """Setup all available LLM clients with explicit logging"""
         
