@@ -2571,7 +2571,7 @@ if portfolio_data and portfolio_data.get('learning_active'):
                     {''.join(prediction_cards)}
                 </div>
                 """
-                logging.info("✅ AI predictions HTML generated successfully")
+            logging.info("✅ AI predictions HTML generated successfully")
             else:
                 logging.warning("⚠️ No prediction cards created despite predictions_made > 0")
         else:
