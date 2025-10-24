@@ -456,17 +456,17 @@ async def analyze_portfolio_watchlist(session, portfolio_file='portfolio.json'):
     
     return portfolio_data
 
-def get_historical_context(date):
-    """Provide historical context for a given date"""
-    from datetime import datetime as dt
+# ✅ CORRECTED VERSION:
+def get_historical_context(date_obj):
+    """Provide historical context for a given date - now handles all date types"""
     
-    # Handle both datetime and Timestamp objects
-    if hasattr(date, 'year'):
-        year = date.year
-        month = date.month
+    # Handle both datetime.datetime and pandas.Timestamp objects
+    if hasattr(date_obj, 'year'):
+        year = date_obj.year
+        month = date_obj.month
     else:
-        year = dt.now().year
-        month = dt.now().month
+        # Fallback if an unexpected type is passed
+        return "Unknown Market Period"
     
     if year == 2020 and 3 <= month <= 4: return "COVID-19 Crash & Recovery"
     elif year == 2020 and 6 <= month <= 12: return "Post-COVID Rally"
@@ -1971,6 +1971,7 @@ class IntelligentPredictionEngine:
     """Multi-LLM consensus with confidence scoring"""
     
     def __init__(self):
+        def __init__(self):
         self.prediction_tracker = prediction_tracker
         self.candle_analyzer = candle_analyzer
         self.learning_memory = learning_memory
