@@ -716,7 +716,7 @@ async def generate_ai_oracle_analysis(market_data, portfolio_data, pattern_data)
     # ... (the rest of the function is the same, just ensure this part is correct)
     try:
         genai.configure(api_key=GEMINI_API_KEY)
-        models_to_try = ['gemini-pro', 'gemini-1.5-flash'] # ✅ Use 'gemini-pro' as primary
+        models_to_try = ['gemini-pro', 'gemini-2.5-flash'] # ✅ Use 'gemini-pro' as primary
         model = None
         for model_name in models_to_try:
             try:
@@ -2006,7 +2006,7 @@ class IntelligentPredictionEngine:
             try:
                 import google.generativeai as genai
                 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-                self.llm_clients['gemini'] = genai.GenerativeModel('gemini-1.5-flash') 
+                self.llm_clients['gemini'] = genai.GenerativeModel('gemini-2.5-flash') 
                 logging.info("✅ SUCCESS: Gemini LLM client initialized.")
             except Exception as e:
                 logging.error(f"❌ FAILED: Gemini initialization error: {e}")
@@ -2082,7 +2082,7 @@ REASON: [One sentence]"""
             client = self.llm_clients['groq']
             response = await asyncio.to_thread(
                 client.chat.completions.create,
-                model="llama-3.1-70b-versatile",  # ✅ FIXED: Use the smaller, stable model
+                model="llama-3.3-70b-versatile",  # ✅ FIXED: Use the smaller, stable model
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.3, max_tokens=150
             )
@@ -2110,7 +2110,7 @@ REASON: [One sentence]"""
             response = await asyncio.to_thread(
                 client.chat,
                 message=prompt,
-                model='command-r',  # ✅ FIXED: Use the 'plus' version
+                model='command-a-03-2025',  # ✅ FIXED: Use the 'plus' version
                 temperature=0.3
             )
             return self._parse_llm_response(response.text, 'cohere')
@@ -3072,14 +3072,14 @@ class IntelligentMarketAnalyzer:
         if 'groq' in self.llm_clients:
             try:
                 client = self.llm_clients['groq']
-                completion = client.chat.completions.create(model="llama-3.1-70b-versatile",messages=[{"role":"user","content":prompt}],temperature=0.7,max_tokens=800)
+                completion = client.chat.completions.create(model="llama-3.3-70b-versatile",messages=[{"role":"user","content":prompt}],temperature=0.7,max_tokens=800)
                 response = completion.choices[0].message.content
                 if response: logging.info("✅ Groq response generated")
             except Exception as e: logging.warning(f"Groq failed: {e}")
         if not response and 'cohere' in self.llm_clients:
             try:
                 client = self.llm_clients['cohere']
-                result = client.chat(message=prompt,model='command-r',temperature=0.7)
+                result = client.chat(message=prompt,model='command-a-03-2025',temperature=0.7)
                 response = result.text
                 if response: logging.info("✅ Cohere response generated")
             except Exception as e: logging.warning(f"Cohere failed: {e}")
