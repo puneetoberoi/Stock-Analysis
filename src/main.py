@@ -1,4 +1,3 @@
-
 import os, sys, argparse, time, datetime, logging, json, asyncio
 import requests
 import pandas as pd
@@ -17,7 +16,7 @@ import google.generativeai as genai
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from datetime import date
+from datetime import datetime, date, timedelta
 
 # 🆕 Email bot imports
 import sqlite3
@@ -82,8 +81,20 @@ class DateTimeEncoder(json.JSONEncoder):
 
 # Then update ALL json.dump calls to use it:
 def save_memory(data):
+    """Save memory with proper date handling"""
+    import json
+    import datetime as dt
+    # Fixed for "import datetime" style
+    def json_serial(obj):
+        """JSON serializer for objects not serializable by default"""
+        if isinstance(obj, datetime.datetime):
+            return obj.isoformat()
+        if isinstance(obj, datetime.date):
+            return obj.isoformat()
+        raise TypeError(f"Type {type(obj)} not serializable")
+    
     with open(MEMORY_FILE, 'w') as f: 
-        json.dump(data, f, cls=DateTimeEncoder)
+        json.dump(data, f, default=json_serial)
 
 
 # ========================================
@@ -1844,8 +1855,8 @@ async def main(output="print"):
             "previous_top_stock_name": df_stocks.iloc[0]['name'],
             "previous_top_stock_ticker": df_stocks.iloc[0]['ticker'],
             "previous_macro_score": macro_data.get('overall_macro_score', 0),
-            "date": date.today()  # Ensure it's a string
-        })
+            "date": str(datetime.datetime.now().date())  # <-- Simple string conversion
+        }
     
     logging.info("✅ Analysis complete with v2.0.0 features.")
 
