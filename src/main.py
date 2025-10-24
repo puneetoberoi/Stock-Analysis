@@ -2091,16 +2091,24 @@ REASON: [One sentence]"""
             logging.warning(f"Groq query failed for {ticker}: {e}")
             return None
 
+    # ✅ COMPLETE FIXED FUNCTION
     async def _query_gemini(self, prompt, ticker):
         try:
             model = self.llm_clients['gemini']
-            # ✅ FIXED: Switched to async call for better performance
+            # ✅ FIX: Add safety_settings to prevent blocking
             response = await model.generate_content_async(
                 prompt,
-                generation_config={'temperature': 0.3, 'max_output_tokens': 150}
+                generation_config={'temperature': 0.3, 'max_output_tokens': 150},
+                safety_settings={
+                    'HARM_CATEGORY_HARASSMENT': 'BLOCK_NONE',
+                    'HARM_CATEGORY_HATE_SPEECH': 'BLOCK_NONE',
+                    'HARM_CATEGORY_SEXUALLY_EXPLICIT': 'BLOCK_NONE',
+                    'HARM_CATEGORY_DANGEROUS_CONTENT': 'BLOCK_NONE',
+                }
             )
             return self._parse_llm_response(response.text, 'gemini')
         except Exception as e:
+            # This will catch the "response.text" error if it still occurs
             logging.warning(f"Gemini query failed for {ticker}: {e}")
             return None
 
@@ -2507,87 +2515,62 @@ def generate_enhanced_html_email(df_stocks, context, market_news, macro_data, me
     # ========================================
     
     ai_predictions_html = ""
+if portfolio_data and portfolio_data.get('learning_active'):
+    predictions_made = portfolio_data.get('predictions_made', 0)
     
-    # Diagnostic logging
-    logging.info("=" * 60)
-    logging.info("📧 EMAIL - AI PREDICTIONS SECTION")
-    logging.info(f"Portfolio data exists: {portfolio_data is not None}")
-    
-    if portfolio_data:
-        logging.info(f"Learning active: {portfolio_data.get('learning_active')}")
-        logging.info(f"Predictions made: {portfolio_data.get('predictions_made')}")
-        logging.info(f"Stocks count: {len(portfolio_data.get('stocks', []))}")
-    
-    if portfolio_data and portfolio_data.get('learning_active'):
-        predictions_made = portfolio_data.get('predictions_made', 0)
-        
-        logging.info(f"Checking {predictions_made} predictions for display...")
-        
-        if predictions_made > 0:
-            prediction_cards = []
-            cards_created = 0
+    if predictions_made > 0:
+        prediction_cards = []
+        for stock in portfolio_data['stocks']:
+            if 'ai_prediction' not in stock or not stock['ai_prediction']:
+                continue
             
-            for stock in portfolio_data['stocks']:
-                if 'ai_prediction' not in stock or not stock['ai_prediction']:
-                    continue
-                
-                try:
-                    pred = stock['ai_prediction']
-                    conf = stock.get('confidence', {})
-                    
-                    # Action setup
-                    action = pred.get('action', 'HOLD')
-                    action_color = {'BUY': '#16a34a', 'SELL': '#dc2626', 'HOLD': '#666'}.get(action, '#666')
-                    action_icon = {'BUY': '🟢', 'SELL': '🔴', 'HOLD': '⚪'}.get(action, '⚪')
-                    
-                    # Confidence
-                    conf_score = conf.get('score', pred.get('confidence', 50))
-                    conf_color = '#16a34a' if conf_score >= 75 else '#f59e0b' if conf_score >= 60 else '#dc2626'
-                    conf_label = 'HIGH' if conf_score >= 75 else 'MEDIUM' if conf_score >= 60 else 'LOW'
-                    
-                    # Build card
-                    prediction_card = f"""
-                    <div style="border:2px solid {action_color};border-radius:10px;padding:15px;margin-bottom:15px;background:white;">
-                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-                            <h3 style="margin:0;color:#111;">{action_icon} {stock['ticker']} - {action}</h3>
-                            <div style="font-size:1.5em;font-weight:bold;color:{conf_color};">{conf_score:.0f}%</div>
-                        </div>
-                        <div style="font-size:0.9em;color:#666;">
-                            {stock.get('name', stock['ticker'])} • ${stock.get('price', 0):.2f}
-                        </div>
-                        <div style="margin:10px 0;background:#e5e5e5;border-radius:10px;height:10px;">
-                            <div style="width:{conf_score}%;background:{conf_color};border-radius:10px;height:100%;"></div>
-                        </div>
-                        <div style="background:#f8f9fa;padding:8px;border-radius:5px;margin-top:10px;font-size:0.9em;">
-                            <b>Reasoning:</b> {pred.get('reasoning', 'N/A')[:200]}...
-                        </div>
+            pred = stock['ai_prediction']
+            conf = stock.get('confidence', {})
+            
+            action = pred.get('action', 'HOLD')
+            conf_score = conf.get('score', 50)
+            
+            action_color = {'BUY': '#28a745', 'SELL': '#dc3545', 'HOLD': '#6c757d'}.get(action)
+            action_icon = {'BUY': '🟢', 'SELL': '🔴', 'HOLD': '⚪'}.get(action)
+            
+            # Create the detailed breakdown list
+            breakdown_list = ""
+            if conf.get('breakdown'):
+                breakdown_list = "<ul>"
+                for item in conf['breakdown']:
+                    icon = "✅" if "+" in item else "⚠️" if "-" in item else "⚖️"
+                    breakdown_list += f'<li style="font-size: 0.9em; color: #555; margin-bottom: 4px;">{icon} {item}</li>'
+                breakdown_list += "</ul>"
+
+            prediction_cards.append(f"""
+            <div style="border: 1px solid #ddd; border-left: 5px solid {action_color}; border-radius: 8px; margin-bottom: 20px; padding: 20px; background: #fff;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <div>
+                        <h3 style="margin: 0 0 5px 0; font-size: 1.5em;">{action_icon} {stock['ticker']} &rarr; {action}</h3>
+                        <p style="margin: 0; color: #777; font-size: 1em;">{stock['name']}</p>
                     </div>
-                    """
-                    
-                    prediction_cards.append(prediction_card)
-                    cards_created += 1
-                    
-                except Exception as e:
-                    logging.error(f"Error creating card for {stock.get('ticker')}: {e}")
-            
-            logging.info(f"Created {cards_created} prediction cards")
-            
-            if prediction_cards:
-                ai_predictions_html = f"""
-                <div class="section" style="background-color:#f0f9ff;border-left:4px solid #3b82f6;">
-                    <h2>🎯 AI PREDICTIONS & CONFIDENCE ANALYSIS</h2>
-                    <p style="font-size:0.9em;color:#666;margin-bottom:15px;">
-                        Generated {predictions_made} AI-powered predictions with confidence scoring.
-                    </p>
-                    {''.join(prediction_cards)}
-                    <div style="margin-top:15px;padding:12px;background:#fffbeb;border-radius:5px;">
-                        <p style="font-size:0.85em;color:#92400e;margin:0;">
-                            <b>💡 How to use:</b> Only act on HIGH confidence (75%+) signals. 
-                            System learns from outcomes daily.
-                        </p>
+                    <div style="text-align: right;">
+                        <div style="font-size: 2.2em; font-weight: bold; color: {action_color};">{conf_score}%</div>
+                        <div style="font-size: 0.8em; font-weight: bold; color: {action_color};">CONVICTION SCORE</div>
                     </div>
                 </div>
-                """
+                <div style="margin: 20px 0; padding-top: 20px; border-top: 1px solid #eee;">
+                    <h4 style="margin: 0 0 10px 0; font-size: 1em; color: #333;">Confidence Factors:</h4>
+                    {breakdown_list}
+                </div>
+                <div style="margin-top: 15px; padding: 10px; background: #f9f9f9; border-radius: 5px; font-size: 0.9em; color: #444;">
+                    <strong>Consensus Reasoning:</strong> {pred.get('reasoning', 'N/A')}
+                </div>
+            </div>
+            """)
+
+        if prediction_cards:
+            ai_predictions_html = f"""
+            <div class="section" style="background-color:#f4f7f6;">
+                <h2 class="section-title">🎯 AI Predictions & Conviction Analysis</h2>
+                {''.join(prediction_cards)}
+            </div>
+            """
                 logging.info("✅ AI predictions HTML generated successfully")
             else:
                 logging.warning("⚠️ No prediction cards created despite predictions_made > 0")
