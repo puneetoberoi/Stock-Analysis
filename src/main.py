@@ -2751,43 +2751,45 @@ logging.info("=" * 60)
 
 # Then add predictions_html to your email template where appropriate
     
-    # Pattern analysis section (from v1.0.0 - keeping stable)
-    pattern_html = ""
-        if pattern_data and pattern_data.get('matches'):
-            current_cond_data = pattern_data['current_conditions']
-            current_cond = f"""<div style="background-color:#fff;padding:15px;border:2px solid #7c3aed;border-radius:5px;margin-bottom:20px;">
-            <h3 style="margin-top:0;">📊 Today's Market DNA:</h3>
-            <p style="margin:5px 0;"><b>RSI:</b> {current_cond_data['rsi']:.1f} | <b>Volatility:</b> {current_cond_data['volatility']:.1f}% | <b>Trend:</b> {current_cond_data['trend']:+.1f}%</p>
-            <p style="margin:5px 0;"><b>Geopolitical Risk:</b> {current_cond_data['geo_risk']:.0f} | <b>Trade Risk:</b> {current_cond_data['trade_risk']:.0f}</p>
-            </div>"""
-            
-            interpretation_html = ""
-            if pattern_data.get('interpretation'):
-                for item in pattern_data['interpretation']:
-                    if item['type'] == 'bias':
-                        color = {'bullish': '#16a34a', 'bearish': '#dc2626', 'neutral': '#666'}[item['color']]
-                        interpretation_html += f'<p style="font-size:1.2em;font-weight:bold;color:{color};">{item["emoji"]} {item["text"]}</p>'
-                    else:
-                        interpretation_html += f'<p style="line-height:1.8;margin:10px 0;">{item["text"]}</p>'
-            
-            sector_html = ""
-            if pattern_data.get('sector_performance'):
-                sector_rows = ""
-                for sector, perf in pattern_data['sector_performance'][:5]:
-                    color = "#16a34a" if perf > 0 else "#dc2626"
-                    sector_rows += f'<tr><td style="padding:8px;border-bottom:1px solid #eee;">{sector}</td><td style="padding:8px;border-bottom:1px solid #eee;text-align:right;color:{color};font-weight:bold;">{perf:+.1f}%</td></tr>'
-                
-                sector_html = f"""<div style="margin:20px 0;">
-                <h3>🎯 Sector Performance in Similar Periods:</h3>
-                <p style="font-size:0.9em;color:#666;">Based on {pattern_data['matches'][0]['date']} match ({pattern_data['matches'][0]['context']})</p>
-                <table style="width:100%;background-color:#fff;border-collapse:collapse;">
-                    <thead><tr style="background-color:#f3e8ff;">
-                        <th style="padding:10px;text-align:left;">Sector</th>
-                        <th style="padding:10px;text-align:right;">3-Month Return</th>
-                    </tr></thead>
-                    <tbody>{sector_rows}</tbody>
-                </table>
-                </div>"""
+# Pattern analysis section (from v1.0.0 - keeping stable)
+pattern_html = ""
+if pattern_data and pattern_data.get('matches'):  # ← FIXED: Same indentation as line above
+    current_cond_data = pattern_data['current_conditions']
+    current_cond = f"""<div style="background-color:#fff;padding:15px;border:2px solid #7c3aed;border-radius:5px;margin-bottom:20px;">
+    <h3 style="margin-top:0;">📊 Today's Market DNA:</h3>
+    <p style="margin:5px 0;"><b>RSI:</b> {current_cond_data['rsi']:.1f} | <b>Volatility:</b> {current_cond_data['volatility']:.1f}% | <b>Trend:</b> {current_cond_data['trend']:+.1f}%</p>
+    <p style="margin:5px 0;"><b>Geopolitical Risk:</b> {current_cond_data['geo_risk']:.0f} | <b>Trade Risk:</b> {current_cond_data['trade_risk']:.0f}</p>
+    </div>"""
+    
+    interpretation_html = ""
+    if pattern_data.get('interpretation'):
+        for item in pattern_data['interpretation']:
+            if item['type'] == 'bias':
+                color = {'bullish': '#16a34a', 'bearish': '#dc2626', 'neutral': '#666'}[item['color']]
+                interpretation_html += f'<p style="font-size:1.2em;font-weight:bold;color:{color};">{item["emoji"]} {item["text"]}</p>'
+            else:
+                interpretation_html += f'<p style="line-height:1.8;margin:10px 0;">{item["text"]}</p>'
+    
+    sector_html = ""
+    if pattern_data.get('sector_performance'):
+        sector_rows = ""
+        for sector, perf in pattern_data['sector_performance'][:5]:
+            color = "#16a34a" if perf > 0 else "#dc2626"
+            sector_rows += f'<tr><td style="padding:8px;border-bottom:1px solid #eee;">{sector}</td><td style="padding:8px;border-bottom:1px solid #eee;text-align:right;color:{color};font-weight:bold;">{perf:+.1f}%</td></tr>'
+        
+        sector_html = f"""<div style="margin:20px 0;">
+        <h3>🎯 Sector Performance in Similar Periods:</h3>
+        <p style="font-size:0.9em;color:#666;">Based on {pattern_data['matches'][0]['date']} match ({pattern_data['matches'][0]['context']})</p>
+        <table style="width:100%;background-color:#fff;border-collapse:collapse;">
+            <thead><tr style="background-color:#f3e8ff;">
+                <th style="padding:10px;text-align:left;">Sector</th>
+                <th style="padding:10px;text-align:right;">3-Month Return</th>
+            </tr></thead>
+            <tbody>{sector_rows}</tbody>
+        </table>
+        </div>"""
+    
+    # Continue with the rest of pattern_html section...
         
         # FIXED: Clear, single recommendations display
         recommendations_html = ""
