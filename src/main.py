@@ -2617,54 +2617,6 @@ if portfolio_data and portfolio_data.get('learning_active'):
             </table>
             </div>"""
         
-        recommendations_html = ""
-        if portfolio_recommendations and portfolio_recommendations.get('final_verdicts'):
-            rec_items = []
-            for ticker, verdict in portfolio_recommendations['final_verdicts'].items():
-                action = verdict['action']
-                reason = verdict['reason']
-                confidence = verdict.get('confidence', 'MEDIUM')
-                name = verdict.get('name', ticker)
-                
-                if action in ['BUY', 'BUY DIP', 'BUY STARTER', 'ADD', 'AVERAGE DOWN']:
-                    color = "#16a34a"
-                    icon = "🟢"
-                elif action in ['SELL', 'TRIM 50%', 'TAKE PROFITS', 'REDUCE']:
-                    color = "#dc2626" 
-                    icon = "🔴"
-                elif action in ['HOLD', 'WATCH']:
-                    color = "#666"
-                    icon = "⚪"
-                elif action == 'HEDGE':
-                    color = "#ea580c"
-                    icon = "🟡"
-                else:
-                    color = "#666"
-                    icon = "⚪"
-                
-                conf_badge = ""
-                if confidence == 'HIGH':
-                    conf_badge = '<span style="background:#dc2626;color:white;padding:2px 6px;border-radius:3px;font-size:0.8em;margin-left:8px;">HIGH CONF</span>'
-                elif confidence == 'MEDIUM':
-                    conf_badge = '<span style="background:#f59e0b;color:white;padding:2px 6px;border-radius:3px;font-size:0.8em;margin-left:8px;">MED CONF</span>'
-                elif confidence == 'LOW':
-                    conf_badge = '<span style="background:#6b7280;color:white;padding:2px 6px;border-radius:3px;font-size:0.8em;margin-left:8px;">LOW CONF</span>'
-                
-                rec_items.append(f"""
-                <div style="margin:10px 0;padding:12px;background-color:#f9f9f9;border-left:4px solid {color};border-radius:5px;">
-                    <div style="font-size:1.1em;font-weight:bold;color:{color};">
-                        {icon} {ticker}: {action} {conf_badge}
-                    </div>
-                    <div style="font-size:0.9em;color:#333;margin-top:2px;">{name}</div>
-                    <div style="font-size:0.9em;color:#666;margin-top:5px;">• {reason}</div>
-                </div>
-                """)
-            
-            recommendations_html = f"""<div style="margin:20px 0;">
-            <h3 style="color:#7c3aed;">💼 YOUR PORTFOLIO ACTION PLAN</h3>
-            <p style="font-size:0.9em;color:#666;">One clear recommendation per stock - no conflicts</p>
-            {''.join(rec_items)}
-            </div>"""
         
         matches_html = ""
         for i, match in enumerate(pattern_data['matches'][:5], 1):
@@ -2692,7 +2644,6 @@ if portfolio_data and portfolio_data.get('learning_active'):
             {interpretation_html}
         </div>
         {sector_html_patterns}
-        {recommendations_html}
         <div style="margin:20px 0;">
             <h3>📅 Historical Matches:</h3>
             <p style="font-size:0.9em;color:#666;">These show S&P 500 performance. Sector performance varied (see table above).</p>
