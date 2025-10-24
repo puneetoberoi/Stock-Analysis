@@ -1,9 +1,9 @@
-name: Morning Market Analysis
+name: Morning Market Analysis with Learning
 
 on:
   schedule:
-    - cron: '0 11 * * 1-5'  # 6 AM EST (11 UTC) on weekdays
-  workflow_dispatch:  # Allow manual trigger for testing
+    - cron: '0 11 * * 1-5'  # 6 AM EST
+  workflow_dispatch:
 
 jobs:
   analyze:
@@ -11,17 +11,24 @@ jobs:
     
     steps:
     - uses: actions/checkout@v3
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        fetch-depth: 0
     
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.10'
+        python-version: '3.11'
     
     - name: Install dependencies
       run: |
-        pip install -r requirements.txt
+        python -m pip install --upgrade pip
+        pip install ta yfinance requests numpy aiohttp beautifulsoup4 lxml matplotlib seaborn pytrends requests-html nest_asyncio spacy textblob transformers wikipedia-api markdown
+        pip install vaderSentiment ta asyncio-throttle
+        pip install google-generativeai  # For Gemini AI
+        pip install duckduckgo-search
     
-    - name: Run market analysis
+    - name: Run market analysis with predictions
       env:
         GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
         GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -29,13 +36,15 @@ jobs:
         NEWSAPI_KEY: ${{ secrets.NEWSAPI_KEY }}
         SMTP_USER: ${{ secrets.SMTP_USER }}
         SMTP_PASS: ${{ secrets.SMTP_PASS }}
+        ENABLE_V2_FEATURES: true
       run: |
         python src/main.py --output email
     
-    - name: Commit predictions
+    - name: Commit predictions and learning data
       run: |
         git config --global user.email "action@github.com"
         git config --global user.name "GitHub Action"
-        git add data/*.json
-        git diff --quiet && git diff --staged --quiet || git commit -m "Update predictions [skip ci]"
-        git push
+        git add data/*.json logs/*.json || true
+        git add market_memory.json || true
+        git diff --quiet && git diff --staged --quiet || git commit -m "📊 Daily predictions and analysis [skip ci]"
+        git push || echo "No changes to push"
