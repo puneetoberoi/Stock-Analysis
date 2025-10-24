@@ -1,4 +1,4 @@
-import os, sys, argparse, time, datetime, logging, json, asyncio
+import os, sys, argparse, time, logging, json, asyncio
 import requests
 import pandas as pd
 import numpy as np
@@ -82,8 +82,6 @@ class DateTimeEncoder(json.JSONEncoder):
 # Then update ALL json.dump calls to use it:
 def save_memory(data):
     """Save memory with proper date handling"""
-    import json
-    import datetime as dt
     # Fixed for "import datetime" style
     def json_serial(obj):
         """JSON serializer for objects not serializable by default"""
@@ -1855,7 +1853,7 @@ async def main(output="print"):
             "previous_top_stock_name": str(df_stocks.iloc[0]['name']),
             "previous_top_stock_ticker": str(df_stocks.iloc[0]['ticker']),
             "previous_macro_score": float(macro_data.get('overall_macro_score', 0)),
-            "date": datetime.datetime.now().strftime('%Y-%m-%d')  # <-- SIMPLE STRING, NO ISSUES
+            "date": datetime.now().strftime('%Y-%m-%d')  # <-- SIMPLE STRING, NO ISSUES
         })
     
     logging.info("✅ Analysis complete with v2.0.0 features.")
