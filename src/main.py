@@ -2655,155 +2655,147 @@ def generate_enhanced_html_email(df_stocks, context, market_news, macro_data, me
 
     # Add this AFTER the portfolio_html section in generate_enhanced_html_email
 
-# ========================================
-# 🎯 AI PREDICTIONS WITH CONFIDENCE SCORING
-# ========================================
-
-ai_predictions_html = ""
-
-# Diagnostic logging
-logging.info("=" * 60)
-logging.info("📧 EMAIL - AI PREDICTIONS SECTION")
-logging.info(f"Portfolio data exists: {portfolio_data is not None}")
-
-if portfolio_data:
-    logging.info(f"Learning active: {portfolio_data.get('learning_active')}")
-    logging.info(f"Predictions made: {portfolio_data.get('predictions_made')}")
-    logging.info(f"Stocks count: {len(portfolio_data.get('stocks', []))}")
-
-if portfolio_data and portfolio_data.get('learning_active'):
-    predictions_made = portfolio_data.get('predictions_made', 0)
+    # ========================================
+    # 🎯 AI PREDICTIONS WITH CONFIDENCE SCORING
+    # ========================================
     
-    logging.info(f"Checking {predictions_made} predictions for display...")
+    ai_predictions_html = ""
     
-    if predictions_made > 0:
-        prediction_cards = []
-        cards_created = 0
+    # Diagnostic logging
+    logging.info("=" * 60)
+    logging.info("📧 EMAIL - AI PREDICTIONS SECTION")
+    logging.info(f"Portfolio data exists: {portfolio_data is not None}")
+    
+    if portfolio_data:
+        logging.info(f"Learning active: {portfolio_data.get('learning_active')}")
+        logging.info(f"Predictions made: {portfolio_data.get('predictions_made')}")
+        logging.info(f"Stocks count: {len(portfolio_data.get('stocks', []))}")
+    
+    if portfolio_data and portfolio_data.get('learning_active'):
+        predictions_made = portfolio_data.get('predictions_made', 0)
         
-        for stock in portfolio_data['stocks']:
-            if 'ai_prediction' not in stock or not stock['ai_prediction']:
-                continue
+        logging.info(f"Checking {predictions_made} predictions for display...")
+        
+        if predictions_made > 0:
+            prediction_cards = []
+            cards_created = 0
             
-            try:
-                pred = stock['ai_prediction']
-                conf = stock.get('confidence', {})
+            for stock in portfolio_data['stocks']:
+                if 'ai_prediction' not in stock or not stock['ai_prediction']:
+                    continue
                 
-                # Action setup
-                action = pred.get('action', 'HOLD')
-                action_color = {'BUY': '#16a34a', 'SELL': '#dc2626', 'HOLD': '#666'}.get(action, '#666')
-                action_icon = {'BUY': '🟢', 'SELL': '🔴', 'HOLD': '⚪'}.get(action, '⚪')
-                
-                # Confidence
-                conf_score = conf.get('score', pred.get('confidence', 50))
-                conf_color = '#16a34a' if conf_score >= 75 else '#f59e0b' if conf_score >= 60 else '#dc2626'
-                conf_label = 'HIGH' if conf_score >= 75 else 'MEDIUM' if conf_score >= 60 else 'LOW'
-                
-                # Build card
-                prediction_card = f"""
-                <div style="border:2px solid {action_color};border-radius:10px;padding:15px;margin-bottom:15px;background:white;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-                        <h3 style="margin:0;color:#111;">{action_icon} {stock['ticker']} - {action}</h3>
-                        <div style="font-size:1.5em;font-weight:bold;color:{conf_color};">{conf_score:.0f}%</div>
+                try:
+                    pred = stock['ai_prediction']
+                    conf = stock.get('confidence', {})
+                    
+                    # Action setup
+                    action = pred.get('action', 'HOLD')
+                    action_color = {'BUY': '#16a34a', 'SELL': '#dc2626', 'HOLD': '#666'}.get(action, '#666')
+                    action_icon = {'BUY': '🟢', 'SELL': '🔴', 'HOLD': '⚪'}.get(action, '⚪')
+                    
+                    # Confidence
+                    conf_score = conf.get('score', pred.get('confidence', 50))
+                    conf_color = '#16a34a' if conf_score >= 75 else '#f59e0b' if conf_score >= 60 else '#dc2626'
+                    conf_label = 'HIGH' if conf_score >= 75 else 'MEDIUM' if conf_score >= 60 else 'LOW'
+                    
+                    # Build card
+                    prediction_card = f"""
+                    <div style="border:2px solid {action_color};border-radius:10px;padding:15px;margin-bottom:15px;background:white;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                            <h3 style="margin:0;color:#111;">{action_icon} {stock['ticker']} - {action}</h3>
+                            <div style="font-size:1.5em;font-weight:bold;color:{conf_color};">{conf_score:.0f}%</div>
+                        </div>
+                        <div style="font-size:0.9em;color:#666;">
+                            {stock.get('name', stock['ticker'])} • ${stock.get('price', 0):.2f}
+                        </div>
+                        <div style="margin:10px 0;background:#e5e5e5;border-radius:10px;height:10px;">
+                            <div style="width:{conf_score}%;background:{conf_color};border-radius:10px;height:100%;"></div>
+                        </div>
+                        <div style="background:#f8f9fa;padding:8px;border-radius:5px;margin-top:10px;font-size:0.9em;">
+                            <b>Reasoning:</b> {pred.get('reasoning', 'N/A')[:200]}...
+                        </div>
                     </div>
-                    <div style="font-size:0.9em;color:#666;">
-                        {stock.get('name', stock['ticker'])} • ${stock.get('price', 0):.2f}
-                    </div>
-                    <div style="margin:10px 0;background:#e5e5e5;border-radius:10px;height:10px;">
-                        <div style="width:{conf_score}%;background:{conf_color};border-radius:10px;height:100%;"></div>
-                    </div>
-                    <div style="background:#f8f9fa;padding:8px;border-radius:5px;margin-top:10px;font-size:0.9em;">
-                        <b>Reasoning:</b> {pred.get('reasoning', 'N/A')[:200]}...
+                    """
+                    
+                    prediction_cards.append(prediction_card)
+                    cards_created += 1
+                    
+                except Exception as e:
+                    logging.error(f"Error creating card for {stock.get('ticker')}: {e}")
+            
+            logging.info(f"Created {cards_created} prediction cards")
+            
+            if prediction_cards:
+                ai_predictions_html = f"""
+                <div class="section" style="background-color:#f0f9ff;border-left:4px solid #3b82f6;">
+                    <h2>🎯 AI PREDICTIONS & CONFIDENCE ANALYSIS</h2>
+                    <p style="font-size:0.9em;color:#666;margin-bottom:15px;">
+                        Generated {predictions_made} AI-powered predictions with confidence scoring.
+                    </p>
+                    {''.join(prediction_cards)}
+                    <div style="margin-top:15px;padding:12px;background:#fffbeb;border-radius:5px;">
+                        <p style="font-size:0.85em;color:#92400e;margin:0;">
+                            <b>💡 How to use:</b> Only act on HIGH confidence (75%+) signals. 
+                            System learns from outcomes daily.
+                        </p>
                     </div>
                 </div>
                 """
-                
-                prediction_cards.append(prediction_card)
-                cards_created += 1
-                
-            except Exception as e:
-                logging.error(f"Error creating card for {stock.get('ticker')}: {e}")
-        
-        logging.info(f"Created {cards_created} prediction cards")
-        
-        if prediction_cards:
-            ai_predictions_html = f"""
-            <div class="section" style="background-color:#f0f9ff;border-left:4px solid #3b82f6;">
-                <h2>🎯 AI PREDICTIONS & CONFIDENCE ANALYSIS</h2>
-                <p style="font-size:0.9em;color:#666;margin-bottom:15px;">
-                    Generated {predictions_made} AI-powered predictions with confidence scoring.
-                </p>
-                {''.join(prediction_cards)}
-                <div style="margin-top:15px;padding:12px;background:#fffbeb;border-radius:5px;">
-                    <p style="font-size:0.85em;color:#92400e;margin:0;">
-                        <b>💡 How to use:</b> Only act on HIGH confidence (75%+) signals. 
-                        System learns from outcomes daily.
-                    </p>
-                </div>
-            </div>
-            """
-            logging.info("✅ AI predictions HTML generated successfully")
-        else:
-            logging.warning("⚠️ No prediction cards created despite predictions_made > 0")
-    else:
-        logging.info("No predictions to display (predictions_made = 0)")
-
-logging.info("=" * 60)
-
-# Then add predictions_html to your email template where appropriate
-    
-# Pattern analysis section (from v1.0.0 - keeping stable)
-pattern_html = ""
-if pattern_data and pattern_data.get('matches'):  # ← FIXED: Same indentation as line above
-    current_cond_data = pattern_data['current_conditions']
-    current_cond = f"""<div style="background-color:#fff;padding:15px;border:2px solid #7c3aed;border-radius:5px;margin-bottom:20px;">
-    <h3 style="margin-top:0;">📊 Today's Market DNA:</h3>
-    <p style="margin:5px 0;"><b>RSI:</b> {current_cond_data['rsi']:.1f} | <b>Volatility:</b> {current_cond_data['volatility']:.1f}% | <b>Trend:</b> {current_cond_data['trend']:+.1f}%</p>
-    <p style="margin:5px 0;"><b>Geopolitical Risk:</b> {current_cond_data['geo_risk']:.0f} | <b>Trade Risk:</b> {current_cond_data['trade_risk']:.0f}</p>
-    </div>"""
-    
-    interpretation_html = ""
-    if pattern_data.get('interpretation'):
-        for item in pattern_data['interpretation']:
-            if item['type'] == 'bias':
-                color = {'bullish': '#16a34a', 'bearish': '#dc2626', 'neutral': '#666'}[item['color']]
-                interpretation_html += f'<p style="font-size:1.2em;font-weight:bold;color:{color};">{item["emoji"]} {item["text"]}</p>'
+                logging.info("✅ AI predictions HTML generated successfully")
             else:
-                interpretation_html += f'<p style="line-height:1.8;margin:10px 0;">{item["text"]}</p>'
+                logging.warning("⚠️ No prediction cards created despite predictions_made > 0")
+        else:
+            logging.info("No predictions to display (predictions_made = 0)")
     
-    sector_html = ""
-    if pattern_data.get('sector_performance'):
-        sector_rows = ""
-        for sector, perf in pattern_data['sector_performance'][:5]:
-            color = "#16a34a" if perf > 0 else "#dc2626"
-            sector_rows += f'<tr><td style="padding:8px;border-bottom:1px solid #eee;">{sector}</td><td style="padding:8px;border-bottom:1px solid #eee;text-align:right;color:{color};font-weight:bold;">{perf:+.1f}%</td></tr>'
-        
-        sector_html = f"""<div style="margin:20px 0;">
-        <h3>🎯 Sector Performance in Similar Periods:</h3>
-        <p style="font-size:0.9em;color:#666;">Based on {pattern_data['matches'][0]['date']} match ({pattern_data['matches'][0]['context']})</p>
-        <table style="width:100%;background-color:#fff;border-collapse:collapse;">
-            <thead><tr style="background-color:#f3e8ff;">
-                <th style="padding:10px;text-align:left;">Sector</th>
-                <th style="padding:10px;text-align:right;">3-Month Return</th>
-            </tr></thead>
-            <tbody>{sector_rows}</tbody>
-        </table>
+    logging.info("=" * 60)
+    
+    # Pattern analysis section (from v1.0.0 - keeping stable)
+    pattern_html = ""
+    if pattern_data and pattern_data.get('matches'):
+        current_cond_data = pattern_data['current_conditions']
+        current_cond = f"""<div style="background-color:#fff;padding:15px;border:2px solid #7c3aed;border-radius:5px;margin-bottom:20px;">
+        <h3 style="margin-top:0;">📊 Today's Market DNA:</h3>
+        <p style="margin:5px 0;"><b>RSI:</b> {current_cond_data['rsi']:.1f} | <b>Volatility:</b> {current_cond_data['volatility']:.1f}% | <b>Trend:</b> {current_cond_data['trend']:+.1f}%</p>
+        <p style="margin:5px 0;"><b>Geopolitical Risk:</b> {current_cond_data['geo_risk']:.0f} | <b>Trade Risk:</b> {current_cond_data['trade_risk']:.0f}</p>
         </div>"""
-    
-    # Continue with the rest of pattern_html section...
-            # Continue with the rest of pattern_html section...
         
-        # FIXED: Clear, single recommendations display
+        interpretation_html = ""
+        if pattern_data.get('interpretation'):
+            for item in pattern_data['interpretation']:
+                if item['type'] == 'bias':
+                    color = {'bullish': '#16a34a', 'bearish': '#dc2626', 'neutral': '#666'}[item['color']]
+                    interpretation_html += f'<p style="font-size:1.2em;font-weight:bold;color:{color};">{item["emoji"]} {item["text"]}</p>'
+                else:
+                    interpretation_html += f'<p style="line-height:1.8;margin:10px 0;">{item["text"]}</p>'
+        
+        sector_html_patterns = ""
+        if pattern_data.get('sector_performance'):
+            sector_rows = ""
+            for sector, perf in pattern_data['sector_performance'][:5]:
+                color = "#16a34a" if perf > 0 else "#dc2626"
+                sector_rows += f'<tr><td style="padding:8px;border-bottom:1px solid #eee;">{sector}</td><td style="padding:8px;border-bottom:1px solid #eee;text-align:right;color:{color};font-weight:bold;">{perf:+.1f}%</td></tr>'
+            
+            sector_html_patterns = f"""<div style="margin:20px 0;">
+            <h3>🎯 Sector Performance in Similar Periods:</h3>
+            <p style="font-size:0.9em;color:#666;">Based on {pattern_data['matches'][0]['date']} match ({pattern_data['matches'][0]['context']})</p>
+            <table style="width:100%;background-color:#fff;border-collapse:collapse;">
+                <thead><tr style="background-color:#f3e8ff;">
+                    <th style="padding:10px;text-align:left;">Sector</th>
+                    <th style="padding:10px;text-align:right;">3-Month Return</th>
+                </tr></thead>
+                <tbody>{sector_rows}</tbody>
+            </table>
+            </div>"""
+        
         recommendations_html = ""
         if portfolio_recommendations and portfolio_recommendations.get('final_verdicts'):
             rec_items = []
-            
             for ticker, verdict in portfolio_recommendations['final_verdicts'].items():
                 action = verdict['action']
                 reason = verdict['reason']
                 confidence = verdict.get('confidence', 'MEDIUM')
                 name = verdict.get('name', ticker)
                 
-                # Color coding based on action
                 if action in ['BUY', 'BUY DIP', 'BUY STARTER', 'ADD', 'AVERAGE DOWN']:
                     color = "#16a34a"
                     icon = "🟢"
@@ -2820,7 +2812,6 @@ if pattern_data and pattern_data.get('matches'):  # ← FIXED: Same indentation 
                     color = "#666"
                     icon = "⚪"
                 
-                # Confidence badge
                 conf_badge = ""
                 if confidence == 'HIGH':
                     conf_badge = '<span style="background:#dc2626;color:white;padding:2px 6px;border-radius:3px;font-size:0.8em;margin-left:8px;">HIGH CONF</span>'
@@ -2910,102 +2901,102 @@ if pattern_data and pattern_data.get('matches'):  # ← FIXED: Same indentation 
     commodities_html = create_context_table(["gold", "silver"])
     market_news_html = "".join([f'<div style="margin-bottom:15px;"><b><a href="{article.get("url", "#")}" style="color:#000;">{article["title"]}</a></b><br><span style="color:#666;font-size:0.9em;">{article.get("source", "Unknown")}</span></div>' for article in market_news[:10]]) or "<p><i>Headlines temporarily unavailable.</i></p>"
     
-        # Assemble final email
-        return f"""<!DOCTYPE html><html><head><style>
-        body{{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0;padding:0;background-color:#f7f7f7;}}
-        .container{{width:100%;max-width:700px;margin:20px auto;background-color:#fff;border:1px solid #ddd;}}
-        .header{{background-color:#0c0a09;color:#fff;padding:30px;text-align:center;}}
-        .section{{padding:25px;border-bottom:1px solid #ddd;}}
-        h2{{font-size:1.5em;color:#111;margin-top:0;}}
-        h3{{font-size:1.2em;color:#333;border-bottom:2px solid #e2e8f0;padding-bottom:5px;}}
-        </style></head><body>
-        <div class="container">
-            <div class="header">
-                <h1>Your Daily Intelligence Briefing</h1>
-                <p style="font-size:1.1em; color:#aaa;">{date.today().strftime('%A, %B %d, %Y')}</p>
-            </div>
-            
-            <div class="section">
-                <h2>EDITOR'S NOTE</h2>
-                <p>{editor_note}</p>
-            </div>
-            
-            {v2_signals_html}
-            {ai_oracle_html}
-            {portfolio_html}
-            {ai_predictions_html}
-            {pattern_html}
-            
-            <div class="section">
-                <h2>THE BIG PICTURE: The Market Weather Report</h2>
-                <h3>Overall Macro Score: {macro_data['overall_macro_score']:.1f} / 30</h3>
-                <p><b>How it's calculated:</b> This is our "weather forecast" for investors, combining risks and sentiment.</p>
-                <p><b>🌍 Geopolitical Risk ({macro_data['geopolitical_risk']:.0f}/100):</b> Measures global instability.<br>
-                <u>Key Drivers:</u> {format_articles(macro_data['geo_articles'])}</p>
-                <p><b>🚢 Trade Risk ({macro_data['trade_risk']:.0f}/100):</b> Tracks trade tensions.<br>
-                <u>Key Drivers:</u> {format_articles(macro_data['trade_articles'])}</p>
-                <p><b>💼 Economic Sentiment ({macro_data['economic_sentiment']:.2f}):</b> Market mood (-1 to +1).<br>
-                <u>Key Drivers:</u> {format_articles(macro_data['econ_articles'])}</p>
-            </div>
-            
-            <div class="section">
-                <h2>SECTOR DEEP DIVE</h2>
-                <p>Top companies from different sectors.</p>
-                {sector_html or "<p><i>No sector data available.</i></p>"}
-            </div>
-            
-            <div class="section">
-                <h2>STOCK RADAR</h2>
-                <h3>📈 Top 10 Strongest Signals</h3>
-                <table style="width:100%; border-collapse: collapse;">
-                    <thead><tr>
-                        <th style="text-align:left; padding:10px;">Company</th>
-                        <th style="text-align:center; padding:10px;">Score</th>
-                    </tr></thead>
-                    <tbody>{top10_html}</tbody>
-                </table>
-                
-                <h3 style="margin-top: 30px;">📉 Top 10 Weakest Signals</h3>
-                <table style="width:100%; border-collapse: collapse;">
-                    <thead><tr>
-                        <th style="text-align:left; padding:10px;">Company</th>
-                        <th style="text-align:center; padding:10px;">Score</th>
-                    </tr></thead>
-                    <tbody>{bottom10_html}</tbody>
-                </table>
-            </div>
-            
-            <div class="section">
-                <h2>BEYOND STOCKS: Alternative Assets</h2>
-                <h3>🪙 Crypto</h3>
-                <p><b>Market Sentiment: {context.get('crypto_sentiment', 'N/A')}</b></p>
-                <table style="width:100%; border-collapse: collapse;">
-                    <thead><tr>
-                        <th style="text-align:left; padding:10px;">Asset</th>
-                        <th style="text-align:left; padding:10px;">Price / 24h</th>
-                        <th style="text-align:left; padding:10px;">Market Cap</th>
-                    </tr></thead>
-                    <tbody>{crypto_html}</tbody>
-                </table>
-                
-                <h3 style="margin-top: 30px;">💎 Commodities</h3>
-                <p><b>Gold/Silver Ratio: {context.get('gold_silver_ratio', 'N/A')}</b></p>
-                <table style="width:100%; border-collapse: collapse;">
-                    <thead><tr>
-                        <th style="text-align:left; padding:10px;">Asset</th>
-                        <th style="text-align:left; padding:10px;">Price / 24h</th>
-                        <th style="text-align:left; padding:10px;">Market Cap</th>
-                    </tr></thead>
-                    <tbody>{commodities_html}</tbody>
-                </table>
-            </div>
-            
-            <div class="section">
-                <h2>FROM THE WIRE: Today's Top Headlines</h2>
-                {market_news_html}
-            </div>
+    # Assemble final email
+    return f"""<!DOCTYPE html><html><head><style>
+    body{{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0;padding:0;background-color:#f7f7f7;}}
+    .container{{width:100%;max-width:700px;margin:20px auto;background-color:#fff;border:1px solid #ddd;}}
+    .header{{background-color:#0c0a09;color:#fff;padding:30px;text-align:center;}}
+    .section{{padding:25px;border-bottom:1px solid #ddd;}}
+    h2{{font-size:1.5em;color:#111;margin-top:0;}}
+    h3{{font-size:1.2em;color:#333;border-bottom:2px solid #e2e8f0;padding-bottom:5px;}}
+    </style></head><body>
+    <div class="container">
+        <div class="header">
+            <h1>Your Daily Intelligence Briefing</h1>
+            <p style="font-size:1.1em; color:#aaa;">{date.today().strftime('%A, %B %d, %Y')}</p>
         </div>
-        </body></html>"""
+        
+        <div class="section">
+            <h2>EDITOR'S NOTE</h2>
+            <p>{editor_note}</p>
+        </div>
+        
+        {v2_signals_html}
+        {ai_oracle_html}
+        {portfolio_html}
+        {ai_predictions_html}
+        {pattern_html}
+        
+        <div class="section">
+            <h2>THE BIG PICTURE: The Market Weather Report</h2>
+            <h3>Overall Macro Score: {macro_data['overall_macro_score']:.1f} / 30</h3>
+            <p><b>How it's calculated:</b> This is our "weather forecast" for investors, combining risks and sentiment.</p>
+            <p><b>🌍 Geopolitical Risk ({macro_data['geopolitical_risk']:.0f}/100):</b> Measures global instability.<br>
+            <u>Key Drivers:</u> {format_articles(macro_data['geo_articles'])}</p>
+            <p><b>🚢 Trade Risk ({macro_data['trade_risk']:.0f}/100):</b> Tracks trade tensions.<br>
+            <u>Key Drivers:</u> {format_articles(macro_data['trade_articles'])}</p>
+            <p><b>💼 Economic Sentiment ({macro_data['economic_sentiment']:.2f}):</b> Market mood (-1 to +1).<br>
+            <u>Key Drivers:</u> {format_articles(macro_data['econ_articles'])}</p>
+        </div>
+        
+        <div class="section">
+            <h2>SECTOR DEEP DIVE</h2>
+            <p>Top companies from different sectors.</p>
+            {sector_html or "<p><i>No sector data available.</i></p>"}
+        </div>
+        
+        <div class="section">
+            <h2>STOCK RADAR</h2>
+            <h3>📈 Top 10 Strongest Signals</h3>
+            <table style="width:100%; border-collapse: collapse;">
+                <thead><tr>
+                    <th style="text-align:left; padding:10px;">Company</th>
+                    <th style="text-align:center; padding:10px;">Score</th>
+                </tr></thead>
+                <tbody>{top10_html}</tbody>
+            </table>
+            
+            <h3 style="margin-top: 30px;">📉 Top 10 Weakest Signals</h3>
+            <table style="width:100%; border-collapse: collapse;">
+                <thead><tr>
+                    <th style="text-align:left; padding:10px;">Company</th>
+                    <th style="text-align:center; padding:10px;">Score</th>
+                </tr></thead>
+                <tbody>{bottom10_html}</tbody>
+            </table>
+        </div>
+        
+        <div class="section">
+            <h2>BEYOND STOCKS: Alternative Assets</h2>
+            <h3>🪙 Crypto</h3>
+            <p><b>Market Sentiment: {context.get('crypto_sentiment', 'N/A')}</b></p>
+            <table style="width:100%; border-collapse: collapse;">
+                <thead><tr>
+                    <th style="text-align:left; padding:10px;">Asset</th>
+                    <th style="text-align:left; padding:10px;">Price / 24h</th>
+                    <th style="text-align:left; padding:10px;">Market Cap</th>
+                </tr></thead>
+                <tbody>{crypto_html}</tbody>
+            </table>
+            
+            <h3 style="margin-top: 30px;">💎 Commodities</h3>
+            <p><b>Gold/Silver Ratio: {context.get('gold_silver_ratio', 'N/A')}</b></p>
+            <table style="width:100%; border-collapse: collapse;">
+                <thead><tr>
+                    <th style="text-align:left; padding:10px;">Asset</th>
+                    <th style="text-align:left; padding:10px;">Price / 24h</th>
+                    <th style="text-align:left; padding:10px;">Market Cap</th>
+                </tr></thead>
+                <tbody>{commodities_html}</tbody>
+            </table>
+        </div>
+        
+        <div class="section">
+            <h2>FROM THE WIRE: Today's Top Headlines</h2>
+            {market_news_html}
+        </div>
+    </div>
+    </body></html>"""
 
 def send_email(html_body):
     SMTP_USER, SMTP_PASS = os.getenv("SMTP_USER"), os.getenv("SMTP_PASS")
