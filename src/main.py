@@ -2683,7 +2683,7 @@ if portfolio_data and portfolio_data.get('learning_active'):
     market_news_html = "".join([f'<div style="margin-bottom:15px;"><b><a href="{article.get("url", "#")}" style="color:#000;">{article["title"]}</a></b><br><span style="color:#666;font-size:0.9em;">{article.get("source", "Unknown")}</span></div>' for article in market_news[:10]]) or "<p><i>Headlines temporarily unavailable.</i></p>"
     
         # Assemble final email
-    return f"""<!DOCTYPE html><html><head><style>
+        return f"""<!DOCTYPE html><html><head><style>
     body{{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0;padding:0;background-color:#f7f7f7;}}
     .container{{width:100%;max-width:700px;margin:20px auto;background-color:#fff;border:1px solid #ddd;}}
     .header{{background-color:#0c0a09;color:#fff;padding:30px;text-align:center;}}
