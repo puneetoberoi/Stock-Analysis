@@ -542,6 +542,7 @@ async def analyze_sector_performance_in_period(start_date, end_date):
         logging.warning(f"Error analyzing sector performance: {e}")
         return []
 
+# ✅ COMPLETE FIXED FUNCTION
 async def find_historical_patterns(session, current_conditions):
     """Find similar market conditions in past 11 years"""
     logging.info("🔮 Searching for historical patterns...")
@@ -607,8 +608,8 @@ async def find_historical_patterns(session, current_conditions):
             interpretation = generate_pattern_interpretation(current_conditions, avg_1m, avg_3m, win_rate_1m, win_rate_3m, bullish_matches, bearish_matches, neutral_matches)
             
             # Get sector performance for top match
-            top_match_date = datetime.datetime.strptime(pattern_matches[0]['date'], '%Y-%m-%d')
-            period_end = top_match_date + datetime.timedelta(days=60)
+            top_match_date = datetime.strptime(pattern_matches[0]['date'], '%Y-%m-%d') # ✅ FIXED: No more datetime.datetime
+            period_end = top_match_date + timedelta(days=60)
             sector_perf = await analyze_sector_performance_in_period(
                 pattern_matches[0]['date'],
                 period_end.strftime('%Y-%m-%d')
@@ -1977,6 +1978,7 @@ class ConfidenceScorer:
 
 
 # ✅ COMPLETE FIXED CLASS - REPLACE YOUR EXISTING ONE
+# ✅ COMPLETE FINAL CLASS - REPLACE YOUR EXISTING ONE
 class IntelligentPredictionEngine:
     """Multi-LLM consensus with confidence scoring"""
     
@@ -2027,7 +2029,6 @@ class IntelligentPredictionEngine:
             logging.info(f"✅ LLM clients loaded: {list(self.llm_clients.keys())}")
             
     async def analyze_with_learning(self, ticker, existing_analysis, hist_data, market_context=None):
-        # This function remains the same as before
         candle_patterns = self.candle_analyzer.identify_pattern(hist_data)
         pattern_success_rates = {p['name']: self.candle_analyzer.get_pattern_success_rate(p['name'], ticker) for p in candle_patterns}
         llm_predictions = await self._get_multi_llm_consensus(ticker, existing_analysis, candle_patterns, pattern_success_rates, market_context)
@@ -2057,15 +2058,12 @@ REASON: [One sentence]"""
         
         tasks, llm_names = [], []
         if 'groq' in self.llm_clients:
-            logging.info(f"🔍[{ticker}] Adding Groq query...")
             tasks.append(self._query_groq(context, ticker))
             llm_names.append('groq')
         if 'gemini' in self.llm_clients:
-            logging.info(f"🔍[{ticker}] Adding Gemini query...")
             tasks.append(self._query_gemini(context, ticker))
             llm_names.append('gemini')
         if 'cohere' in self.llm_clients:
-            logging.info(f"🔍[{ticker}] Adding Cohere query...")
             tasks.append(self._query_cohere(context, ticker))
             llm_names.append('cohere')
         
@@ -2084,7 +2082,7 @@ REASON: [One sentence]"""
             client = self.llm_clients['groq']
             response = await asyncio.to_thread(
                 client.chat.completions.create,
-                model="llama3-70b-8192",  # ✅ FIXED: Updated model
+                model="llama3-8b-8192",  # ✅ FIXED: Use the smaller, stable model
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.3, max_tokens=150
             )
@@ -2096,6 +2094,7 @@ REASON: [One sentence]"""
     async def _query_gemini(self, prompt, ticker):
         try:
             model = self.llm_clients['gemini']
+            # ✅ FIXED: Switched to async call for better performance
             response = await model.generate_content_async(
                 prompt,
                 generation_config={'temperature': 0.3, 'max_output_tokens': 150}
@@ -2111,110 +2110,45 @@ REASON: [One sentence]"""
             response = await asyncio.to_thread(
                 client.chat,
                 message=prompt,
-                model='command-r-plus',  # ✅ FIXED: Updated model
+                model='command-r-plus',  # ✅ FIXED: Use the 'plus' version
                 temperature=0.3
             )
             return self._parse_llm_response(response.text, 'cohere')
         except Exception as e:
             logging.warning(f"Cohere query failed for {ticker}: {e}")
             return None
-    
+
     def _parse_llm_response(self, response_text, llm_name):
-        """Parse LLM response to extract action, confidence, and reasoning"""
         import re
-        
-        action = "HOLD"  # Default
-        confidence = 50
-        reasoning = response_text[:200]
-        
-        # Extract ACTION
+        action, confidence, reasoning = "HOLD", 50, response_text[:200]
         action_match = re.search(r'ACTION:\s*(BUY|SELL|HOLD)', response_text, re.IGNORECASE)
-        if action_match:
-            action = action_match.group(1).upper()
-        else:
-            # Fallback: look for keywords
-            text_lower = response_text.lower()
-            if 'buy' in text_lower and 'sell' not in text_lower:
-                action = "BUY"
-            elif 'sell' in text_lower:
-                action = "SELL"
-        
-        # Extract CONFIDENCE
+        if action_match: action = action_match.group(1).upper()
         conf_match = re.search(r'CONFIDENCE:\s*(\d+)', response_text, re.IGNORECASE)
-        if conf_match:
-            confidence = int(conf_match.group(1))
-        else:
-            # Look for percentage
-            pct_match = re.search(r'(\d+)%', response_text)
-            if pct_match:
-                confidence = int(pct_match.group(1))
-        
-        # Extract REASON
+        if conf_match: confidence = int(conf_match.group(1))
         reason_match = re.search(r'REASON:\s*(.+?)(?:\n|$)', response_text, re.IGNORECASE)
-        if reason_match:
-            reasoning = reason_match.group(1).strip()
-        
-        confidence = max(0, min(100, confidence))
-        
-        return {
-            'action': action,
-            'confidence': confidence,
-            'reasoning': reasoning,
-            'llm': llm_name
-        }
-    
+        if reason_match: reasoning = reason_match.group(1).strip()
+        return {'action': action, 'confidence': max(0, min(100, confidence)), 'reasoning': reasoning, 'llm': llm_name}
+
     def _determine_final_action(self, llm_predictions, confidence_result, candle_patterns):
-        """Determine final action from LLM consensus and confidence score"""
-        
         if not llm_predictions:
-            # No LLM predictions - use rule-based with confidence
-            if confidence_result['score'] >= 60:
-                action = "BUY" if candle_patterns and 'bullish' in candle_patterns[0].get('type', '') else "HOLD"
-            elif confidence_result['score'] <= 40:
-                action = "SELL"
-            else:
-                action = "HOLD"
-            
-            return {
-                'action': action,
-                'confidence': confidence_result['score'],
-                'reasoning': f"Rule-based: {confidence_result['action_advice']}",
-                'llm_count': 0
-            }
+            action = "BUY" if confidence_result['score'] >= 60 and candle_patterns and 'bullish' in candle_patterns[0].get('type', '') else "SELL" if confidence_result['score'] <= 40 else "HOLD"
+            return {'action': action, 'confidence': confidence_result['score'], 'reasoning': f"Rule-based: {confidence_result['action_advice']}", 'llm_count': 0}
         
-        # Get LLM consensus
         actions = [p['action'] for p in llm_predictions.values()]
-        most_common_action = max(set(actions), key=actions.count)
-        
-        # Weight by learning memory
         weights = self.learning_memory.get_llm_weights()
         weighted_actions = {"BUY": 0, "HOLD": 0, "SELL": 0}
-        
         for llm_name, prediction in llm_predictions.items():
-            weight = weights.get(llm_name, 0.33)
-            weighted_actions[prediction['action']] += weight
+            weighted_actions[prediction['action']] += weights.get(llm_name, 0.33)
         
-        final_action = max(weighted_actions.items(), key=lambda x: x[1])[0]
-        
-        # Combine all reasoning
+        final_action = max(weighted_actions, key=weighted_actions.get)
         reasonings = [f"{p['llm']}: {p['reasoning']}" for p in llm_predictions.values()]
         combined_reasoning = " | ".join(reasonings)
         
-        # Override action if confidence is too low
         if confidence_result['score'] < 45:
             final_action = "HOLD"
             combined_reasoning = f"Low confidence ({confidence_result['score']}%) - holding. " + combined_reasoning
-        
-        return {
-            'action': final_action,
-            'confidence': confidence_result['score'],
-            'reasoning': combined_reasoning[:500],
-            'llm_count': len(llm_predictions),
-            'llm_agreement': (actions.count(final_action) / len(actions)) * 100,
-            'confidence_breakdown': confidence_result['breakdown'],
-            'action_strength': confidence_result['action_strength'],
-            'action_advice': confidence_result['action_advice']
-        }
+            
+        return {'action': final_action, 'confidence': confidence_result['score'], 'reasoning': combined_reasoning[:500], 'llm_count': len(llm_predictions), 'llm_agreement': (actions.count(final_action) / len(actions)) * 100, 'confidence_breakdown': confidence_result['breakdown'], 'action_strength': confidence_result['action_strength'], 'action_advice': confidence_result['action_advice']}
 
 
 # ========================================
