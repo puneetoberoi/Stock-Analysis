@@ -2682,102 +2682,102 @@ if portfolio_data and portfolio_data.get('learning_active'):
     commodities_html = create_context_table(["gold", "silver"])
     market_news_html = "".join([f'<div style="margin-bottom:15px;"><b><a href="{article.get("url", "#")}" style="color:#000;">{article["title"]}</a></b><br><span style="color:#666;font-size:0.9em;">{article.get("source", "Unknown")}</span></div>' for article in market_news[:10]]) or "<p><i>Headlines temporarily unavailable.</i></p>"
     
-    # Assemble final email
-        return f"""<!DOCTYPE html><html><head><style>
-        body{{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0;padding:0;background-color:#f7f7f7;}}
-        .container{{width:100%;max-width:700px;margin:20px auto;background-color:#fff;border:1px solid #ddd;}}
-        .header{{background-color:#0c0a09;color:#fff;padding:30px;text-align:center;}}
-        .section{{padding:25px;border-bottom:1px solid #ddd;}}
-        h2{{font-size:1.5em;color:#111;margin-top:0;}}
-        h3{{font-size:1.2em;color:#333;border-bottom:2px solid #e2e8f0;padding-bottom:5px;}}
-        </style></head><body>
-        <div class="container">
-            <div class="header">
-                <h1>Your Daily Intelligence Briefing</h1>
-                <p style="font-size:1.1em; color:#aaa;">{datetime.now().strftime('%A, %B %d, %Y')}</p>
-            </div>
-            
-            <div class="section">
-                <h2>EDITOR'S NOTE</h2>
-                <p>{editor_note}</p>
-            </div>
-            
-            {v2_signals_html}
-            {ai_oracle_html}
-            {portfolio_html}
-            {ai_predictions_html}
-            {pattern_html}
-            
-            <div class="section">
-                <h2>THE BIG PICTURE: The Market Weather Report</h2>
-                <h3>Overall Macro Score: {macro_data['overall_macro_score']:.1f} / 30</h3>
-                <p><b>How it's calculated:</b> This is our "weather forecast" for investors, combining risks and sentiment.</p>
-                <p><b>🌍 Geopolitical Risk ({macro_data['geopolitical_risk']:.0f}/100):</b> Measures global instability.<br>
-                <u>Key Drivers:</u> {format_articles(macro_data['geo_articles'])}</p>
-                <p><b>🚢 Trade Risk ({macro_data['trade_risk']:.0f}/100):</b> Tracks trade tensions.<br>
-                <u>Key Drivers:</u> {format_articles(macro_data['trade_articles'])}</p>
-                <p><b>💼 Economic Sentiment ({macro_data['economic_sentiment']:.2f}):</b> Market mood (-1 to +1).<br>
-                <u>Key Drivers:</u> {format_articles(macro_data['econ_articles'])}</p>
-            </div>
-            
-            <div class="section">
-                <h2>SECTOR DEEP DIVE</h2>
-                <p>Top companies from different sectors.</p>
-                {sector_html or "<p><i>No sector data available.</i></p>"}
-            </div>
-            
-            <div class="section">
-                <h2>STOCK RADAR</h2>
-                <h3>📈 Top 10 Strongest Signals</h3>
-                <table style="width:100%; border-collapse: collapse;">
-                    <thead><tr>
-                        <th style="text-align:left; padding:10px;">Company</th>
-                        <th style="text-align:center; padding:10px;">Score</th>
-                    </tr></thead>
-                    <tbody>{top10_html}</tbody>
-                </table>
-                
-                <h3 style="margin-top: 30px;">📉 Top 10 Weakest Signals</h3>
-                <table style="width:100%; border-collapse: collapse;">
-                    <thead><tr>
-                        <th style="text-align:left; padding:10px;">Company</th>
-                        <th style="text-align:center; padding:10px;">Score</th>
-                    </tr></thead>
-                    <tbody>{bottom10_html}</tbody>
-                </table>
-            </div>
-            
-            <div class="section">
-                <h2>BEYOND STOCKS: Alternative Assets</h2>
-                <h3>🪙 Crypto</h3>
-                <p><b>Market Sentiment: {context.get('crypto_sentiment', 'N/A')}</b></p>
-                <table style="width:100%; border-collapse: collapse;">
-                    <thead><tr>
-                        <th style="text-align:left; padding:10px;">Asset</th>
-                        <th style="text-align:left; padding:10px;">Price / 24h</th>
-                        <th style="text-align:left; padding:10px;">Market Cap</th>
-                    </tr></thead>
-                    <tbody>{crypto_html}</tbody>
-                </table>
-                
-                <h3 style="margin-top: 30px;">💎 Commodities</h3>
-                <p><b>Gold/Silver Ratio: {context.get('gold_silver_ratio', 'N/A')}</b></p>
-                <table style="width:100%; border-collapse: collapse;">
-                    <thead><tr>
-                        <th style="text-align:left; padding:10px;">Asset</th>
-                        <th style="text-align:left; padding:10px;">Price / 24h</th>
-                        <th style="text-align:left; padding:10px;">Market Cap</th>
-                    </tr></thead>
-                    <tbody>{commodities_html}</tbody>
-                </table>
-            </div>
-            
-            <div class="section">
-                <h2>FROM THE WIRE: Today's Top Headlines</h2>
-                {market_news_html}
-            </div>
+        # Assemble final email
+    return f"""<!DOCTYPE html><html><head><style>
+    body{{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0;padding:0;background-color:#f7f7f7;}}
+    .container{{width:100%;max-width:700px;margin:20px auto;background-color:#fff;border:1px solid #ddd;}}
+    .header{{background-color:#0c0a09;color:#fff;padding:30px;text-align:center;}}
+    .section{{padding:25px;border-bottom:1px solid #ddd;}}
+    h2{{font-size:1.5em;color:#111;margin-top:0;}}
+    h3{{font-size:1.2em;color:#333;border-bottom:2px solid #e2e8f0;padding-bottom:5px;}}
+    </style></head><body>
+    <div class="container">
+        <div class="header">
+            <h1>Your Daily Intelligence Briefing</h1>
+            <p style="font-size:1.1em; color:#aaa;">{datetime.now().strftime('%A, %B %d, %Y')}</p>
         </div>
-        </body></html>"""
+        
+        <div class="section">
+            <h2>EDITOR'S NOTE</h2>
+            <p>{editor_note}</p>
+        </div>
+        
+        {v2_signals_html}
+        {ai_oracle_html}
+        {portfolio_html}
+        {ai_predictions_html}
+        {pattern_html}
+        
+        <div class="section">
+            <h2>THE BIG PICTURE: The Market Weather Report</h2>
+            <h3>Overall Macro Score: {macro_data['overall_macro_score']:.1f} / 30</h3>
+            <p><b>How it's calculated:</b> This is our "weather forecast" for investors, combining risks and sentiment.</p>
+            <p><b>🌍 Geopolitical Risk ({macro_data['geopolitical_risk']:.0f}/100):</b> Measures global instability.<br>
+            <u>Key Drivers:</u> {format_articles(macro_data['geo_articles'])}</p>
+            <p><b>🚢 Trade Risk ({macro_data['trade_risk']:.0f}/100):</b> Tracks trade tensions.<br>
+            <u>Key Drivers:</u> {format_articles(macro_data['trade_articles'])}</p>
+            <p><b>💼 Economic Sentiment ({macro_data['economic_sentiment']:.2f}):</b> Market mood (-1 to +1).<br>
+            <u>Key Drivers:</u> {format_articles(macro_data['econ_articles'])}</p>
+        </div>
+        
+        <div class="section">
+            <h2>SECTOR DEEP DIVE</h2>
+            <p>Top companies from different sectors.</p>
+            {sector_html or "<p><i>No sector data available.</i></p>"}
+        </div>
+        
+        <div class="section">
+            <h2>STOCK RADAR</h2>
+            <h3>📈 Top 10 Strongest Signals</h3>
+            <table style="width:100%; border-collapse: collapse;">
+                <thead><tr>
+                    <th style="text-align:left; padding:10px;">Company</th>
+                    <th style="text-align:center; padding:10px;">Score</th>
+                </tr></thead>
+                <tbody>{top10_html}</tbody>
+            </table>
+            
+            <h3 style="margin-top: 30px;">📉 Top 10 Weakest Signals</h3>
+            <table style="width:100%; border-collapse: collapse;">
+                <thead><tr>
+                    <th style="text-align:left; padding:10px;">Company</th>
+                    <th style="text-align:center; padding:10px;">Score</th>
+                </tr></thead>
+                <tbody>{bottom10_html}</tbody>
+            </table>
+        </div>
+        
+        <div class="section">
+            <h2>BEYOND STOCKS: Alternative Assets</h2>
+            <h3>🪙 Crypto</h3>
+            <p><b>Market Sentiment: {context.get('crypto_sentiment', 'N/A')}</b></p>
+            <table style="width:100%; border-collapse: collapse;">
+                <thead><tr>
+                    <th style="text-align:left; padding:10px;">Asset</th>
+                    <th style="text-align:left; padding:10px;">Price / 24h</th>
+                    <th style="text-align:left; padding:10px;">Market Cap</th>
+                </tr></thead>
+                <tbody>{crypto_html}</tbody>
+            </table>
+            
+            <h3 style="margin-top: 30px;">💎 Commodities</h3>
+            <p><b>Gold/Silver Ratio: {context.get('gold_silver_ratio', 'N/A')}</b></p>
+            <table style="width:100%; border-collapse: collapse;">
+                <thead><tr>
+                    <th style="text-align:left; padding:10px;">Asset</th>
+                    <th style="text-align:left; padding:10px;">Price / 24h</th>
+                    <th style="text-align:left; padding:10px;">Market Cap</th>
+                </tr></thead>
+                <tbody>{commodities_html}</tbody>
+            </table>
+        </div>
+        
+        <div class="section">
+            <h2>FROM THE WIRE: Today's Top Headlines</h2>
+            {market_news_html}
+        </div>
+    </div>
+    </body></html>"""
 
 def send_email(html_body):
     SMTP_USER, SMTP_PASS = os.getenv("SMTP_USER"), os.getenv("SMTP_PASS")
