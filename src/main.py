@@ -2560,11 +2560,11 @@ if portfolio_data and portfolio_data.get('learning_active'):
 
         if prediction_cards:
             ai_predictions_html = f"""
-            <div class="section" style="background-color:#f4f7f6;">
-                <h2 class="section-title">🎯 AI Predictions & Conviction Analysis</h2>
-                {''.join(prediction_cards)}
-            </div>
-            """
+                <div class="section" style="background-color:#f4f7f6;">
+                    <h2 class="section-title">🎯 AI Predictions & Conviction Analysis</h2>
+                    {''.join(prediction_cards)}
+                </div>
+                """
                 logging.info("✅ AI predictions HTML generated successfully")
             else:
                 logging.warning("⚠️ No prediction cards created despite predictions_made > 0")
