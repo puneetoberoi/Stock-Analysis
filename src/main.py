@@ -3260,12 +3260,19 @@ def verify_intelligence_available():
 # ============================================================================
 
 try:
-    from src.analysis.enhanced_patterns import EnhancedPatternDetector
+    # Try multiple import paths (works in both local and GitHub Actions)
+    try:
+        from src.analysis.enhanced_patterns import EnhancedPatternDetector
+    except ImportError:
+        from analysis.enhanced_patterns import EnhancedPatternDetector
+    
     ENHANCED_PATTERNS_ENABLED = True
     logging.info("✅ Enhanced Pattern Detection loaded successfully")
 except ImportError as e:
     ENHANCED_PATTERNS_ENABLED = False
     logging.warning(f"⚠️ Enhanced Pattern Detection not available: {e}")
+    logging.warning("Continuing without enhanced pattern detection...")
+
 
 
 def add_enhanced_pattern_analysis(ticker_symbol: str, existing_analysis: dict, hist_data: pd.DataFrame) -> dict:
