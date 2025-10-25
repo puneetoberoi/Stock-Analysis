@@ -391,34 +391,34 @@ async def analyze_portfolio_watchlist(session, portfolio_file='portfolio.json'):
     }
     
     for ticker in portfolio_tickers:
-    try:
-        stock = yf.Ticker(ticker)
-        hist = stock.history(period="3mo", interval="1d")
-        info = stock.info
-        
-        if hist.empty:
-            continue
-        
-        # ============================================================================
-        # 🆕 ADD THIS BLOCK: Enhanced Pattern Detection
-        # ============================================================================
-        detected_pattern = None
-        pattern_boost = 0
-        
-        if ENHANCED_PATTERNS_ENABLED:
-            try:
-                detector = EnhancedPatternDetector()
-                strongest = detector.get_strongest_pattern(hist)
-                all_patterns = detector.detect_all_patterns(hist)
-                
-                if strongest:
-                    detected_pattern = strongest
-                    emoji = "🟢" if strongest['signal'] == 'BUY' else "🔴" if strongest['signal'] == 'SELL' else "⚪"
-                    logging.info(f"🕯️ {ticker} {emoji} Pattern: {strongest['name']} "
-                                f"({strongest['signal']}, {strongest['strength']}%) "
-                                f"[{len(all_patterns)} patterns found]")
-            except Exception as e:
-                logging.debug(f"Pattern detection failed for {ticker}: {e}")
+        try:
+            stock = yf.Ticker(ticker)
+            hist = stock.history(period="3mo", interval="1d")
+            info = stock.info
+            
+            if hist.empty:
+                continue
+            
+            # ============================================================================
+            # 🆕 ADD THIS BLOCK: Enhanced Pattern Detection
+            # ============================================================================
+            detected_pattern = None
+            pattern_boost = 0
+            
+            if ENHANCED_PATTERNS_ENABLED:
+                try:
+                    detector = EnhancedPatternDetector()
+                    strongest = detector.get_strongest_pattern(hist)
+                    all_patterns = detector.detect_all_patterns(hist)
+                    
+                    if strongest:
+                        detected_pattern = strongest
+                        emoji = "🟢" if strongest['signal'] == 'BUY' else "🔴" if strongest['signal'] == 'SELL' else "⚪"
+                        logging.info(f"🕯️ {ticker} {emoji} Pattern: {strongest['name']} "
+                                    f"({strongest['signal']}, {strongest['strength']}%) "
+                                    f"[{len(all_patterns)} patterns found]")
+                except Exception as e:
+                    logging.debug(f"Pattern detection failed for {ticker}: {e}")
         # ============================================================================
         # End of pattern detection block
         # ============================================================================
