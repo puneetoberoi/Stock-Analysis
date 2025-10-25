@@ -30,7 +30,7 @@ jobs:
         pip install pandas ta yfinance requests numpy aiohttp beautifulsoup4 lxml matplotlib seaborn pytrends requests-html nest_asyncio spacy textblob transformers wikipedia-api markdown
         pip install vaderSentiment ta asyncio-throttle python-dateutil PyYAML
         pip install google-generativeai groq cohere
-        pip install duckduckgo-search
+        pip install ddgs scipy
     
     - name: 📚 Run the learning script to grade predictions
       run: |
