@@ -3252,9 +3252,275 @@ def verify_intelligence_available():
 # 🆕 END EMAIL BOT SYSTEM
 # ========================================
 
-# ========================================
-# 🆕 END EMAIL BOT SYSTEM
-# ========================================
+# ============================================================================
+# 🆕 ENHANCED PATTERN DETECTION (NEW - SEPARATE BLOCK)
+# ============================================================================
+# This runs AFTER the existing analysis and adds advanced pattern detection
+# without modifying any of the working code above.
+# ============================================================================
+
+try:
+    from src.analysis.enhanced_patterns import EnhancedPatternDetector
+    ENHANCED_PATTERNS_ENABLED = True
+    logging.info("✅ Enhanced Pattern Detection loaded successfully")
+except ImportError as e:
+    ENHANCED_PATTERNS_ENABLED = False
+    logging.warning(f"⚠️ Enhanced Pattern Detection not available: {e}")
+
+
+def add_enhanced_pattern_analysis(ticker_symbol: str, existing_analysis: dict, hist_data: pd.DataFrame) -> dict:
+    """
+    Adds enhanced pattern detection to existing analysis WITHOUT modifying it.
+    This is a completely separate analysis layer.
+    
+    Args:
+        ticker_symbol: Stock ticker
+        existing_analysis: Your current analysis dict (unchanged)
+        hist_data: Historical price data
+        
+    Returns:
+        Enhanced analysis with additional pattern data
+    """
+    if not ENHANCED_PATTERNS_ENABLED:
+        return existing_analysis
+    
+    try:
+        # Create pattern detector
+        detector = EnhancedPatternDetector()
+        
+        # Detect all patterns
+        all_patterns = detector.detect_all_patterns(hist_data)
+        strongest_pattern = detector.get_strongest_pattern(hist_data)
+        
+        # Add to analysis as a NEW section (doesn't touch existing data)
+        enhanced = existing_analysis.copy()
+        enhanced['enhanced_patterns'] = {
+            'all_patterns_found': all_patterns,
+            'strongest_pattern': strongest_pattern,
+            'pattern_count': len(all_patterns),
+            'top_3_patterns': all_patterns[:3] if len(all_patterns) >= 3 else all_patterns
+        }
+        
+        # Log findings
+        if strongest_pattern:
+            logging.info(f"🕯️ {ticker_symbol} - Strongest pattern: {strongest_pattern['name']} "
+                        f"({strongest_pattern['signal']}, strength: {strongest_pattern['strength']}%)")
+        
+        return enhanced
+        
+    except Exception as e:
+        logging.error(f"Error in enhanced pattern detection for {ticker_symbol}: {e}")
+        return existing_analysis
+
+
+def enhance_prediction_with_patterns(ticker: str, prediction_data: dict, hist_data: pd.DataFrame) -> dict:
+    """
+    Enhance the final prediction by considering advanced patterns.
+    This creates a SUPPLEMENTARY prediction without changing the original.
+    
+    Args:
+        ticker: Stock ticker
+        prediction_data: Original prediction from your existing system
+        hist_data: Historical price data
+        
+    Returns:
+        Enhanced prediction with pattern-based insights
+    """
+    if not ENHANCED_PATTERNS_ENABLED:
+        return prediction_data
+    
+    try:
+        detector = EnhancedPatternDetector()
+        strongest = detector.get_strongest_pattern(hist_data)
+        
+        if not strongest:
+            return prediction_data
+        
+        # Create enhanced prediction (keeps original intact)
+        enhanced = prediction_data.copy()
+        
+        # Add pattern confirmation/conflict analysis
+        original_action = prediction_data.get('action', 'HOLD')
+        pattern_signal = strongest['signal']
+        
+        # Check if pattern agrees with original prediction
+        signals_agree = (original_action == pattern_signal)
+        
+        enhanced['pattern_analysis'] = {
+            'pattern_detected': strongest['name'],
+            'pattern_signal': pattern_signal,
+            'pattern_strength': strongest['strength'],
+            'agrees_with_prediction': signals_agree,
+            'pattern_description': strongest['description']
+        }
+        
+        # Boost confidence if both agree and pattern is strong
+        if signals_agree and strongest['strength'] >= 80:
+            original_confidence = prediction_data.get('confidence', 50)
+            confidence_boost = min(10, (strongest['strength'] - 70) / 2)  # Max +10 boost
+            enhanced['confidence'] = min(100, original_confidence + confidence_boost)
+            enhanced['confidence_boost_reason'] = f"Strong {strongest['name']} pattern confirms prediction"
+            logging.info(f"📈 {ticker} confidence boosted: {original_confidence}% → {enhanced['confidence']}%")
+        
+        # Warning if they conflict
+        elif not signals_agree and strongest['strength'] >= 75:
+            enhanced['warning'] = f"⚠️ Pattern suggests {pattern_signal} but prediction is {original_action}"
+            logging.warning(f"⚠️ {ticker}: Pattern conflict - {strongest['name']} suggests {pattern_signal}")
+        
+        return enhanced
+        
+    except Exception as e:
+        logging.error(f"Error enhancing prediction for {ticker}: {e}")
+        return prediction_data
+
+
+# ============================================================================
+# 🔧 WRAPPER FUNCTION - Use this in your workflow
+# ============================================================================
+
+async def analyze_with_enhanced_patterns(ticker: str) -> dict:
+    """
+    Complete analysis with enhanced patterns.
+    This wraps your existing analysis and adds pattern detection.
+    
+    Usage: Replace your current analyze_stock() call with this function
+    """
+    # Get historical data
+    stock = yf.Ticker(ticker)
+    hist = stock.history(period='3mo')
+    
+    if hist.empty:
+        logging.warning(f"No data for {ticker}")
+        return None
+    
+    # Run your EXISTING analysis (whatever you currently have)
+    # This should call your current analysis functions
+    # For now, I'll show the structure - you'll plug in your actual analysis
+    
+    # YOUR EXISTING ANALYSIS CODE HERE (example):
+    # existing_analysis = await your_current_analysis_function(ticker)
+    # For demonstration:
+    existing_analysis = {
+        'ticker': ticker,
+        'action': 'HOLD',  # Your current prediction
+        'confidence': 70,
+        'reasoning': 'Your current reasoning',
+        # ... all your existing fields
+    }
+    
+    # ADD: Enhanced pattern analysis (NEW - doesn't touch above)
+    enhanced_analysis = add_enhanced_pattern_analysis(ticker, existing_analysis, hist)
+    
+    # ADD: Pattern-based prediction enhancement (NEW)
+    final_prediction = enhance_prediction_with_patterns(ticker, enhanced_analysis, hist)
+    
+    return final_prediction
+
+
+# ============================================================================
+# 📊 REPORTING FUNCTION - Shows pattern insights
+# ============================================================================
+
+def print_pattern_summary(analysis_results: list):
+    """
+    Pretty print pattern detection summary.
+    Call this after your analysis is complete.
+    """
+    if not ENHANCED_PATTERNS_ENABLED:
+        return
+    
+    print("\n" + "="*80)
+    print("🕯️ ENHANCED PATTERN DETECTION SUMMARY")
+    print("="*80)
+    
+    for result in analysis_results:
+        if not result or 'enhanced_patterns' not in result:
+            continue
+        
+        ticker = result['ticker']
+        patterns = result['enhanced_patterns']
+        strongest = patterns.get('strongest_pattern')
+        
+        if strongest:
+            emoji = "🟢" if strongest['signal'] == 'BUY' else "🔴" if strongest['signal'] == 'SELL' else "⚪"
+            print(f"\n{emoji} {ticker}:")
+            print(f"   Pattern: {strongest['name'].replace('_', ' ').title()}")
+            print(f"   Signal: {strongest['signal']} (Strength: {strongest['strength']}%)")
+            print(f"   Type: {strongest['type'].replace('_', ' ').title()}")
+            
+            # Show if it agrees with main prediction
+            if 'pattern_analysis' in result:
+                pa = result['pattern_analysis']
+                if pa['agrees_with_prediction']:
+                    print(f"   ✅ Confirms main prediction")
+                else:
+                    print(f"   ⚠️ Conflicts with main prediction")
+            
+            # Show top 3 patterns if multiple found
+            if patterns['pattern_count'] > 1:
+                print(f"   📊 Found {patterns['pattern_count']} total patterns")
+    
+    print("\n" + "="*80 + "\n")
+
+
+# ============================================================================
+# 🎯 EXAMPLE INTEGRATION WITH YOUR EXISTING main()
+# ============================================================================
+
+# Add this to your existing main() function or create a new one:
+
+async def enhanced_main():
+    """
+    Example of how to use enhanced patterns with your existing code.
+    This shows the integration pattern - adapt to your actual code.
+    """
+    
+    tickers = ['AAPL', 'MSFT', 'NVDA', 'TSLA', 'AMD']  # Your tickers
+    results = []
+    
+    for ticker in tickers:
+        try:
+            # ============================================================
+            # YOUR EXISTING ANALYSIS - KEEP AS IS
+            # ============================================================
+            # result = await your_existing_analysis_function(ticker)
+            
+            # For demonstration, simulating your existing analysis:
+            stock = yf.Ticker(ticker)
+            hist = stock.history(period='3mo')
+            
+            # Your current prediction logic (unchanged)
+            existing_result = {
+                'ticker': ticker,
+                'action': 'HOLD',  # From your LLM
+                'confidence': 75,   # From your system
+                'reasoning': 'Your existing reasoning'
+            }
+            
+            # ============================================================
+            # NEW: ADD ENHANCED PATTERNS (SEPARATE LAYER)
+            # ============================================================
+            enhanced_result = add_enhanced_pattern_analysis(
+                ticker, 
+                existing_result, 
+                hist
+            )
+            
+            final_result = enhance_prediction_with_patterns(
+                ticker,
+                enhanced_result,
+                hist
+            )
+            
+            results.append(final_result)
+            
+        except Exception as e:
+            logging.error(f"Error analyzing {ticker}: {e}")
+    
+    # Print summary
+    print_pattern_summary(results)
+    
+    return results
 
 
 # ========================================
