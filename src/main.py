@@ -1871,23 +1871,52 @@ class ConfidenceScorer:
                 most_common = max(set(actions), key=actions.count)
                 agreement_pct = (actions.count(most_common) / len(actions)) * 100
                 llm_score = int(agreement_pct * 0.3)  # Up to 30 points
-                breakdown.append(f"⚖️ {agreement_pct:.0f}% LLM agreement: +{llm_score}")
+                breakdown.append(f"✅ ⚖️ {agreement_pct:.0f}% LLM agreement: +{llm_score}")
             
             # Average LLM confidence
             avg_llm_conf = sum(confidences) / len(confidences)
             if avg_llm_conf > 70:
                 llm_score += 10
-                breakdown.append(f"🎯 High LLM confidence ({avg_llm_conf:.0f}%): +10")
+                breakdown.append(f"✅ 🎯 High LLM confidence ({avg_llm_conf:.0f}%): +10")
             elif avg_llm_conf < 40:
                 llm_score -= 10
                 breakdown.append(f"⚠️ Low LLM confidence ({avg_llm_conf:.0f}%): -10")
         
         confidence += llm_score
         
-        # 2. CANDLESTICK PATTERN STRENGTH (0-25 points)
+        # ========================================================================
+        # 2. CANDLESTICK PATTERN STRENGTH (0-35 points) - ENHANCED VERSION
+        # ========================================================================
         pattern_score = 0
-        if candle_patterns:
-            strong_patterns = [p for p in candle_patterns if p.get('strength') in ['strong', 'very_strong']]
+        
+        # Separate basic and enhanced patterns
+        basic_patterns = [p for p in candle_patterns if not p.get('enhanced', False)]
+        enhanced_patterns = [p for p in candle_patterns if p.get('enhanced', False)]
+        
+        # Score ENHANCED patterns first (they're more sophisticated)
+        if enhanced_patterns:
+            # Get the strongest enhanced pattern
+            best_enhanced = max(enhanced_patterns, key=lambda x: x.get('strength_score', 0))
+            strength_score = best_enhanced.get('strength_score', 0)
+            
+            if strength_score >= 85:
+                pattern_score += 20
+                breakdown.append(f"✅ 🔥 {best_enhanced['name'].replace('_', ' ').title()} ({strength_score}% strength): +20")
+            elif strength_score >= 75:
+                pattern_score += 15
+                breakdown.append(f"✅ 📈 {best_enhanced['name'].replace('_', ' ').title()} ({strength_score}% strength): +15")
+            elif strength_score >= 65:
+                pattern_score += 10
+                breakdown.append(f"✅ ➡️ {best_enhanced['name'].replace('_', ' ').title()} ({strength_score}% strength): +10")
+            
+            # Bonus for multiple enhanced patterns confirming
+            if len(enhanced_patterns) >= 2:
+                pattern_score += 5
+                breakdown.append(f"✅ 🎯 Multiple patterns confirm ({len(enhanced_patterns)} found): +5")
+        
+        # Score BASIC patterns (if no enhanced or as supplement)
+        elif basic_patterns:
+            strong_patterns = [p for p in basic_patterns if p.get('strength') in ['strong', 'very_strong']]
             
             if strong_patterns:
                 # Get best pattern success rate
@@ -1901,21 +1930,25 @@ class ConfidenceScorer:
                 
                 if best_success_rate > 70:
                     pattern_score = 25
-                    breakdown.append(f"📈 Strong {best_pattern['name']} ({best_success_rate:.0f}% success): +25")
+                    breakdown.append(f"✅ 📈 Strong {best_pattern['name']} ({best_success_rate:.0f}% success): +25")
                 elif best_success_rate > 60:
                     pattern_score = 15
-                    breakdown.append(f"📊 {best_pattern['name']} ({best_success_rate:.0f}% success): +15")
+                    breakdown.append(f"✅ 📊 {best_pattern['name']} ({best_success_rate:.0f}% success): +15")
                 elif best_success_rate > 50:
                     pattern_score = 10
-                    breakdown.append(f"➡️ {best_pattern['name']} ({best_success_rate:.0f}% success): +10")
-            
-            # Penalty for conflicting patterns
-            pattern_types = [p.get('type', '') for p in candle_patterns]
-            if 'bullish_reversal' in pattern_types and 'bearish_reversal' in pattern_types:
-                pattern_score -= 15
-                breakdown.append(f"⚠️ Conflicting patterns: -15")
+                    breakdown.append(f"✅ ➡️ {best_pattern['name']} ({best_success_rate:.0f}% success): +10")
+        
+        # Penalty for conflicting patterns (bullish vs bearish)
+        pattern_types = [p.get('type', '') for p in candle_patterns]
+        if 'bullish_reversal' in pattern_types and 'bearish_reversal' in pattern_types:
+            pattern_score -= 15
+            breakdown.append(f"⚠️ ⚠️ Conflicting patterns: -15")
+        elif 'bullish_continuation' in pattern_types and 'bearish_continuation' in pattern_types:
+            pattern_score -= 10
+            breakdown.append(f"⚠️ ⚠️ Mixed trend signals: -10")
         
         confidence += pattern_score
+        # ========================================================================
         
         # 3. TECHNICAL INDICATORS (0-20 points)
         indicator_score = 0
@@ -1927,21 +1960,21 @@ class ConfidenceScorer:
             # RSI alignment
             if 30 < rsi < 70:
                 indicator_score += 10
-                breakdown.append(f"✅ RSI balanced ({rsi:.0f}): +10")
+                breakdown.append(f"✅ ✅ RSI balanced ({rsi:.0f}): +10")
             elif rsi < 30:
                 indicator_score += 5
-                breakdown.append(f"🔵 RSI oversold ({rsi:.0f}): +5")
+                breakdown.append(f"✅ 🔵 RSI oversold ({rsi:.0f}): +5")
             elif rsi > 70:
                 indicator_score -= 5
-                breakdown.append(f"🔴 RSI overbought ({rsi:.0f}): -5")
+                breakdown.append(f"⚠️ 🔴 RSI overbought ({rsi:.0f}): -5")
             
             # System score
             if score > 70:
                 indicator_score += 10
-                breakdown.append(f"⭐ High system score ({score:.0f}): +10")
+                breakdown.append(f"✅ ⭐ High system score ({score:.0f}): +10")
             elif score < 40:
                 indicator_score -= 10
-                breakdown.append(f"⚠️ Low system score ({score:.0f}): -10")
+                breakdown.append(f"⚠️ ⚠️ Low system score ({score:.0f}): -10")
         
         confidence += indicator_score
         
@@ -1952,13 +1985,13 @@ class ConfidenceScorer:
             
             if volume_ratio > 2.0:
                 volume_score = 15
-                breakdown.append(f"📊 High volume ({volume_ratio:.1f}x avg): +15")
+                breakdown.append(f"✅ 📊 High volume ({volume_ratio:.1f}x avg): +15")
             elif volume_ratio > 1.5:
                 volume_score = 10
-                breakdown.append(f"📈 Above avg volume ({volume_ratio:.1f}x): +10")
+                breakdown.append(f"✅ 📈 Above avg volume ({volume_ratio:.1f}x): +10")
             elif volume_ratio < 0.5:
                 volume_score = -10
-                breakdown.append(f"📉 Low volume ({volume_ratio:.1f}x avg): -10")
+                breakdown.append(f"⚠️ 📉 Low volume ({volume_ratio:.1f}x avg): -10")
         
         confidence += volume_score
         
@@ -1969,10 +2002,10 @@ class ConfidenceScorer:
             
             if macro_score > 10:
                 context_score = 10
-                breakdown.append(f"🌍 Positive market context (+{macro_score:.0f}): +10")
+                breakdown.append(f"✅ 🌍 Positive market context (+{macro_score:.0f}): +10")
             elif macro_score < -10:
                 context_score = -10
-                breakdown.append(f"⚠️ Negative market context ({macro_score:.0f}): -10")
+                breakdown.append(f"⚠️ ⚠️ Negative market context ({macro_score:.0f}): -10")
         
         confidence += context_score
         
