@@ -1,7 +1,7 @@
 name: Evening Learning Check
 
 on:
-  schedule:
+  #schedule:
     #- cron: '0 22 * * 1-5'  # 5 PM EST (22 UTC) on weekdays
   workflow_dispatch:
 
