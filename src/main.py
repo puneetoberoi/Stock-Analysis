@@ -3610,6 +3610,50 @@ def add_patterns_to_prediction(ticker: str, prediction_data: dict) -> dict:
         logging.error(f"Error adding patterns to {ticker}: {e}")
         return prediction_data
 
+# ============================================================================
+# 🧪 PATTERN DETECTION TEST - Add before if __name__ == "__main__"
+# ============================================================================
+
+async def test_pattern_detection_quick():
+    """Quick test to verify pattern detection works"""
+    if not ENHANCED_PATTERNS_ENABLED:
+        logging.info("⚠️ Pattern detection not enabled")
+        return
+    
+    logging.info("\n" + "="*80)
+    logging.info("🧪 TESTING PATTERN DETECTION")
+    logging.info("="*80)
+    
+    test_tickers = ['AAPL', 'NVDA', 'TSLA']
+    
+    for ticker in test_tickers:
+        try:
+            stock = yf.Ticker(ticker)
+            hist = stock.history(period='3mo')
+            
+            if hist.empty or len(hist) < 10:
+                logging.info(f"❌ {ticker}: Not enough data")
+                continue
+            
+            detector = EnhancedPatternDetector()
+            strongest = detector.get_strongest_pattern(hist)
+            all_patterns = detector.detect_all_patterns(hist)
+            
+            if strongest:
+                emoji = "🟢" if strongest['signal'] == 'BUY' else "🔴" if strongest['signal'] == 'SELL' else "⚪"
+                logging.info(f"{emoji} {ticker}: {strongest['name']} "
+                           f"({strongest['signal']}, {strongest['strength']}%) "
+                           f"- Found {len(all_patterns)} patterns total")
+            else:
+                logging.info(f"⚪ {ticker}: No clear patterns detected")
+                
+        except Exception as e:
+            logging.error(f"❌ {ticker}: Error - {e}")
+            import traceback
+            traceback.print_exc()
+    
+    logging.info("="*80 + "\n")
+
 
 # ========================================
 # PROGRAM ENTRY POINT
@@ -3647,3 +3691,8 @@ if __name__ == "__main__":
         logging.info("🚀 MARKET INTELLIGENCE SYSTEM v2.1.0")
         logging.info("=" * 60)
         asyncio.run(main(output=args.output))
+        if ENHANCED_PATTERNS_ENABLED:
+            try:
+                asyncio.run(test_pattern_detection_quick())
+            except Exception as e:
+                logging.error(f"Pattern detection test failed: {e}")
