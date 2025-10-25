@@ -391,14 +391,17 @@ async def analyze_portfolio_watchlist(session, portfolio_file='portfolio.json'):
     }
     
     for ticker in portfolio_tickers:
-        try:
-            stock = yf.Ticker(ticker)
-            hist = stock.history(period="3mo", interval="1d")
-            info = stock.info
-            
-            if hist.empty:
-                continue
-                
+    try:
+        stock = yf.Ticker(ticker)
+        hist = stock.history(period="3mo", interval="1d")
+        info = stock.info
+        
+        if hist.empty:
+            continue
+        
+        # ============================================================================
+        # 🆕 ADD THIS BLOCK: Enhanced Pattern Detection
+        # ============================================================================
         detected_pattern = None
         pattern_boost = 0
         
