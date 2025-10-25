@@ -2503,91 +2503,68 @@ def generate_enhanced_html_email(df_stocks, context, market_news, macro_data, me
     # Add this AFTER the portfolio_html section in generate_enhanced_html_email
 
     # ========================================
-    # 🎯 AI PREDICTIONS WITH CONFIDENCE SCORING
-    # ========================================
+# 🎯 AI PREDICTIONS WITH DETAILED CONFIDENCE BREAKDOWN
+# ========================================
+ai_predictions_html = ""
+if portfolio_data and portfolio_data.get('learning_active'):
+    predictions_made = portfolio_data.get('predictions_made', 0)
     
-    ai_predictions_html = ""
-    
-    # Diagnostic logging
-    logging.info("=" * 60)
-    logging.info("📧 EMAIL - AI PREDICTIONS SECTION")
-    logging.info(f"Portfolio data exists: {portfolio_data is not None}")
-    
-    if portfolio_data:
-        logging.info(f"Learning active: {portfolio_data.get('learning_active')}")
-        logging.info(f"Predictions made: {portfolio_data.get('predictions_made')}")
-        logging.info(f"Stocks count: {len(portfolio_data.get('stocks', []))}")
-    
-    if portfolio_data and portfolio_data.get('learning_active'):
-        predictions_made = portfolio_data.get('predictions_made', 0)
-        
-        logging.info(f"Checking {predictions_made} predictions for display...")
-        
-        if predictions_made > 0:
-            prediction_cards = []
-            cards_created = 0
+    if predictions_made > 0:
+        prediction_cards = []
+        for stock in portfolio_data['stocks']:
+            if 'ai_prediction' not in stock or not stock['ai_prediction']:
+                continue
             
-            for stock in portfolio_data['stocks']:
-                if 'ai_prediction' not in stock or not stock['ai_prediction']:
-                    continue
+            try:
+                pred = stock['ai_prediction']
+                conf = stock.get('confidence', {})
                 
-                try:
-                    pred = stock['ai_prediction']
-                    conf = stock.get('confidence', {})
-                    
-                    # Action setup
-                    action = pred.get('action', 'HOLD')
-                    action_color = {'BUY': '#16a34a', 'SELL': '#dc2626', 'HOLD': '#666'}.get(action, '#666')
-                    action_icon = {'BUY': '🟢', 'SELL': '🔴', 'HOLD': '⚪'}.get(action, '⚪')
-                    
-                    # Confidence
-                    conf_score = conf.get('score', pred.get('confidence', 50))
-                    conf_color = '#16a34a' if conf_score >= 75 else '#f59e0b' if conf_score >= 60 else '#dc2626'
-                    conf_label = 'HIGH' if conf_score >= 75 else 'MEDIUM' if conf_score >= 60 else 'LOW'
-                    
-                    # Build card
-                    prediction_card = f"""
-                    <div style="border:2px solid {action_color};border-radius:10px;padding:15px;margin-bottom:15px;background:white;">
-                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-                            <h3 style="margin:0;color:#111;">{action_icon} {stock['ticker']} - {action}</h3>
-                            <div style="font-size:1.5em;font-weight:bold;color:{conf_color};">{conf_score:.0f}%</div>
+                action = pred.get('action', 'HOLD')
+                conf_score = conf.get('score', 50)
+                
+                action_color = {'BUY': '#28a745', 'SELL': '#dc3545', 'HOLD': '#6c757d'}.get(action, '#6c757d')
+                action_icon = {'BUY': '🟢', 'SELL': '🔴', 'HOLD': '⚪'}.get(action, '⚪')
+                
+                # Create the detailed breakdown list
+                breakdown_list_html = ""
+                if conf.get('breakdown'):
+                    breakdown_items = []
+                    for item in conf['breakdown']:
+                        icon = "✅" if "+" in item else "⚠️" if "-" in item else "⚖️"
+                        breakdown_items.append(f'<li style="font-size: 0.9em; color: #555; margin-bottom: 4px;">{icon} {item}</li>')
+                    breakdown_list_html = f"<ul>{''.join(breakdown_items)}</ul>"
+
+                prediction_cards.append(f"""
+                <div style="border: 1px solid #ddd; border-left: 5px solid {action_color}; border-radius: 8px; margin-bottom: 20px; padding: 20px; background: #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid #eee; padding-bottom: 15px; margin-bottom: 15px;">
+                        <div>
+                            <h3 style="margin: 0 0 5px 0; font-size: 1.5em; color: #333;">{action_icon} {stock.get('ticker', '?')} &rarr; <span style="color:{action_color};">{action}</span></h3>
+                            <p style="margin: 0; color: #777; font-size: 1em;">{stock.get('name', 'N/A')}</p>
                         </div>
-                        <div style="font-size:0.9em;color:#666;">
-                            {stock.get('name', stock['ticker'])} • ${stock.get('price', 0):.2f}
-                        </div>
-                        <div style="margin:10px 0;background:#e5e5e5;border-radius:10px;height:10px;">
-                            <div style="width:{conf_score}%;background:{conf_color};border-radius:10px;height:100%;"></div>
-                        </div>
-                        <div style="background:#f8f9fa;padding:8px;border-radius:5px;margin-top:10px;font-size:0.9em;">
-                            <b>Reasoning:</b> {pred.get('reasoning', 'N/A')[:200]}...
+                        <div style="text-align: right;">
+                            <div style="font-size: 2.2em; font-weight: bold; color: {action_color};">{conf_score}%</div>
+                            <div style="font-size: 0.8em; font-weight: bold; color: {action_color};">CONVICTION SCORE</div>
                         </div>
                     </div>
-                    """
-                    
-                    prediction_cards.append(prediction_card)
-                    cards_created += 1
-                    
-                except Exception as e:
-                    logging.error(f"Error creating card for {stock.get('ticker')}: {e}")
-            
-            logging.info(f"Created {cards_created} prediction cards")
-            
-            if prediction_cards:
-                ai_predictions_html = f"""
-                <div class="section" style="background-color:#f0f9ff;border-left:4px solid #3b82f6;">
-                    <h2>🎯 AI PREDICTIONS & CONFIDENCE ANALYSIS</h2>
-                    <p style="font-size:0.9em;color:#666;margin-bottom:15px;">
-                        Generated {predictions_made} AI-powered predictions with confidence scoring.
-                    </p>
-                    {''.join(prediction_cards)}
-                    <div style="margin-top:15px;padding:12px;background:#fffbeb;border-radius:5px;">
-                        <p style="font-size:0.85em;color:#92400e;margin:0;">
-                            <b>💡 How to use:</b> Only act on HIGH confidence (75%+) signals. 
-                            System learns from outcomes daily.
-                        </p>
+                    <div>
+                        <h4 style="margin: 0 0 10px 0; font-size: 1em; color: #333;">Confidence Factors:</h4>
+                        {breakdown_list_html or "<p style='font-size:0.9em; color:#777;'>No detailed breakdown available.</p>"}
+                    </div>
+                    <div style="margin-top: 15px; padding: 10px; background: #f9f9f9; border-radius: 5px; font-size: 0.9em; color: #444;">
+                        <strong>Consensus Reasoning:</strong> {pred.get('reasoning', 'N/A')}
                     </div>
                 </div>
-                """
+                """)
+            except Exception as e:
+                logging.error(f"Error creating detailed prediction card for {stock.get('ticker', '?')}: {e}")
+
+        if prediction_cards:
+            ai_predictions_html = f"""
+            <div class="section" style="background-color:#f4f7f6;">
+                <h2 class="section-title">🎯 AI Predictions & Conviction Analysis</h2>
+                {''.join(prediction_cards)}
+            </div>
+            """
                 logging.info("✅ AI predictions HTML generated successfully")
             else:
                 logging.warning("⚠️ No prediction cards created despite predictions_made > 0")
@@ -2634,54 +2611,6 @@ def generate_enhanced_html_email(df_stocks, context, market_news, macro_data, me
             </table>
             </div>"""
         
-        recommendations_html = ""
-        if portfolio_recommendations and portfolio_recommendations.get('final_verdicts'):
-            rec_items = []
-            for ticker, verdict in portfolio_recommendations['final_verdicts'].items():
-                action = verdict['action']
-                reason = verdict['reason']
-                confidence = verdict.get('confidence', 'MEDIUM')
-                name = verdict.get('name', ticker)
-                
-                if action in ['BUY', 'BUY DIP', 'BUY STARTER', 'ADD', 'AVERAGE DOWN']:
-                    color = "#16a34a"
-                    icon = "🟢"
-                elif action in ['SELL', 'TRIM 50%', 'TAKE PROFITS', 'REDUCE']:
-                    color = "#dc2626" 
-                    icon = "🔴"
-                elif action in ['HOLD', 'WATCH']:
-                    color = "#666"
-                    icon = "⚪"
-                elif action == 'HEDGE':
-                    color = "#ea580c"
-                    icon = "🟡"
-                else:
-                    color = "#666"
-                    icon = "⚪"
-                
-                conf_badge = ""
-                if confidence == 'HIGH':
-                    conf_badge = '<span style="background:#dc2626;color:white;padding:2px 6px;border-radius:3px;font-size:0.8em;margin-left:8px;">HIGH CONF</span>'
-                elif confidence == 'MEDIUM':
-                    conf_badge = '<span style="background:#f59e0b;color:white;padding:2px 6px;border-radius:3px;font-size:0.8em;margin-left:8px;">MED CONF</span>'
-                elif confidence == 'LOW':
-                    conf_badge = '<span style="background:#6b7280;color:white;padding:2px 6px;border-radius:3px;font-size:0.8em;margin-left:8px;">LOW CONF</span>'
-                
-                rec_items.append(f"""
-                <div style="margin:10px 0;padding:12px;background-color:#f9f9f9;border-left:4px solid {color};border-radius:5px;">
-                    <div style="font-size:1.1em;font-weight:bold;color:{color};">
-                        {icon} {ticker}: {action} {conf_badge}
-                    </div>
-                    <div style="font-size:0.9em;color:#333;margin-top:2px;">{name}</div>
-                    <div style="font-size:0.9em;color:#666;margin-top:5px;">• {reason}</div>
-                </div>
-                """)
-            
-            recommendations_html = f"""<div style="margin:20px 0;">
-            <h3 style="color:#7c3aed;">💼 YOUR PORTFOLIO ACTION PLAN</h3>
-            <p style="font-size:0.9em;color:#666;">One clear recommendation per stock - no conflicts</p>
-            {''.join(rec_items)}
-            </div>"""
         
         matches_html = ""
         for i, match in enumerate(pattern_data['matches'][:5], 1):
@@ -2709,7 +2638,6 @@ def generate_enhanced_html_email(df_stocks, context, market_news, macro_data, me
             {interpretation_html}
         </div>
         {sector_html_patterns}
-        {recommendations_html}
         <div style="margin:20px 0;">
             <h3>📅 Historical Matches:</h3>
             <p style="font-size:0.9em;color:#666;">These show S&P 500 performance. Sector performance varied (see table above).</p>
