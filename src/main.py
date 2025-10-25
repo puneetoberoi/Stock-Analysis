@@ -1833,13 +1833,17 @@ prediction_tracker = PredictionTracker()
 candle_analyzer = CandlePatternAnalyzer()
 learning_memory = LearningMemory()
 # 🆕 Add Enhanced Pattern Detector (30+ advanced patterns)
-if ENHANCED_PATTERNS_ENABLED:
-    enhanced_pattern_detector = EnhancedPatternDetector()
-    logging.info("✅ Enhanced Pattern Detector initialized (30+ patterns)")
-else:
+try:
+    if ENHANCED_PATTERNS_ENABLED:
+        enhanced_pattern_detector = EnhancedPatternDetector()
+        logging.info("✅ Enhanced Pattern Detector initialized (30+ patterns)")
+    else:
+        enhanced_pattern_detector = None
+        logging.info("⚠️ Using basic pattern detection only (18 patterns)")
+except NameError:
+    # ENHANCED_PATTERNS_ENABLED not defined yet, will be set later
     enhanced_pattern_detector = None
-    logging.info("⚠️ Using basic pattern detection only (18 patterns)")
-
+    logging.info("⚠️ Enhanced patterns will be initialized later")
 # ========================================
 # 🔗 INTEGRATION LAYER - Connects to existing code
 # This READS from your existing functions without changing them
