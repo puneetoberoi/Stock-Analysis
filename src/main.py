@@ -1832,6 +1832,13 @@ class LearningMemory:
 prediction_tracker = PredictionTracker()
 candle_analyzer = CandlePatternAnalyzer()
 learning_memory = LearningMemory()
+# 🆕 Add Enhanced Pattern Detector (30+ advanced patterns)
+if ENHANCED_PATTERNS_ENABLED:
+    enhanced_pattern_detector = EnhancedPatternDetector()
+    logging.info("✅ Enhanced Pattern Detector initialized (30+ patterns)")
+else:
+    enhanced_pattern_detector = None
+    logging.info("⚠️ Using basic pattern detection only (18 patterns)")
 
 # ========================================
 # 🔗 INTEGRATION LAYER - Connects to existing code
@@ -2054,16 +2061,45 @@ class IntelligentPredictionEngine:
             
             
     async def analyze_with_learning(self, ticker, existing_analysis, hist_data, market_context=None):
-        candle_patterns = self.candle_analyzer.identify_pattern(hist_data)
-        pattern_success_rates = {p['name']: self.candle_analyzer.get_pattern_success_rate(p['name'], ticker) for p in candle_patterns}
-        llm_predictions = await self._get_multi_llm_consensus(ticker, existing_analysis, candle_patterns, pattern_success_rates, market_context)
-        confidence_result = self.confidence_scorer.calculate_confidence(llm_predictions, candle_patterns, pattern_success_rates, {'rsi': existing_analysis.get('rsi', 50), 'score': existing_analysis.get('score', 50)}, {'volume_ratio': existing_analysis.get('volume_ratio', 1.0)}, market_context)
-        final_prediction = self._determine_final_action(llm_predictions, confidence_result, candle_patterns)
+    # Get patterns from BOTH analyzers
+    candle_patterns = self.candle_analyzer.identify_pattern(hist_data)  # Basic patterns (18)
+    
+    # 🆕 Add enhanced patterns (30+ advanced patterns)
+    if ENHANCED_PATTERNS_ENABLED and enhanced_pattern_detector:
+        try:
+            enhanced_patterns = enhanced_pattern_detector.detect_all_patterns(hist_data)
+            
+            # Convert enhanced pattern format to match existing format
+            for ep in enhanced_patterns:
+                candle_patterns.append({
+                    'name': ep['name'],
+                    'type': ep['type'],
+                    'strength': 'very_strong' if ep['strength'] >= 90 else 'strong' if ep['strength'] >= 80 else 'medium',
+                    'description': ep['description'],
+                    'enhanced': True,  # Mark as enhanced pattern
+                    'strength_score': ep['strength']  # Keep original score
+                })
+            
+            # Log the strongest pattern from enhanced detector
+            if enhanced_patterns:
+                strongest = enhanced_patterns[0]  # Already sorted by strength
+                emoji = "🟢" if strongest['signal'] == 'BUY' else "🔴" if strongest['signal'] == 'SELL' else "⚪"
+                logging.info(f"   🕯️ Enhanced: {strongest['name']} {emoji} ({strongest['signal']}, {strongest['strength']}%)")
         
-        if final_prediction:
-            pred_id = self.prediction_tracker.store_prediction(ticker, final_prediction['action'], confidence_result['score'], final_prediction['reasoning'], candle_patterns[0]['name'] if candle_patterns else None, {'rsi': existing_analysis.get('rsi', 50)})
-            final_prediction['prediction_id'] = pred_id
-        return {**existing_analysis, 'candle_patterns': candle_patterns, 'pattern_success_rates': pattern_success_rates, 'llm_predictions': llm_predictions, 'confidence': confidence_result, 'ai_prediction': final_prediction, 'learning_insights': self.learning_memory.get_recent_insights(3)}
+        except Exception as e:
+            logging.debug(f"Enhanced pattern detection error for {ticker}: {e}")
+    
+    # Rest of your existing code stays the same
+    pattern_success_rates = {p['name']: self.candle_analyzer.get_pattern_success_rate(p['name'], ticker) for p in candle_patterns}
+    llm_predictions = await self._get_multi_llm_consensus(ticker, existing_analysis, candle_patterns, pattern_success_rates, market_context)
+    confidence_result = self.confidence_scorer.calculate_confidence(llm_predictions, candle_patterns, pattern_success_rates, {'rsi': existing_analysis.get('rsi', 50), 'score': existing_analysis.get('score', 50)}, {'volume_ratio': existing_analysis.get('volume_ratio', 1.0)}, market_context)
+    final_prediction = self._determine_final_action(llm_predictions, confidence_result, candle_patterns)
+    
+    if final_prediction:
+        pred_id = self.prediction_tracker.store_prediction(ticker, final_prediction['action'], confidence_result['score'], final_prediction['reasoning'], candle_patterns[0]['name'] if candle_patterns else None, {'rsi': existing_analysis.get('rsi', 50)})
+        final_prediction['prediction_id'] = pred_id
+    
+    return {**existing_analysis, 'candle_patterns': candle_patterns, 'pattern_success_rates': pattern_success_rates, 'llm_predictions': llm_predictions, 'confidence': confidence_result, 'ai_prediction': final_prediction, 'learning_insights': self.learning_memory.get_recent_insights(3)}
 
     async def _get_multi_llm_consensus(self, ticker, existing_analysis, candle_patterns, pattern_success_rates, market_context):
         logging.info(f"🔍[{ticker}] Getting LLM consensus. Available models: {list(self.llm_clients.keys())}")
