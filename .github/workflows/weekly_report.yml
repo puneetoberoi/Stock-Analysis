@@ -1,0 +1,48 @@
+name: Weekly Learning Report
+
+on:
+  schedule:
+    - cron: '0 18 * * 0'  # 6 PM UTC every Sunday
+  workflow_dispatch:  # Manual trigger
+
+permissions:
+  contents: write
+
+jobs:
+  generate-report:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        fetch-depth: 0
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pandas yfinance
+    
+    - name: 📊 Generate Weekly Report
+      run: |
+        python src/reports/weekly_dashboard.py
+    
+    - name: Commit report
+      run: |
+        git config --global user.name 'Weekly Report Bot'
+        git config --global user.email 'report@github.com'
+        
+        git add data/reports/
+        
+        if ! git diff --staged --quiet; then
+          git commit -m "📊 Weekly Learning Report - $(date +%Y-%m-%d)"
+          git push
+        else
+          echo "No new report generated."
+        fi
