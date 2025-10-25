@@ -26,16 +26,13 @@ except ImportError as e:
 
 
 async def check_single_prediction_outcome(pred_id, pred):
-    """Checks the outcome of a single past prediction."""
+    """Checks the outcome of a single past prediction with smarter date checking."""
     try:
-        # Check if already processed or too recent
         if pred.get('outcome') is not None:
-            return None # Skip
-            
+            return None # Already checked
+
         pred_date = datetime.fromisoformat(pred['timestamp'])
-        # Give it at least one full trading day to mature
-        if datetime.now() < pred_date + timedelta(days=1):
-            return None # Skip, too recent
+        current_date = datetime.now()
 
         ticker = pred['ticker']
         stock = yf.Ticker(ticker)
