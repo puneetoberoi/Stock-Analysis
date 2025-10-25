@@ -19,7 +19,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 # ============================================
 # 🔴 TESTING MODE - SET TO False FOR PRODUCTION
 # ============================================
-TEST_MODE = True  # Change to False when you want real checking
+TEST_MODE = False  # Change to False when you want real checking
 # ============================================
 
 # --- Import The Learning Components from main.py ---
