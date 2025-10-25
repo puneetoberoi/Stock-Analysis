@@ -6,6 +6,14 @@ import numpy as np
 from typing import Dict, List, Optional, Tuple
 import logging
 
+# Scipy is optional - some methods won't work without it
+try:
+    from scipy.signal import find_peaks
+    SCIPY_AVAILABLE = True
+except ImportError:
+    SCIPY_AVAILABLE = False
+    logging.warning("scipy not available - some chart patterns will be disabled")
+
 logging.basicConfig(level=logging.INFO)
 
 
