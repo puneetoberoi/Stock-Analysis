@@ -2571,7 +2571,7 @@ if portfolio_data and portfolio_data.get('learning_active'):
     else:
         logging.info("No predictions to display (predictions_made = 0)")
     
-logging.info("=" * 60)
+    logging.info("=" * 60)
     
     # Pattern analysis section (from v1.0.0 - keeping stable)
     pattern_html = ""
