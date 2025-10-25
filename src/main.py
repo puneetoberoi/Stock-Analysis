@@ -398,6 +398,30 @@ async def analyze_portfolio_watchlist(session, portfolio_file='portfolio.json'):
             
             if hist.empty:
                 continue
+
+            # ============================================================================
+        # 🆕 ADD THIS BLOCK: Enhanced Pattern Detection
+        # ============================================================================
+        detected_pattern = None
+        pattern_boost = 0
+        
+        if ENHANCED_PATTERNS_ENABLED:
+            try:
+                detector = EnhancedPatternDetector()
+                strongest = detector.get_strongest_pattern(hist)
+                all_patterns = detector.detect_all_patterns(hist)
+                
+                if strongest:
+                    detected_pattern = strongest
+                    emoji = "🟢" if strongest['signal'] == 'BUY' else "🔴" if strongest['signal'] == 'SELL' else "⚪"
+                    logging.info(f"🕯️ {ticker} {emoji} Pattern: {strongest['name']} "
+                                f"({strongest['signal']}, {strongest['strength']}%) "
+                                f"[{len(all_patterns)} patterns found]")
+            except Exception as e:
+                logging.debug(f"Pattern detection failed for {ticker}: {e}")
+        # ============================================================================
+        # End of pattern detection block
+        # ============================================================================
             
             current_price = hist['Close'].iloc[-1]
             prev_close = hist['Close'].iloc[-2] if len(hist) > 1 else current_price
@@ -2028,12 +2052,14 @@ class IntelligentPredictionEngine:
         else:
             logging.info(f"✅ LLM clients loaded: {list(self.llm_clients.keys())}")
             
+            
     async def analyze_with_learning(self, ticker, existing_analysis, hist_data, market_context=None):
         candle_patterns = self.candle_analyzer.identify_pattern(hist_data)
         pattern_success_rates = {p['name']: self.candle_analyzer.get_pattern_success_rate(p['name'], ticker) for p in candle_patterns}
         llm_predictions = await self._get_multi_llm_consensus(ticker, existing_analysis, candle_patterns, pattern_success_rates, market_context)
         confidence_result = self.confidence_scorer.calculate_confidence(llm_predictions, candle_patterns, pattern_success_rates, {'rsi': existing_analysis.get('rsi', 50), 'score': existing_analysis.get('score', 50)}, {'volume_ratio': existing_analysis.get('volume_ratio', 1.0)}, market_context)
         final_prediction = self._determine_final_action(llm_predictions, confidence_result, candle_patterns)
+        
         if final_prediction:
             pred_id = self.prediction_tracker.store_prediction(ticker, final_prediction['action'], confidence_result['score'], final_prediction['reasoning'], candle_patterns[0]['name'] if candle_patterns else None, {'rsi': existing_analysis.get('rsi', 50)})
             final_prediction['prediction_id'] = pred_id
@@ -3528,6 +3554,61 @@ async def enhanced_main():
     print_pattern_summary(results)
     
     return results
+
+
+# ============================================================================
+# ADD THIS: Enhanced Pattern Detection Integration
+# ============================================================================
+
+def add_patterns_to_prediction(ticker: str, prediction_data: dict) -> dict:
+    """
+    Add enhanced pattern analysis to existing prediction.
+    Call this after creating a prediction but before storing it.
+    """
+    if not ENHANCED_PATTERNS_ENABLED:
+        return prediction_data
+    
+    try:
+        # Get historical data
+        stock = yf.Ticker(ticker)
+        hist = stock.history(period='3mo')
+        
+        if hist.empty or len(hist) < 10:
+            return prediction_data
+        
+        # Detect patterns
+        detector = EnhancedPatternDetector()
+        strongest = detector.get_strongest_pattern(hist)
+        all_patterns = detector.detect_all_patterns(hist)
+        
+        if strongest:
+            # Add pattern info to prediction
+            prediction_data['strongest_pattern'] = strongest['name']
+            prediction_data['pattern_signal'] = strongest['signal']
+            prediction_data['pattern_strength'] = strongest['strength']
+            prediction_data['pattern_count'] = len(all_patterns)
+            
+            # Log it
+            logging.info(f"🕯️ {ticker} pattern: {strongest['name']} "
+                        f"({strongest['signal']}, {strongest['strength']}%)")
+            
+            # Boost confidence if pattern confirms prediction
+            if strongest['signal'] == prediction_data.get('action') and strongest['strength'] >= 80:
+                old_conf = prediction_data.get('confidence', 50)
+                boost = min(10, (strongest['strength'] - 70) / 2)
+                prediction_data['confidence'] = min(100, old_conf + boost)
+                logging.info(f"   📈 Confidence boosted: {old_conf}% → {prediction_data['confidence']}%")
+            
+            # Warn if pattern conflicts
+            elif strongest['signal'] != prediction_data.get('action') and strongest['strength'] >= 75:
+                logging.warning(f"   ⚠️ Pattern conflict: {strongest['name']} suggests "
+                              f"{strongest['signal']} but prediction is {prediction_data.get('action')}")
+        
+        return prediction_data
+        
+    except Exception as e:
+        logging.error(f"Error adding patterns to {ticker}: {e}")
+        return prediction_data
 
 
 # ========================================
