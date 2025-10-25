@@ -398,10 +398,7 @@ async def analyze_portfolio_watchlist(session, portfolio_file='portfolio.json'):
             
             if hist.empty:
                 continue
-
-            # ============================================================================
-        # 🆕 ADD THIS BLOCK: Enhanced Pattern Detection
-        # ============================================================================
+                
         detected_pattern = None
         pattern_boost = 0
         
