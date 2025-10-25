@@ -782,7 +782,7 @@ class EnhancedPatternDetector:
     
     def detect_double_top(self, df, lookback=20) -> Optional[Dict]:
         """M Shape (Double Top) - Bearish reversal"""
-        if len(df) < lookback:
+        if len(df) < lookback or not SCIPY_AVAILABLE:
             return None
         
         data = df.tail(lookback)
@@ -817,7 +817,7 @@ class EnhancedPatternDetector:
     
     def detect_double_bottom(self, df, lookback=20) -> Optional[Dict]:
         """W Shape (Double Bottom) - Bullish reversal"""
-        if len(df) < lookback:
+        if len(df) < lookback or not SCIPY_AVAILABLE:
             return None
         
         data = df.tail(lookback)
@@ -935,7 +935,7 @@ class EnhancedPatternDetector:
         Swing Highs and Lows - Price action pattern
         Identifies key reversal points
         """
-        if len(df) < lookback:
+        if len(df) < lookback or not SCIPY_AVAILABLE:
             return None
         
         data = df.tail(lookback)
