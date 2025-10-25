@@ -1168,5 +1168,200 @@
     "price_at_prediction": 1.8600000143051147,
     "outcome": null,
     "was_correct": null
+  },
+  "dafbf19f": {
+    "id": "dafbf19f",
+    "timestamp": "2025-10-25T15:02:11.768986",
+    "ticker": "AAPL",
+    "action": "BUY",
+    "confidence": 100,
+    "reasoning": "groq: The appearance of a morning star candlestick pattern, a bullish reversal indicator with 100% historical success, suggests a potential upward trend for AAPL despite a negative macro score. | cohere: Bullish morning star pattern with 100% historical success and RSI below overbought levels suggests potential upward momentum despite weak macro context.",
+    "candle_pattern": "morning_star",
+    "indicators": {
+      "rsi": 64.18749330761898
+    },
+    "price_at_prediction": 262.82000732421875,
+    "outcome": null,
+    "was_correct": null
+  },
+  "1184c3bb": {
+    "id": "1184c3bb",
+    "timestamp": "2025-10-25T15:02:13.690936",
+    "ticker": "MSFT",
+    "action": "HOLD",
+    "confidence": 80,
+    "reasoning": "groq: The neutral RSI and indecisive spinning top candlestick pattern, combined with a low macro score, suggest a cautious approach, warranting a hold rather than a buy or sell. | cohere: Neutral RSI, low volume, and indecision candlestick pattern in a negative macro environment suggest caution.",
+    "candle_pattern": "spinning_top",
+    "indicators": {
+      "rsi": 59.79109563080141
+    },
+    "price_at_prediction": 523.6099853515625,
+    "outcome": null,
+    "was_correct": null
+  },
+  "efae32cf": {
+    "id": "efae32cf",
+    "timestamp": "2025-10-25T15:02:15.368847",
+    "ticker": "NVDA",
+    "action": "HOLD",
+    "confidence": 80,
+    "reasoning": "groq: The stock's neutral RSI and lack of clear candlestick patterns, combined with a negative macro score, suggest a cautious approach, warranting a hold rather than a buy or sell. | cohere: Neutral RSI, below-average volume, and negative macro context suggest cautious holding pending further market clarity.",
+    "candle_pattern": null,
+    "indicators": {
+      "rsi": 55.83675960084219
+    },
+    "price_at_prediction": 186.25999450683594,
+    "outcome": null,
+    "was_correct": null
+  },
+  "1caf16ba": {
+    "id": "1caf16ba",
+    "timestamp": "2025-10-25T15:02:17.249200",
+    "ticker": "TSLA",
+    "action": "HOLD",
+    "confidence": 80,
+    "reasoning": "groq: The stock's RSI is near neutral and volume is slightly below average, indicating a lack of strong momentum in either direction. | cohere: Neutral RSI, average volume, and negative macro context suggest a cautious stance pending further market clarity.",
+    "candle_pattern": null,
+    "indicators": {
+      "rsi": 52.62694662138077
+    },
+    "price_at_prediction": 433.7200012207031,
+    "outcome": null,
+    "was_correct": null
+  },
+  "b71f06e5": {
+    "id": "b71f06e5",
+    "timestamp": "2025-10-25T15:02:19.349015",
+    "ticker": "GOOGL",
+    "action": "BUY",
+    "confidence": 100,
+    "reasoning": "groq: The appearance of a morning star candlestick pattern, a bullish reversal indicator with 100% historical success, suggests a potential upside movement for GOOGL despite a negative macro score. | cohere: Bullish morning star pattern with 100% historical success and RSI below overbought levels supports a potential upward move despite negative macro context.",
+    "candle_pattern": "morning_star",
+    "indicators": {
+      "rsi": 66.98600521043893
+    },
+    "price_at_prediction": 259.9200134277344,
+    "outcome": null,
+    "was_correct": null
+  },
+  "93d8c407": {
+    "id": "93d8c407",
+    "timestamp": "2025-10-25T15:02:20.931808",
+    "ticker": "TSM",
+    "action": "BUY",
+    "confidence": 65,
+    "reasoning": "groq: The appearance of a bullish reversal inverted hammer candlestick pattern with a moderate RSI score suggests a potential trend reversal, outweighing the negative macro score. | cohere: Mixed signals with bullish candlestick pattern but weak volume and negative macro context.",
+    "candle_pattern": "inverted_hammer",
+    "indicators": {
+      "rsi": 55.84253573533863
+    },
+    "price_at_prediction": 294.9599914550781,
+    "outcome": null,
+    "was_correct": null
+  },
+  "2c83bec7": {
+    "id": "2c83bec7",
+    "timestamp": "2025-10-25T15:02:22.905859",
+    "ticker": "AMD",
+    "action": "SELL",
+    "confidence": 50,
+    "reasoning": "groq: The high RSI value of 73.14 indicates that AMD is overbought, suggesting a potential reversal or correction in the stock price. | cohere: Overbought RSI (73.14) and negative macro context (-16) suggest caution despite high volume, warranting a hold until clearer signals emerge.",
+    "candle_pattern": null,
+    "indicators": {
+      "rsi": 73.13793486817346
+    },
+    "price_at_prediction": 252.9199981689453,
+    "outcome": null,
+    "was_correct": null
+  },
+  "e5f557b2": {
+    "id": "e5f557b2",
+    "timestamp": "2025-10-25T15:02:25.070476",
+    "ticker": "TD.TO",
+    "action": "HOLD",
+    "confidence": 80,
+    "reasoning": "groq: The presence of a doji candlestick pattern indicating indecision, combined with a relatively high RSI and low volume, suggests a neutral stance. | cohere: The doji pattern suggests indecision, and the RSI is near overbought territory, while the macro score is negative, indicating caution.",
+    "candle_pattern": "doji",
+    "indicators": {
+      "rsi": 66.02314575062805
+    },
+    "price_at_prediction": 113.3499984741211,
+    "outcome": null,
+    "was_correct": null
+  },
+  "21fe2a33": {
+    "id": "21fe2a33",
+    "timestamp": "2025-10-25T15:02:26.953003",
+    "ticker": "UHS",
+    "action": "HOLD",
+    "confidence": 80,
+    "reasoning": "groq: The presence of a doji candlestick pattern indicating indecision, combined with a relatively high RSI and elevated volume, suggests a cautious approach amidst a negative macro context. | cohere: The doji pattern suggests indecision, and the RSI is near overbought territory, while the negative macro score adds uncertainty.",
+    "candle_pattern": "doji",
+    "indicators": {
+      "rsi": 65.17293174354859
+    },
+    "price_at_prediction": 210.67999267578125,
+    "outcome": null,
+    "was_correct": null
+  },
+  "47891feb": {
+    "id": "47891feb",
+    "timestamp": "2025-10-25T15:02:28.995342",
+    "ticker": "AMZN",
+    "action": "HOLD",
+    "confidence": 80,
+    "reasoning": "groq: The stock's neutral RSI and average volume, combined with the lack of clear candlestick patterns and a negative macro score, suggest a hold position. | cohere: Neutral RSI, below-average volume, and negative macro context suggest cautious holding pending clearer market signals.",
+    "candle_pattern": null,
+    "indicators": {
+      "rsi": 53.66882244727014
+    },
+    "price_at_prediction": 224.2100067138672,
+    "outcome": null,
+    "was_correct": null
+  },
+  "0c148f28": {
+    "id": "0c148f28",
+    "timestamp": "2025-10-25T15:02:31.936089",
+    "ticker": "BTC",
+    "action": "SELL",
+    "confidence": 80,
+    "reasoning": "groq: The presence of a bearish reversal candlestick pattern, combined with a low RSI and below-average volume, suggests a potential downturn in BTC's price.",
+    "candle_pattern": "tweezer_top",
+    "indicators": {
+      "rsi": 45.28321237296062
+    },
+    "price_at_prediction": 48.9900016784668,
+    "outcome": null,
+    "was_correct": null
+  },
+  "3fab2835": {
+    "id": "3fab2835",
+    "timestamp": "2025-10-25T15:02:32.245638",
+    "ticker": "ETH",
+    "action": "HOLD",
+    "confidence": 80,
+    "reasoning": "groq: The neutral RSI value and average volume, combined with the lack of clear candlestick patterns, suggest a hold position amidst a bearish macro context.",
+    "candle_pattern": null,
+    "indicators": {
+      "rsi": 44.24686291614021
+    },
+    "price_at_prediction": 37.0,
+    "outcome": null,
+    "was_correct": null
+  },
+  "92c2126a": {
+    "id": "92c2126a",
+    "timestamp": "2025-10-25T15:02:32.494040",
+    "ticker": "SOL",
+    "action": "HOLD",
+    "confidence": 70,
+    "reasoning": "groq: The presence of a doji candlestick pattern indicating indecision, combined with a neutral RSI value and below-average volume, suggests a wait-and-see approach.",
+    "candle_pattern": "doji",
+    "indicators": {
+      "rsi": 49.560054701082116
+    },
+    "price_at_prediction": 1.8600000143051147,
+    "outcome": null,
+    "was_correct": null
   }
 }
