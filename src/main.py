@@ -1832,18 +1832,7 @@ class LearningMemory:
 prediction_tracker = PredictionTracker()
 candle_analyzer = CandlePatternAnalyzer()
 learning_memory = LearningMemory()
-# 🆕 Add Enhanced Pattern Detector (30+ advanced patterns)
-try:
-    if ENHANCED_PATTERNS_ENABLED:
-        enhanced_pattern_detector = EnhancedPatternDetector()
-        logging.info("✅ Enhanced Pattern Detector initialized (30+ patterns)")
-    else:
-        enhanced_pattern_detector = None
-        logging.info("⚠️ Using basic pattern detection only (18 patterns)")
-except NameError:
-    # ENHANCED_PATTERNS_ENABLED not defined yet, will be set later
-    enhanced_pattern_detector = None
-    logging.info("⚠️ Enhanced patterns will be initialized later")
+enhanced_pattern_detector = None
 # ========================================
 # 🔗 INTEGRATION LAYER - Connects to existing code
 # This READS from your existing functions without changing them
@@ -3334,8 +3323,14 @@ try:
     
     ENHANCED_PATTERNS_ENABLED = True
     logging.info("✅ Enhanced Pattern Detection loaded successfully")
+    
+    # 🆕 Initialize it immediately (ADDED THIS)
+    enhanced_pattern_detector = EnhancedPatternDetector()
+    logging.info("✅ Enhanced Pattern Detector initialized (30+ patterns)")
+    
 except ImportError as e:
     ENHANCED_PATTERNS_ENABLED = False
+    enhanced_pattern_detector = None  # 🆕 Set to None if import fails (ADDED THIS)
     logging.warning(f"⚠️ Enhanced Pattern Detection not available: {e}")
     logging.warning("Continuing without enhanced pattern detection...")
 
@@ -3731,8 +3726,3 @@ if __name__ == "__main__":
         logging.info("🚀 MARKET INTELLIGENCE SYSTEM v2.1.0")
         logging.info("=" * 60)
         asyncio.run(main(output=args.output))
-        if ENHANCED_PATTERNS_ENABLED:
-            try:
-                asyncio.run(test_pattern_detection_quick())
-            except Exception as e:
-                logging.error(f"Pattern detection test failed: {e}")
