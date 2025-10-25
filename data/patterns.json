@@ -1,1 +1,42 @@
-{}
+{
+  "AAPL_morning_star": {
+    "total": 1,
+    "successful": 1
+  },
+  "morning_star": {
+    "total": 2,
+    "successful": 2
+  },
+  "MSFT_spinning_top": {
+    "total": 1,
+    "successful": 0
+  },
+  "spinning_top": {
+    "total": 1,
+    "successful": 0
+  },
+  "GOOGL_morning_star": {
+    "total": 1,
+    "successful": 1
+  },
+  "TSM_inverted_hammer": {
+    "total": 1,
+    "successful": 1
+  },
+  "inverted_hammer": {
+    "total": 1,
+    "successful": 1
+  },
+  "TD.TO_doji": {
+    "total": 1,
+    "successful": 1
+  },
+  "doji": {
+    "total": 2,
+    "successful": 2
+  },
+  "UHS_doji": {
+    "total": 1,
+    "successful": 1
+  }
+}

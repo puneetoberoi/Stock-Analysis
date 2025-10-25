@@ -1,1 +1,58 @@
-
+{
+  "llm_accuracy": {
+    "groq": {
+      "total": 0,
+      "correct": 0
+    },
+    "gemini": {
+      "total": 0,
+      "correct": 0
+    }
+  },
+  "indicator_reliability": {
+    "rsi_oversold_buy": {
+      "total": 0,
+      "successful": 0
+    },
+    "rsi_overbought_sell": {
+      "total": 0,
+      "successful": 0
+    },
+    "macd_crossover": {
+      "total": 0,
+      "successful": 0
+    }
+  },
+  "market_conditions": {
+    "high_vix_predictions": {
+      "total": 0,
+      "correct": 0
+    },
+    "low_vix_predictions": {
+      "total": 0,
+      "correct": 0
+    }
+  },
+  "insights": [
+    {
+      "timestamp": "2025-10-25T11:36:51.721078",
+      "insight": "[TEST MODE] Checked 10 predictions: 80.0% accuracy (8/10 correct)"
+    },
+    {
+      "timestamp": "2025-10-25T11:36:51.721264",
+      "insight": "Pattern 'morning_star': 100% accuracy (2/2)"
+    },
+    {
+      "timestamp": "2025-10-25T11:36:51.721603",
+      "insight": "Pattern 'spinning_top': 0% accuracy (0/1)"
+    },
+    {
+      "timestamp": "2025-10-25T11:36:51.721874",
+      "insight": "Pattern 'inverted_hammer': 100% accuracy (1/1)"
+    },
+    {
+      "timestamp": "2025-10-25T11:36:51.722146",
+      "insight": "Pattern 'doji': 100% accuracy (2/2)"
+    }
+  ]
+}

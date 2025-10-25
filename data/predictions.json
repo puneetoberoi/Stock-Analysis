@@ -1,7 +1,7 @@
 {
   "c6fe192a": {
     "id": "c6fe192a",
-    "timestamp": "2025-10-25T11:03:28.225974",
+    "timestamp": "2024-10-25T11:03:28.225974",
     "ticker": "AAPL",
     "action": "HOLD",
     "confidence": 80,
@@ -11,12 +11,21 @@
       "rsi": 64.18749330760232
     },
     "price_at_prediction": 262.82000732421875,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-10-25T11:36:51.717514",
+      "price_at_prediction": 262.82000732421875,
+      "price_after": 259.5291178364244,
+      "days_held": 2,
+      "price_change_pct": -1.25,
+      "was_correct": true,
+      "action_taken": "HOLD",
+      "test_mode": true
+    },
+    "was_correct": true
   },
   "28de8f32": {
     "id": "28de8f32",
-    "timestamp": "2025-10-25T11:03:30.047724",
+    "timestamp": "2024-10-25T11:03:30.047724",
     "ticker": "MSFT",
     "action": "HOLD",
     "confidence": 80,
@@ -26,12 +35,21 @@
       "rsi": 59.79109563204161
     },
     "price_at_prediction": 523.6099853515625,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-10-25T11:36:51.717672",
+      "price_at_prediction": 523.6099853515625,
+      "price_after": 541.2426229606258,
+      "days_held": 2,
+      "price_change_pct": 3.37,
+      "was_correct": false,
+      "action_taken": "HOLD",
+      "test_mode": true
+    },
+    "was_correct": false
   },
   "3bb838a8": {
     "id": "3bb838a8",
-    "timestamp": "2025-10-25T11:03:31.621352",
+    "timestamp": "2024-10-25T11:03:31.621352",
     "ticker": "NVDA",
     "action": "HOLD",
     "confidence": 80,
@@ -41,12 +59,21 @@
       "rsi": 55.83675960085009
     },
     "price_at_prediction": 186.25999450683594,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-10-25T11:36:51.717771",
+      "price_at_prediction": 186.25999450683594,
+      "price_after": 186.34811639170587,
+      "days_held": 2,
+      "price_change_pct": 0.05,
+      "was_correct": true,
+      "action_taken": "HOLD",
+      "test_mode": true
+    },
+    "was_correct": true
   },
   "ce0ec7e5": {
     "id": "ce0ec7e5",
-    "timestamp": "2025-10-25T11:03:32.921169",
+    "timestamp": "2024-10-25T11:03:32.921169",
     "ticker": "TSLA",
     "action": "HOLD",
     "confidence": 80,
@@ -56,12 +83,21 @@
       "rsi": 52.62694662138077
     },
     "price_at_prediction": 433.7200012207031,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-10-25T11:36:51.717863",
+      "price_at_prediction": 433.7200012207031,
+      "price_after": 453.0326383677038,
+      "days_held": 2,
+      "price_change_pct": 4.45,
+      "was_correct": false,
+      "action_taken": "HOLD",
+      "test_mode": true
+    },
+    "was_correct": false
   },
   "23fb8b3c": {
     "id": "23fb8b3c",
-    "timestamp": "2025-10-25T11:03:34.365407",
+    "timestamp": "2024-10-25T11:03:34.365407",
     "ticker": "GOOGL",
     "action": "BUY",
     "confidence": 65,
@@ -71,12 +107,21 @@
       "rsi": 66.98600521043291
     },
     "price_at_prediction": 259.9200134277344,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-10-25T11:36:51.717967",
+      "price_at_prediction": 259.9200134277344,
+      "price_after": 264.14364315920864,
+      "days_held": 2,
+      "price_change_pct": 1.62,
+      "was_correct": true,
+      "action_taken": "BUY",
+      "test_mode": true
+    },
+    "was_correct": true
   },
   "493934e8": {
     "id": "493934e8",
-    "timestamp": "2025-10-25T11:03:35.825641",
+    "timestamp": "2024-10-25T11:03:35.825641",
     "ticker": "TSM",
     "action": "HOLD",
     "confidence": 80,
@@ -86,12 +131,21 @@
       "rsi": 55.84253573535223
     },
     "price_at_prediction": 294.9599914550781,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-10-25T11:36:51.718060",
+      "price_at_prediction": 294.9599914550781,
+      "price_after": 291.0276943968406,
+      "days_held": 2,
+      "price_change_pct": -1.33,
+      "was_correct": true,
+      "action_taken": "HOLD",
+      "test_mode": true
+    },
+    "was_correct": true
   },
   "7be10b9e": {
     "id": "7be10b9e",
-    "timestamp": "2025-10-25T11:03:37.498516",
+    "timestamp": "2024-10-25T11:03:37.498516",
     "ticker": "AMD",
     "action": "SELL",
     "confidence": 50,
@@ -101,12 +155,21 @@
       "rsi": 73.13793486817346
     },
     "price_at_prediction": 252.9199981689453,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-10-25T11:36:51.718154",
+      "price_at_prediction": 252.9199981689453,
+      "price_after": 241.48636376443895,
+      "days_held": 2,
+      "price_change_pct": -4.52,
+      "was_correct": true,
+      "action_taken": "SELL",
+      "test_mode": true
+    },
+    "was_correct": true
   },
   "5a361775": {
     "id": "5a361775",
-    "timestamp": "2025-10-25T11:03:38.995919",
+    "timestamp": "2024-10-25T11:03:38.995919",
     "ticker": "TD.TO",
     "action": "HOLD",
     "confidence": 80,
@@ -116,12 +179,21 @@
       "rsi": 66.02314575175032
     },
     "price_at_prediction": 113.3499984741211,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-10-25T11:36:51.718251",
+      "price_at_prediction": 113.3499984741211,
+      "price_after": 113.42134404393941,
+      "days_held": 2,
+      "price_change_pct": 0.06,
+      "was_correct": true,
+      "action_taken": "HOLD",
+      "test_mode": true
+    },
+    "was_correct": true
   },
   "71edfddc": {
     "id": "71edfddc",
-    "timestamp": "2025-10-25T11:03:40.848868",
+    "timestamp": "2024-10-25T11:03:40.848868",
     "ticker": "UHS",
     "action": "HOLD",
     "confidence": 80,
@@ -131,12 +203,21 @@
       "rsi": 65.1729317434652
     },
     "price_at_prediction": 210.67999267578125,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-10-25T11:36:51.718359",
+      "price_at_prediction": 210.67999267578125,
+      "price_after": 212.65220764870077,
+      "days_held": 2,
+      "price_change_pct": 0.94,
+      "was_correct": true,
+      "action_taken": "HOLD",
+      "test_mode": true
+    },
+    "was_correct": true
   },
   "1374518c": {
     "id": "1374518c",
-    "timestamp": "2025-10-25T11:03:42.074393",
+    "timestamp": "2024-10-25T11:03:42.074393",
     "ticker": "AMZN",
     "action": "HOLD",
     "confidence": 80,
@@ -146,7 +227,16 @@
       "rsi": 53.66882244727014
     },
     "price_at_prediction": 224.2100067138672,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-10-25T11:36:51.718457",
+      "price_at_prediction": 224.2100067138672,
+      "price_after": 226.81969822613473,
+      "days_held": 2,
+      "price_change_pct": 1.16,
+      "was_correct": true,
+      "action_taken": "HOLD",
+      "test_mode": true
+    },
+    "was_correct": true
   }
 }
