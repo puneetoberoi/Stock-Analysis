@@ -2062,32 +2062,32 @@ class IntelligentPredictionEngine:
             
     async def analyze_with_learning(self, ticker, existing_analysis, hist_data, market_context=None):
     # Get patterns from BOTH analyzers
-    candle_patterns = self.candle_analyzer.identify_pattern(hist_data)  # Basic patterns (18)
-    
-    # 🆕 Add enhanced patterns (30+ advanced patterns)
-    if ENHANCED_PATTERNS_ENABLED and enhanced_pattern_detector:
-        try:
-            enhanced_patterns = enhanced_pattern_detector.detect_all_patterns(hist_data)
-            
-            # Convert enhanced pattern format to match existing format
-            for ep in enhanced_patterns:
-                candle_patterns.append({
-                    'name': ep['name'],
-                    'type': ep['type'],
-                    'strength': 'very_strong' if ep['strength'] >= 90 else 'strong' if ep['strength'] >= 80 else 'medium',
-                    'description': ep['description'],
-                    'enhanced': True,  # Mark as enhanced pattern
-                    'strength_score': ep['strength']  # Keep original score
-                })
-            
-            # Log the strongest pattern from enhanced detector
-            if enhanced_patterns:
-                strongest = enhanced_patterns[0]  # Already sorted by strength
-                emoji = "🟢" if strongest['signal'] == 'BUY' else "🔴" if strongest['signal'] == 'SELL' else "⚪"
-                logging.info(f"   🕯️ Enhanced: {strongest['name']} {emoji} ({strongest['signal']}, {strongest['strength']}%)")
+        candle_patterns = self.candle_analyzer.identify_pattern(hist_data)  # Basic patterns (18)
         
-        except Exception as e:
-            logging.debug(f"Enhanced pattern detection error for {ticker}: {e}")
+        # 🆕 Add enhanced patterns (30+ advanced patterns)
+        if ENHANCED_PATTERNS_ENABLED and enhanced_pattern_detector:
+            try:
+                enhanced_patterns = enhanced_pattern_detector.detect_all_patterns(hist_data)
+                
+                # Convert enhanced pattern format to match existing format
+                for ep in enhanced_patterns:
+                    candle_patterns.append({
+                        'name': ep['name'],
+                        'type': ep['type'],
+                        'strength': 'very_strong' if ep['strength'] >= 90 else 'strong' if ep['strength'] >= 80 else 'medium',
+                        'description': ep['description'],
+                        'enhanced': True,  # Mark as enhanced pattern
+                        'strength_score': ep['strength']  # Keep original score
+                    })
+                
+                # Log the strongest pattern from enhanced detector
+                if enhanced_patterns:
+                    strongest = enhanced_patterns[0]  # Already sorted by strength
+                    emoji = "🟢" if strongest['signal'] == 'BUY' else "🔴" if strongest['signal'] == 'SELL' else "⚪"
+                    logging.info(f"   🕯️ Enhanced: {strongest['name']} {emoji} ({strongest['signal']}, {strongest['strength']}%)")
+            
+            except Exception as e:
+                logging.debug(f"Enhanced pattern detection error for {ticker}: {e}")
     
     # Rest of your existing code stays the same
     pattern_success_rates = {p['name']: self.candle_analyzer.get_pattern_success_rate(p['name'], ticker) for p in candle_patterns}
