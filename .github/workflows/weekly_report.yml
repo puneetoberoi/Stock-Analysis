@@ -1,8 +1,8 @@
 name: Weekly Learning Report
 
 on:
-  schedule:
-    - cron: '0 18 * * 0'  # 6 PM UTC every Sunday
+  #schedule:
+   # - cron: '0 18 * * 0'  # 6 PM UTC every Sunday
   workflow_dispatch:  # Manual trigger
 
 permissions:
