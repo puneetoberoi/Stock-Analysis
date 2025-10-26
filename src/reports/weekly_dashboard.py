@@ -21,7 +21,7 @@ class WeeklyDashboard:
         # Create reports directory
         Path(self.reports_dir).mkdir(parents=True, exist_ok=True)
         
-      def generate_weekly_report(self, days_back=30):  # Changed from 7 to 30 for testing
+    def generate_weekly_report(self, days_back=30):  # Changed from 7 to 30 for testing
         """Generate comprehensive weekly learning report"""
         logging.info("📊 Generating Weekly Learning Dashboard...")
         
