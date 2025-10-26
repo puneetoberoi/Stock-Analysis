@@ -21,7 +21,7 @@ class WeeklyDashboard:
         # Create reports directory
         Path(self.reports_dir).mkdir(parents=True, exist_ok=True)
         
-    def generate_weekly_report(self):
+      def generate_weekly_report(self, days_back=30):  # Changed from 7 to 30 for testing
         """Generate comprehensive weekly learning report"""
         logging.info("📊 Generating Weekly Learning Dashboard...")
         
@@ -30,16 +30,36 @@ class WeeklyDashboard:
         patterns_data = self._load_json(self.patterns_file)
         learning = self._load_json(self.learning_file)
         
-        # Get predictions from last 7 days
-        week_ago = datetime.now() - timedelta(days=7)
-        weekly_predictions = self._filter_by_date(predictions, week_ago)
+        if not predictions:
+            logging.error("❌ No predictions found in predictions.json")
+            return None, None
+        
+        # Get predictions from specified days back
+        cutoff_date = datetime.now() - timedelta(days=days_back)
+        weekly_predictions = self._filter_by_date(predictions, cutoff_date)
         
         if not weekly_predictions:
-            logging.warning("No predictions found in the last 7 days")
-            return None
+            logging.warning(f"⚠️ No predictions found in the last {days_back} days")
+            logging.info(f"📊 Total predictions in file: {len(predictions)}")
+            
+            # Show sample dates
+            if predictions:
+                sample = list(predictions.values())[0]
+                logging.info(f"Sample prediction date: {sample.get('timestamp', 'N/A')}")
+            
+            # For testing: Use ALL predictions if none in time window
+            logging.info("📊 Using ALL predictions for report (testing mode)")
+            weekly_predictions = predictions
         
         # Calculate all metrics
         overall_stats = self._calculate_overall_stats(weekly_predictions)
+        
+        # Check if we have any checked predictions
+        if overall_stats['checked_predictions'] == 0:
+            logging.warning("⚠️ No predictions have been checked yet (need to wait for outcomes)")
+            logging.info("📊 Run the evening learner to check prediction outcomes")
+            return None, None
+        
         daily_breakdown = self._calculate_daily_breakdown(weekly_predictions)
         pattern_performance = self._calculate_pattern_performance(weekly_predictions)
         llm_performance = self._calculate_llm_performance(weekly_predictions)
@@ -50,6 +70,7 @@ class WeeklyDashboard:
         # Build report
         report = {
             'week_ending': datetime.now().strftime('%Y-%m-%d'),
+            'days_analyzed': days_back,
             'overall_stats': overall_stats,
             'daily_breakdown': daily_breakdown,
             'pattern_performance': pattern_performance,
@@ -73,6 +94,7 @@ class WeeklyDashboard:
         logging.info(f"✅ Weekly report generated: {email_file}")
         
         return report, email_html
+
     
     def _load_json(self, filepath):
         """Load JSON file"""
@@ -505,22 +527,46 @@ class WeeklyDashboard:
 def main():
     """Main entry point"""
     dashboard = WeeklyDashboard()
-    report, email_html = dashboard.generate_weekly_report()
+    
+    # Generate report (looking at last 30 days for testing)
+    result = dashboard.generate_weekly_report(days_back=30)
+    
+    # Handle None return
+    if result is None or result == (None, None):
+        print("\n" + "="*80)
+        print("⚠️ CANNOT GENERATE REPORT")
+        print("="*80)
+        print("Reasons:")
+        print("1. No predictions found in data/predictions.json, OR")
+        print("2. No predictions have outcomes yet (need to run evening learner)")
+        print("\n💡 Solutions:")
+        print("1. Run morning analysis to create predictions")
+        print("2. Wait 2+ days, then run evening learner to check outcomes")
+        print("3. Set TEST_MODE=True in check_outcomes.py to simulate outcomes")
+        print("="*80 + "\n")
+        return
+    
+    report, email_html = result
     
     if report:
         print("\n" + "="*80)
         print("📊 WEEKLY REPORT GENERATED SUCCESSFULLY")
         print("="*80)
+        print(f"Period: Last {report.get('days_analyzed', 7)} days")
         print(f"Accuracy: {report['overall_stats']['accuracy']:.1f}%")
         print(f"Total Predictions: {report['overall_stats']['total_predictions']}")
         print(f"Checked: {report['overall_stats']['checked_predictions']}")
-        print("="*80 + "\n")
+        print(f"Correct: {report['overall_stats']['correct_predictions']}")
+        print("="*80)
         
-        # Print HTML file location
-        print(f"📧 Email HTML saved to: data/reports/weekly_email_{datetime.now().strftime('%Y%m%d')}.html")
+        # Show top insights
+        if report['insights']:
+            print("\n💡 KEY INSIGHTS:")
+            for insight in report['insights'][:3]:
+                print(f"  • {insight}")
+        
+        print("\n" + "="*80)
+        print(f"📧 Email HTML: data/reports/weekly_email_{datetime.now().strftime('%Y%m%d')}.html")
+        print("="*80 + "\n")
     else:
-        print("No data available for weekly report")
-
-
-if __name__ == "__main__":
-    main()
+        print("❌ Report generation failed")
