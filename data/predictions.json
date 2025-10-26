@@ -1,7 +1,7 @@
 {
   "82485839": {
     "id": "82485839",
-    "timestamp": "2025-10-26T17:59:42.349370",
+    "timestamp": "2024-10-26T17:59:42.349370",
     "ticker": "AAPL",
     "action": "BUY",
     "confidence": 100,
@@ -11,12 +11,21 @@
       "rsi": 64.18749330762333
     },
     "price_at_prediction": 262.82000732421875,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-10-26T18:02:21.932156",
+      "price_at_prediction": 262.82000732421875,
+      "price_after": 229.0340576171875,
+      "days_held": 2,
+      "price_change_pct": -12.86,
+      "was_correct": false,
+      "action_taken": "BUY",
+      "test_mode": false
+    },
+    "was_correct": false
   },
   "80192a62": {
     "id": "80192a62",
-    "timestamp": "2025-10-26T17:59:44.016313",
+    "timestamp": "2024-10-26T17:59:44.016313",
     "ticker": "MSFT",
     "action": "HOLD",
     "confidence": 100,
@@ -31,7 +40,7 @@
   },
   "d66dd017": {
     "id": "d66dd017",
-    "timestamp": "2025-10-26T17:59:45.564609",
+    "timestamp": "2024-10-26T17:59:45.564609",
     "ticker": "NVDA",
     "action": "BUY",
     "confidence": 90,
@@ -41,12 +50,21 @@
       "rsi": 55.8367596008493
     },
     "price_at_prediction": 186.25999450683594,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-10-26T18:02:21.816327",
+      "price_at_prediction": 186.25999450683594,
+      "price_after": 139.300048828125,
+      "days_held": 2,
+      "price_change_pct": -25.21,
+      "was_correct": false,
+      "action_taken": "BUY",
+      "test_mode": false
+    },
+    "was_correct": false
   },
   "c9b55a84": {
     "id": "c9b55a84",
-    "timestamp": "2025-10-26T17:59:47.085611",
+    "timestamp": "2024-10-26T17:59:47.085611",
     "ticker": "TSLA",
     "action": "SELL",
     "confidence": 90,
@@ -56,12 +74,21 @@
       "rsi": 52.62694662138077
     },
     "price_at_prediction": 433.7200012207031,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-10-26T18:02:21.783030",
+      "price_at_prediction": 433.7200012207031,
+      "price_after": 257.54998779296875,
+      "days_held": 2,
+      "price_change_pct": -40.62,
+      "was_correct": true,
+      "action_taken": "SELL",
+      "test_mode": false
+    },
+    "was_correct": true
   },
   "67f0b3d3": {
     "id": "67f0b3d3",
-    "timestamp": "2025-10-26T17:59:49.031782",
+    "timestamp": "2024-10-26T17:59:49.031782",
     "ticker": "GOOGL",
     "action": "BUY",
     "confidence": 100,
@@ -71,12 +98,21 @@
       "rsi": 66.98600521035112
     },
     "price_at_prediction": 259.9200134277344,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-10-26T18:02:21.794950",
+      "price_at_prediction": 259.9200134277344,
+      "price_after": 173.69400024414062,
+      "days_held": 2,
+      "price_change_pct": -33.17,
+      "was_correct": false,
+      "action_taken": "BUY",
+      "test_mode": false
+    },
+    "was_correct": false
   },
   "2b038646": {
     "id": "2b038646",
-    "timestamp": "2025-10-26T17:59:50.641888",
+    "timestamp": "2024-10-26T17:59:50.641888",
     "ticker": "TSM",
     "action": "BUY",
     "confidence": 75,
@@ -86,12 +122,21 @@
       "rsi": 55.842535735352456
     },
     "price_at_prediction": 294.9599914550781,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-10-26T18:02:21.827826",
+      "price_at_prediction": 294.9599914550781,
+      "price_after": 192.40843200683594,
+      "days_held": 2,
+      "price_change_pct": -34.77,
+      "was_correct": false,
+      "action_taken": "BUY",
+      "test_mode": false
+    },
+    "was_correct": false
   },
   "b8b77594": {
     "id": "b8b77594",
-    "timestamp": "2025-10-26T17:59:52.598568",
+    "timestamp": "2024-10-26T17:59:52.598568",
     "ticker": "AMD",
     "action": "SELL",
     "confidence": 50,
@@ -101,12 +146,21 @@
       "rsi": 73.13793486817346
     },
     "price_at_prediction": 252.9199981689453,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-10-26T18:02:21.805115",
+      "price_at_prediction": 252.9199981689453,
+      "price_after": 148.60000610351562,
+      "days_held": 2,
+      "price_change_pct": -41.25,
+      "was_correct": true,
+      "action_taken": "SELL",
+      "test_mode": false
+    },
+    "was_correct": true
   },
   "4b33b540": {
     "id": "4b33b540",
-    "timestamp": "2025-10-26T17:59:54.339825",
+    "timestamp": "2024-10-26T17:59:54.339825",
     "ticker": "TD.TO",
     "action": "BUY",
     "confidence": 90,
@@ -116,12 +170,21 @@
       "rsi": 66.02314575119016
     },
     "price_at_prediction": 113.3499984741211,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-10-26T18:02:21.916452",
+      "price_at_prediction": 113.3499984741211,
+      "price_after": 73.8814468383789,
+      "days_held": 2,
+      "price_change_pct": -34.82,
+      "was_correct": false,
+      "action_taken": "BUY",
+      "test_mode": false
+    },
+    "was_correct": false
   },
   "e8b75d75": {
     "id": "e8b75d75",
-    "timestamp": "2025-10-26T17:59:56.097198",
+    "timestamp": "2024-10-26T17:59:56.097198",
     "ticker": "UHS",
     "action": "BUY",
     "confidence": 90,
@@ -131,12 +194,21 @@
       "rsi": 65.17293174705219
     },
     "price_at_prediction": 210.67999267578125,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-10-26T18:02:21.939186",
+      "price_at_prediction": 210.67999267578125,
+      "price_after": 206.6116485595703,
+      "days_held": 2,
+      "price_change_pct": -1.93,
+      "was_correct": false,
+      "action_taken": "BUY",
+      "test_mode": false
+    },
+    "was_correct": false
   },
   "c94d7358": {
     "id": "c94d7358",
-    "timestamp": "2025-10-26T17:59:57.784755",
+    "timestamp": "2024-10-26T17:59:57.784755",
     "ticker": "AMZN",
     "action": "HOLD",
     "confidence": 100,
@@ -146,12 +218,21 @@
       "rsi": 53.66882244727014
     },
     "price_at_prediction": 224.2100067138672,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-10-26T18:02:21.879855",
+      "price_at_prediction": 224.2100067138672,
+      "price_after": 192.72999572753906,
+      "days_held": 2,
+      "price_change_pct": -14.04,
+      "was_correct": false,
+      "action_taken": "HOLD",
+      "test_mode": false
+    },
+    "was_correct": false
   },
   "3b98e152": {
     "id": "3b98e152",
-    "timestamp": "2025-10-26T17:59:59.806391",
+    "timestamp": "2024-10-26T17:59:59.806391",
     "ticker": "BTC",
     "action": "SELL",
     "confidence": 100,
@@ -161,12 +242,21 @@
       "rsi": 45.28321237296062
     },
     "price_at_prediction": 48.9900016784668,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-10-26T18:02:21.909106",
+      "price_at_prediction": 48.9900016784668,
+      "price_after": 31.850000381469727,
+      "days_held": 2,
+      "price_change_pct": -34.99,
+      "was_correct": true,
+      "action_taken": "SELL",
+      "test_mode": false
+    },
+    "was_correct": true
   },
   "c493e40f": {
     "id": "c493e40f",
-    "timestamp": "2025-10-26T18:00:01.329188",
+    "timestamp": "2024-10-26T18:00:01.329188",
     "ticker": "ETH",
     "action": "HOLD",
     "confidence": 80,
@@ -176,12 +266,21 @@
       "rsi": 44.24686291614021
     },
     "price_at_prediction": 37.0,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-10-26T18:02:21.924302",
+      "price_at_prediction": 37.0,
+      "price_after": 25.0,
+      "days_held": 2,
+      "price_change_pct": -32.43,
+      "was_correct": false,
+      "action_taken": "HOLD",
+      "test_mode": false
+    },
+    "was_correct": false
   },
   "5b073495": {
     "id": "5b073495",
-    "timestamp": "2025-10-26T18:00:01.795208",
+    "timestamp": "2024-10-26T18:00:01.795208",
     "ticker": "SOL",
     "action": "HOLD",
     "confidence": 85,
@@ -191,7 +290,16 @@
       "rsi": 49.560054701082116
     },
     "price_at_prediction": 1.8600000143051147,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-10-26T18:02:21.963382",
+      "price_at_prediction": 1.8600000143051147,
+      "price_after": 2.4700000286102295,
+      "days_held": 2,
+      "price_change_pct": 32.8,
+      "was_correct": false,
+      "action_taken": "HOLD",
+      "test_mode": false
+    },
+    "was_correct": false
   }
 }
