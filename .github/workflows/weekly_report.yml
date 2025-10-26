@@ -2,7 +2,7 @@ name: Weekly Learning Report
 
 on:
   schedule:
-    - cron: '0 18 * * 0'  # 6 PM UTC every Sunday (adjust for your timezone)
+    - cron: '0 18 * * 0'  # 6 PM UTC every Sunday
   workflow_dispatch:  # Manual trigger for testing
 
 permissions:
@@ -29,48 +29,14 @@ jobs:
         python -m pip install --upgrade pip
         pip install pandas yfinance
     
-    - name: 📊 Generate Weekly Report
-      run: |
-        python src/reports/weekly_dashboard.py
-    
-    - name: 📧 Send Email Report
+    - name: 📊 Generate and Send Weekly Report
       env:
         GMAIL_USER: ${{ secrets.GMAIL_USER }}
         GMAIL_PASSWORD: ${{ secrets.GMAIL_PASSWORD }}
       run: |
-        python -c "
-        import smtplib
-        from email.mime.text import MIMEText
-        from email.mime.multipart import MIMEMultipart
-        import os
-        from datetime import datetime
-        
-        # Read the HTML report
-        report_file = f'data/reports/weekly_email_{datetime.now().strftime(\"%Y%m%d\")}.html'
-        with open(report_file, 'r') as f:
-            html_content = f.read()
-        
-        # Send email
-        sender = os.environ['GMAIL_USER']
-        recipient = os.environ['GMAIL_USER']  # Send to yourself
-        
-        msg = MIMEMultipart('alternative')
-        msg['Subject'] = f'📊 Weekly Learning Report - {datetime.now().strftime(\"%B %d, %Y\")}'
-        msg['From'] = sender
-        msg['To'] = recipient
-        
-        html_part = MIMEText(html_content, 'html')
-        msg.attach(html_part)
-        
-        server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
-        server.login(sender, os.environ['GMAIL_PASSWORD'])
-        server.sendmail(sender, recipient, msg.as_string())
-        server.quit()
-        
-        print('✅ Weekly report email sent successfully!')
-        "
+        python src/reports/weekly_dashboard.py
     
-    - name: Commit and push report
+    - name: Commit and push report files
       run: |
         git config --global user.name 'Weekly Report Bot'
         git config --global user.email 'report@github.com'
