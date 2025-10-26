@@ -523,6 +523,48 @@ class WeeklyDashboard:
         
         logging.info(f"✅ Report saved to {filename}")
 
+    def send_email_report(self, email_html, report):
+        """Send the weekly report via email"""
+        import smtplib
+        from email.mime.text import MIMEText
+        from email.mime.multipart import MIMEMultipart
+        import os
+        
+        # Get email credentials from environment
+        sender = os.environ.get('GMAIL_USER')
+        password = os.environ.get('GMAIL_PASSWORD')
+        
+        if not sender or not password:
+            logging.warning("⚠️ Email credentials not found in environment variables")
+            logging.info("Set GMAIL_USER and GMAIL_PASSWORD to enable email delivery")
+            return False
+        
+        try:
+            recipient = sender  # Send to yourself
+            
+            # Create message
+            msg = MIMEMultipart('alternative')
+            msg['Subject'] = f'📊 Weekly Learning Report - {datetime.now().strftime("%B %d, %Y")}'
+            msg['From'] = sender
+            msg['To'] = recipient
+            
+            # Add HTML content
+            html_part = MIMEText(email_html, 'html')
+            msg.attach(html_part)
+            
+            # Send via Gmail
+            server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
+            server.login(sender, password)
+            server.sendmail(sender, recipient, msg.as_string())
+            server.quit()
+            
+            logging.info('✅ Weekly report email sent successfully!')
+            return True
+            
+        except Exception as e:
+            logging.error(f"❌ Failed to send email: {e}")
+            return False
+
 
 def main():
     """Main entry point"""
@@ -566,7 +608,17 @@ def main():
                 print(f"  • {insight}")
         
         print("\n" + "="*80)
-        print(f"📧 Email HTML: data/reports/weekly_email_{datetime.now().strftime('%Y%m%d')}.html")
+        
+        # Send email
+        print("📧 Sending email report...")
+        email_sent = dashboard.send_email_report(email_html, report)
+        
+        if email_sent:
+            print("✅ Email sent successfully!")
+        else:
+            print("⚠️ Email not sent (check credentials)")
+            print(f"📄 HTML saved to: data/reports/weekly_email_{datetime.now().strftime('%Y%m%d')}.html")
+        
         print("="*80 + "\n")
     else:
         print("❌ Report generation failed")
