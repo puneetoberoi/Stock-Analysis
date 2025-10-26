@@ -3759,3 +3759,16 @@ if __name__ == "__main__":
         logging.info("🚀 MARKET INTELLIGENCE SYSTEM v2.1.0")
         logging.info("=" * 60)
         asyncio.run(main(output=args.output))
+# ============================================================================
+# 🆕 NEWS/EVENTS ENGINE INITIALIZATION (NEW - SEPARATE BLOCK)
+# ============================================================================
+try:
+    from analysis.news_events_engine import NewsEventsEngine
+    news_events_engine = NewsEventsEngine()
+    NEWS_EVENTS_ENABLED = True
+    logging.info("✅ News/Events Engine loaded successfully")
+except ImportError as e:
+    news_events_engine = None
+    NEWS_EVENTS_ENABLED = False
+    logging.warning(f"⚠️ News/Events Engine not available: {e}")
+# ============================================================================
