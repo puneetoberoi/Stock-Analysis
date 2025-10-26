@@ -740,7 +740,7 @@ async def generate_ai_oracle_analysis(market_data, portfolio_data, pattern_data)
     # ... (the rest of the function is the same, just ensure this part is correct)
     try:
         genai.configure(api_key=GEMINI_API_KEY)
-        models_to_try = ['gemini-pro', 'gemini-2.5-flash'] # ✅ Use 'gemini-pro' as primary
+        models_to_try = ['gemini-2.5-flash'] # ✅ Use 'gemini-pro' as primary
         model = None
         for model_name in models_to_try:
             try:
