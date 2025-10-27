@@ -304,16 +304,16 @@ async def run_learning_process():
     logging.info(f"   - Accuracy: {accuracy:.1f}%" if total_checked > 0 else "   - No predictions checked")
 # After determining was_correct
 
-from learning.pattern_correlation_learner import PatternCorrelationLearner
+#from learning.pattern_correlation_learner import PatternCorrelationLearner
 
 # Initialize learner
-correlation_learner = PatternCorrelationLearner()
+#correlation_learner = PatternCorrelationLearner()
 
 # Analyze WHY this prediction succeeded/failed
-correlation_learner.analyze_prediction_outcome(
-    prediction=original_pred,
-    outcome=outcome_data
-)
+#correlation_learner.analyze_prediction_outcome(
+#    prediction=original_pred,
+#    outcome=outcome_data
+#)
 
 async def main():
     """Entry point for the script."""
