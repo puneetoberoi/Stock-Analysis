@@ -85,6 +85,34 @@
     {
       "timestamp": "2025-10-26T18:02:21.969567",
       "insight": "Pattern 'tweezer_top': 100% accuracy (1/1)"
+    },
+    {
+      "timestamp": "2025-10-27T19:18:19.359413",
+      "insight": "[REAL] Checked 13 predictions: 15.4% accuracy (2/13 correct)"
+    },
+    {
+      "timestamp": "2025-10-27T19:18:19.359657",
+      "insight": "Pattern 'swing_highs_lows': 0% accuracy (0/2)"
+    },
+    {
+      "timestamp": "2025-10-27T19:18:19.360036",
+      "insight": "Pattern 'double_bottom': 0% accuracy (0/3)"
+    },
+    {
+      "timestamp": "2025-10-27T19:18:19.360410",
+      "insight": "Pattern 'three_white_soldiers': 0% accuracy (0/2)"
+    },
+    {
+      "timestamp": "2025-10-27T19:18:19.360783",
+      "insight": "Pattern 'spinning_top': 25% accuracy (1/4)"
+    },
+    {
+      "timestamp": "2025-10-27T19:18:19.361187",
+      "insight": "Pattern 'hammer': 100% accuracy (1/1)"
+    },
+    {
+      "timestamp": "2025-10-27T19:18:19.361527",
+      "insight": "Pattern 'morning_star': 0% accuracy (0/1)"
     }
   ]
 }
