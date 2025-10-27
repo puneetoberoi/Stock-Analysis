@@ -1,0 +1,71 @@
+name: Setup Learning System
+
+on:
+  workflow_dispatch:  # Manual trigger
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v3
+    
+    - name: 🐍 Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    
+    - name: 📦 Install dependencies
+      run: |
+        pip install -r requirements.txt
+    
+    - name: 🎯 Create Test Predictions (Simulated)
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      run: |
+        cd src
+        python -c "
+import sys
+sys.path.append('.')
+from main import prediction_tracker
+import json
+from datetime import datetime
+
+# Create 5 test predictions
+test_predictions = [
+    {'ticker': 'AAPL', 'action': 'BUY', 'confidence': 75},
+    {'ticker': 'NVDA', 'action': 'BUY', 'confidence': 80},
+    {'ticker': 'TSLA', 'action': 'SELL', 'confidence': 65},
+    {'ticker': 'MSFT', 'action': 'HOLD', 'confidence': 70},
+    {'ticker': 'GOOGL', 'action': 'BUY', 'confidence': 85},
+]
+
+print('🧪 Creating test predictions...')
+for i, pred in enumerate(test_predictions):
+    pred_id = prediction_tracker.store_prediction(
+        ticker=pred['ticker'],
+        action=pred['action'],
+        confidence=pred['confidence'],
+        reasoning=f'Test prediction #{i+1}',
+        candle_pattern='hammer' if i % 2 == 0 else 'doji',
+        indicators={'rsi': 50 + i*5}
+    )
+    print(f'✅ Created: {pred[\"ticker\"]} - {pred[\"action\"]} (ID: {pred_id})')
+
+print(f'\\n✅ Setup complete! Created {len(test_predictions)} test predictions.')
+"
+    
+    - name: ✅ Verify Setup
+      run: |
+        echo "========================================"
+        echo "📊 SETUP VERIFICATION"
+        echo "========================================"
+        if [ -f "data/predictions.json" ]; then
+          echo "✅ Predictions file created"
+          cat data/predictions.json | python -m json.tool
+        else
+          echo "❌ No predictions file found"
+        fi
