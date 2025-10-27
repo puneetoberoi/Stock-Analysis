@@ -10,6 +10,10 @@ import logging
 
 logging.basicConfig(level=logging.INFO)
 
+SCRIPT_DIR = Path(__file__).parent
+REPO_ROOT = SCRIPT_DIR.parent
+DATA_DIR = REPO_ROOT / 'data'
+
 
 def generate_weekly_report():
     """Generate comprehensive weekly learning report"""
