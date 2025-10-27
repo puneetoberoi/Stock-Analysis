@@ -1,0 +1,67 @@
+name: Check Contextual Learning Data
+
+on:
+  workflow_dispatch:
+
+jobs:
+  check-learning:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      
+      - name: 🔍 Check Learning Files
+        run: |
+          echo "=== Learning Files Status ==="
+          
+          if [ -f "data/pattern_combinations.json" ]; then
+            echo "✅ pattern_combinations.json EXISTS"
+            echo ""
+            echo "=== File Contents ==="
+            cat data/pattern_combinations.json | python -m json.tool
+            echo ""
+            echo "=== Analysis ==="
+            python - <<'EOF'
+          import json
+          from pathlib import Path
+          
+          file = Path('data/pattern_combinations.json')
+          data = json.load(open(file))
+          
+          print(f"Total combinations tracked: {len(data)}")
+          print("")
+          
+          # Show combinations with 3+ samples
+          ready = {k: v for k, v in data.items() if v['total'] >= 3}
+          if ready:
+              print(f"✅ Combinations ready for email display (3+ samples): {len(ready)}")
+              for combo, stats in ready.items():
+                  success_rate = (stats['successful'] / stats['total']) * 100
+                  print(f"  - {combo}: {success_rate:.0f}% ({stats['successful']}/{stats['total']})")
+          else:
+              print(f"⚠️ No combinations have 3+ samples yet")
+              print(f"Current combinations (need more data):")
+              for combo, stats in sorted(data.items(), key=lambda x: x[1]['total'], reverse=True):
+                  print(f"  - {combo}: {stats['total']} samples")
+          EOF
+          else
+            echo "❌ pattern_combinations.json DOES NOT EXIST"
+            echo "This means contextual learning hasn't activated yet."
+            echo ""
+            echo "Checking if class exists in check_outcomes.py..."
+            if grep -q "class ContextualPatternLearner" src/check_outcomes.py; then
+              echo "✅ ContextualPatternLearner class found in code"
+              echo "⚠️ File not created because no predictions were checked with the new code"
+            else
+              echo "❌ ContextualPatternLearner class NOT found in code"
+              echo "You need to update check_outcomes.py with the contextual learning code"
+            fi
+          fi
+          
+          echo ""
+          echo "=== Other Learning Files ==="
+          ls -lh data/*.json
