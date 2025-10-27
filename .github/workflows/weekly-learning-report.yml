@@ -22,10 +22,29 @@ jobs:
           # ✅ FIXED: All packages in one block, including groq and cohere
           pip install ddgs scipy
           pip install pandas ta yfinance requests numpy aiohttp beautifulsoup4 lxml matplotlib seaborn pytrends requests-html nest_asyncio spacy textblob transformers wikipedia-api markdown vaderSentiment asyncio-throttle python-dateutil PyYAML google-generativeai groq cohere ddgs
-      - name: Generate & Send Weekly Report
+      - name: 🔍 Debug - Check current directory
+        run: |
+          echo "=== Current Directory ==="
+          pwd
+          echo ""
+          echo "=== Directory Contents ==="
+          ls -la
+          echo ""
+          echo "=== Data Directory ==="
+          ls -la data/ || echo "No data directory"
+          echo ""
+          echo "=== Predictions File ==="
+          if [ -f "data/predictions.json" ]; then
+            echo "✅ predictions.json exists"
+            wc -l data/predictions.json
+          else
+            echo "❌ predictions.json NOT FOUND"
+          fi
+      
+      - name: 📊 Generate & Send Weekly Report
         env:
           SMTP_USER: ${{ secrets.SMTP_USER }}
           SMTP_PASS: ${{ secrets.SMTP_PASS }}
         run: |
-          cd src
-          python weekly_learning_report.py
+          # DON'T cd into src - run from repo root
+          python src/weekly_learning_report.py
