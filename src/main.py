@@ -2011,57 +2011,6 @@ class ConfidenceScorer:
         
         # Cap confidence between 0-100
         confidence = max(0, min(100, confidence))
-
-                # ========================================================================
-        # 6. NEWS/EVENTS SCORING (NEW - DOESN'T TOUCH EXISTING CODE)
-        # ========================================================================
-        events_score = 0
-        
-        # Try to load news events engine
-        try:
-            from analysis.news_events_engine import NewsEventsEngine
-            
-            # Get ticker from technical_indicators or predictions
-            ticker = None
-            if technical_indicators and 'ticker' in technical_indicators:
-                ticker = technical_indicators['ticker']
-            elif llm_predictions:
-                # Try to extract ticker from LLM predictions
-                first_pred = next(iter(llm_predictions.values()), {})
-                ticker = first_pred.get('ticker')
-            
-            if ticker:
-                engine = NewsEventsEngine()
-                events_data = engine.analyze_events(ticker, days_back=7)
-                
-                if events_data and events_data.get('event_count', 0) > 0:
-                    events_score = events_data['total_score']
-                    
-                    # Add events to breakdown
-                    for event in events_data.get('events', []):
-                        emoji = event.get('emoji', '📰')
-                        desc = event.get('description', '')
-                        score = event.get('score', 0)
-                        
-                        if score > 0:
-                            breakdown.append(f"✅ {emoji} {desc}: +{score}")
-                        elif score < 0:
-                            breakdown.append(f"⚠️ {emoji} {desc}: {score}")
-                    
-                    # Log major events
-                    if events_data.get('has_major_events'):
-                        logging.info(f"🔥 {ticker}: Major market event detected! Score: {events_score:+d}")
-        
-        except ImportError:
-            logging.debug("News events engine not available")
-        except Exception as e:
-            logging.debug(f"Error in news events scoring: {e}")
-        
-        confidence += events_score
-        # ========================================================================
-        
-        # Cap confidence between 0-100
-        confidence = max(0, min(100, confidence))
         
         # Determine action threshold
         if confidence >= 75:
