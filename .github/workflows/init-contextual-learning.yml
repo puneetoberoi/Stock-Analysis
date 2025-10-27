@@ -1,0 +1,95 @@
+name: Initialize Contextual Learning
+
+on:
+  workflow_dispatch:
+
+jobs:
+  init-learning:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      
+      - run: pip install -r requirements.txt
+      
+      - name: 🧠 Analyze Existing Predictions
+        run: |
+          python - <<'EOF'
+          import json
+          import sys
+          from pathlib import Path
+          
+          # Add src to path
+          sys.path.insert(0, 'src')
+          
+          # Import the contextual learner
+          from check_outcomes import ContextualPatternLearner
+          
+          # Initialize learner
+          learner = ContextualPatternLearner()
+          
+          # Load existing predictions
+          pred_file = Path('data/predictions.json')
+          with open(pred_file, 'r') as f:
+              predictions = json.load(f)
+          
+          print("="*60)
+          print("🧠 INITIALIZING CONTEXTUAL LEARNING")
+          print("="*60)
+          
+          # Process all checked predictions
+          processed = 0
+          for pred_id, pred in predictions.items():
+              if pred.get('was_correct') is not None:  # Has been checked
+                  pattern = pred.get('candle_pattern')
+                  indicators = pred.get('indicators', {})
+                  was_successful = pred.get('was_correct', False)
+                  
+                  if pattern and indicators:
+                      learner.update_combination(pattern, indicators, was_successful)
+                      processed += 1
+                      print(f"✅ Processed: {pred['ticker']} - {pattern}")
+          
+          print(f"\n✅ Processed {processed} predictions")
+          print(f"✅ Created pattern_combinations.json")
+          
+          # Show what was learned
+          print("\n" + "="*60)
+          print("📊 LEARNED COMBINATIONS")
+          print("="*60)
+          
+          combos = learner.combinations
+          for combo_key, stats in sorted(combos.items(), key=lambda x: x[1]['total'], reverse=True):
+              success_rate = (stats['successful'] / stats['total']) * 100
+              print(f"\n{combo_key}:")
+              print(f"  Success rate: {success_rate:.0f}%")
+              print(f"  Samples: {stats['total']}")
+              print(f"  Context: {stats.get('context', 'N/A')}")
+          
+          print("\n" + "="*60)
+          EOF
+      
+      - name: 📊 Show Created File
+        run: |
+          if [ -f "data/pattern_combinations.json" ]; then
+            echo "✅ File created successfully!"
+            echo ""
+            cat data/pattern_combinations.json | python -m json.tool | head -50
+          else
+            echo "❌ File not created - check errors above"
+          fi
+      
+      - name: 💾 Commit Pattern Combinations
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          if [ -f "data/pattern_combinations.json" ]; then
+            git add data/pattern_combinations.json
+            git commit -m "Initialize contextual learning data" || echo "No changes to commit"
+            git push || echo "Nothing to push"
+          fi
