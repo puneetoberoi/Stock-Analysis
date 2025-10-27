@@ -18,13 +18,15 @@ DATA_DIR = REPO_ROOT / 'data'
 def generate_weekly_report():
     """Generate comprehensive weekly learning report"""
     
-    # Load data
-    predictions_file = Path('data/predictions.json')
-    patterns_file = Path('data/patterns.json')
-    combinations_file = Path('data/pattern_combinations.json')
+    predictions_file = DATA_DIR / 'predictions.json'
+    patterns_file = DATA_DIR / 'patterns.json'
+    combinations_file = DATA_DIR / 'pattern_combinations.json'
+    
+    logging.info(f"Looking for data in: {DATA_DIR}")
     
     if not predictions_file.exists():
-        logging.warning("No predictions data found")
+        logging.warning(f"No predictions data found at {predictions_file}")
+        send_no_data_email()
         return
     
     with open(predictions_file, 'r') as f:
@@ -40,16 +42,39 @@ def generate_weekly_report():
         with open(combinations_file, 'r') as f:
             combinations = json.load(f)
     
-    # Filter last 7 days
-    week_ago = (datetime.now() - timedelta(days=7)).isoformat()
-    recent_preds = [
-        p for p in predictions.values()
-        if p.get('timestamp', '') >= week_ago and p.get('was_correct') is not None
+    # Convert dict to list if needed
+    if isinstance(predictions, dict):
+        predictions_list = list(predictions.values())
+    else:
+        predictions_list = predictions
+    
+    # Filter for checked predictions
+    checked_preds = [
+        p for p in predictions_list
+        if p.get('was_correct') is not None
     ]
     
-    if not recent_preds:
-        logging.info("No predictions from last 7 days")
+    if not checked_preds:
+        logging.info("No checked predictions found")
+        send_no_data_email("You have predictions stored, but none have been checked yet. Run the evening checker after your morning analysis!")
         return
+    
+    # 🆕 FIX: Try last 7 days first, fall back to all-time
+    week_ago = (datetime.now() - timedelta(days=7)).isoformat()
+    recent_preds = [p for p in checked_preds if p.get('timestamp', '') >= week_ago]
+    
+    time_period = "This Week"
+    if not recent_preds:
+        logging.info("No predictions from last 7 days - showing all-time statistics")
+        recent_preds = checked_preds  # Show all-time data
+        time_period = "All Time"
+        
+        # Get actual date range
+        timestamps = [p.get('timestamp', '') for p in recent_preds if p.get('timestamp')]
+        if timestamps:
+            oldest = min(timestamps)
+            newest = max(timestamps)
+            time_period = f"All Time (since {oldest[:10]})"
     
     # Calculate stats
     total = len(recent_preds)
@@ -74,7 +99,46 @@ def generate_weekly_report():
     worst = sorted_by_return[-1]
     
     # Generate HTML
-    html = f"""<!DOCTYPE html>
+    html = generate_report_html(
+        time_period=time_period,
+        total=total,
+        correct=correct,
+        accuracy=accuracy,
+        avg_return=avg_return,
+        buy_preds=buy_preds,
+        sell_preds=sell_preds,
+        hold_preds=hold_preds,
+        buy_accuracy=buy_accuracy,
+        sell_accuracy=sell_accuracy,
+        hold_accuracy=hold_accuracy,
+        best=best,
+        worst=worst,
+        combinations=combinations,
+        recent_preds=recent_preds
+    )
+    
+    send_email(html, f"📊 Weekly Learning Report - {datetime.now().strftime('%b %d, %Y')}")
+    logging.info(f"✅ Report sent! Period: {time_period}, Predictions: {total}, Accuracy: {accuracy:.1f}%")
+
+
+def generate_report_html(time_period, total, correct, accuracy, avg_return, 
+                         buy_preds, sell_preds, hold_preds,
+                         buy_accuracy, sell_accuracy, hold_accuracy,
+                         best, worst, combinations, recent_preds):
+    """Generate the HTML report"""
+    
+    # Color based on performance
+    if accuracy >= 70:
+        perf_color = '#16a34a'
+        perf_emoji = '🎯'
+    elif accuracy >= 50:
+        perf_color = '#f59e0b'
+        perf_emoji = '⚠️'
+    else:
+        perf_color = '#dc2626'
+        perf_emoji = '❌'
+    
+    return f"""<!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
@@ -87,47 +151,48 @@ def generate_weekly_report():
         .stat-card {{ padding: 20px; background: #f9fafb; border-radius: 10px; text-align: center; }}
         .stat-value {{ font-size: 36px; font-weight: bold; margin: 10px 0; }}
         .chart-bar {{ background: #e5e7eb; border-radius: 8px; overflow: hidden; margin: 10px 0; }}
-        .chart-fill {{ height: 30px; background: linear-gradient(90deg, #10b981 0%, #059669 100%); display: flex; align-items: center; padding: 0 15px; color: white; font-weight: bold; }}
+        .chart-fill {{ height: 30px; display: flex; align-items: center; padding: 0 15px; color: white; font-weight: bold; min-width: 10%; }}
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>📈 Weekly Learning Report</h1>
-            <p style="font-size:20px;margin:10px 0 0 0;">{(datetime.now() - timedelta(days=7)).strftime('%b %d')} - {datetime.now().strftime('%b %d, %Y')}</p>
+            <h1>📈 Learning Report</h1>
+            <p style="font-size:20px;margin:10px 0 0 0;">{time_period}</p>
+            <p style="font-size:14px;margin:5px 0 0 0;opacity:0.9;">Generated: {datetime.now().strftime('%B %d, %Y')}</p>
         </div>
         
         <div class="content">
             <div class="stat-grid">
                 <div class="stat-card">
                     <div style="color:#666;">Overall Accuracy</div>
-                    <div class="stat-value" style="color:{'#16a34a' if accuracy >= 60 else '#dc2626'};">{accuracy:.1f}%</div>
-                    <div style="color:#888;font-size:14px;">{correct}/{total} correct</div>
+                    <div class="stat-value" style="color:{perf_color};">{perf_emoji} {accuracy:.1f}%</div>
+                    <div style="color:#888;font-size:14px;">{correct}/{total} correct predictions</div>
                 </div>
                 
                 <div class="stat-card">
-                    <div style="color:#666;">Avg Return</div>
+                    <div style="color:#666;">Average Return</div>
                     <div class="stat-value" style="color:{'#16a34a' if avg_return > 0 else '#dc2626'};">{avg_return:+.2f}%</div>
                     <div style="color:#888;font-size:14px;">Per prediction</div>
                 </div>
             </div>
             
-            <h2 style="border-bottom:3px solid #3b82f6;padding-bottom:10px;">📊 Performance by Action</h2>
+            <h2 style="border-bottom:3px solid #3b82f6;padding-bottom:10px;">📊 Performance by Action Type</h2>
             
             <div class="chart-bar">
-                <div class="chart-fill" style="width:{buy_accuracy}%;background:linear-gradient(90deg, #10b981 0%, #059669 100%);">
+                <div class="chart-fill" style="width:{max(buy_accuracy, 5)}%;background:linear-gradient(90deg, #10b981 0%, #059669 100%);">
                     BUY: {buy_accuracy:.0f}% ({len(buy_preds)} predictions)
                 </div>
             </div>
             
             <div class="chart-bar">
-                <div class="chart-fill" style="width:{sell_accuracy}%;background:linear-gradient(90deg, #ef4444 0%, #dc2626 100%);">
+                <div class="chart-fill" style="width:{max(sell_accuracy, 5)}%;background:linear-gradient(90deg, #ef4444 0%, #dc2626 100%);">
                     SELL: {sell_accuracy:.0f}% ({len(sell_preds)} predictions)
                 </div>
             </div>
             
             <div class="chart-bar">
-                <div class="chart-fill" style="width:{hold_accuracy}%;background:linear-gradient(90deg, #f59e0b 0%, #d97706 100%);">
+                <div class="chart-fill" style="width:{max(hold_accuracy, 5)}%;background:linear-gradient(90deg, #f59e0b 0%, #d97706 100%);">
                     HOLD: {hold_accuracy:.0f}% ({len(hold_preds)} predictions)
                 </div>
             </div>
@@ -137,13 +202,13 @@ def generate_weekly_report():
             <div style="padding:20px;background:#d1fae5;border-left:4px solid #16a34a;border-radius:8px;margin:20px 0;">
                 <div style="font-size:18px;font-weight:bold;color:#16a34a;">✅ Best: {best['ticker']} ({best['action']})</div>
                 <div style="margin:10px 0;font-size:24px;font-weight:bold;">{best['outcome']['price_change_pct']:+.2f}%</div>
-                <div style="color:#666;">Pattern: {best.get('candle_pattern', 'None')}</div>
+                <div style="color:#666;">Pattern: {best.get('candle_pattern', 'None')} | Confidence: {best.get('confidence', 'N/A')}%</div>
             </div>
             
             <div style="padding:20px;background:#fee2e2;border-left:4px solid #dc2626;border-radius:8px;">
                 <div style="font-size:18px;font-weight:bold;color:#dc2626;">❌ Worst: {worst['ticker']} ({worst['action']})</div>
                 <div style="margin:10px 0;font-size:24px;font-weight:bold;">{worst['outcome']['price_change_pct']:+.2f}%</div>
-                <div style="color:#666;">Pattern: {worst.get('candle_pattern', 'None')}</div>
+                <div style="color:#666;">Pattern: {worst.get('candle_pattern', 'None')} | Confidence: {worst.get('confidence', 'N/A')}%</div>
             </div>
             
             <h2 style="border-bottom:3px solid #3b82f6;padding-bottom:10px;margin-top:40px;">🧠 Top Pattern Combinations</h2>
@@ -152,21 +217,29 @@ def generate_weekly_report():
             {_generate_combo_table(combinations)}
             
             <div style="margin-top:40px;padding:30px;background:linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);border-radius:10px;text-align:center;">
-                <h3 style="margin:0 0 15px 0;">💡 This Week's Key Learning</h3>
+                <h3 style="margin:0 0 15px 0;">💡 Key Insight</h3>
                 <p style="font-size:16px;line-height:1.8;margin:0;">
                     {_generate_key_insight(recent_preds, combinations)}
                 </p>
             </div>
             
+            <div style="margin-top:30px;padding:20px;background:#f0f9ff;border-radius:8px;border-left:4px solid #0369a1;">
+                <h3 style="margin:0 0 10px 0;">📈 Next Steps</h3>
+                <ul style="margin:0;padding-left:20px;color:#666;">
+                    <li>Continue running morning analysis to generate new predictions</li>
+                    <li>Run evening checker 2+ days after predictions to verify outcomes</li>
+                    <li>System learns from every prediction to improve accuracy</li>
+                </ul>
+            </div>
+            
             <div style="text-align:center;margin-top:30px;color:#888;font-size:14px;">
                 <p>Keep learning, keep improving! 📈</p>
+                <p style="font-size:12px;margin-top:10px;">Analyzed {total} predictions • System accuracy improving continuously</p>
             </div>
         </div>
     </div>
 </body>
 </html>"""
-    
-    send_email(html, f"📊 Weekly Learning Report - {datetime.now().strftime('%b %d, %Y')}")
 
 
 def _generate_combo_table(combinations):
