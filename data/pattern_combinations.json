@@ -1,1 +1,56 @@
-
+{
+    "morning_star": {
+        "total": 2,
+        "successful": 0,
+        "pattern": "morning_star",
+        "context": "Normal conditions"
+    },
+    "double_bottom_rsi_neutral": {
+        "total": 2,
+        "successful": 0,
+        "pattern": "double_bottom",
+        "context": "Normal conditions"
+    },
+    "double_top_rsi_neutral": {
+        "total": 1,
+        "successful": 1,
+        "pattern": "double_top",
+        "context": "Normal conditions"
+    },
+    "inverted_hammer_rsi_neutral": {
+        "total": 1,
+        "successful": 0,
+        "pattern": "inverted_hammer",
+        "context": "Normal conditions"
+    },
+    "swing_highs_lows_rsi_overbought": {
+        "total": 1,
+        "successful": 1,
+        "pattern": "swing_highs_lows",
+        "context": "RSI overbought (>70)"
+    },
+    "doji": {
+        "total": 2,
+        "successful": 0,
+        "pattern": "doji",
+        "context": "Normal conditions"
+    },
+    "tweezer_top_rsi_neutral": {
+        "total": 1,
+        "successful": 1,
+        "pattern": "tweezer_top",
+        "context": "Normal conditions"
+    },
+    "swing_highs_lows_rsi_neutral": {
+        "total": 1,
+        "successful": 0,
+        "pattern": "swing_highs_lows",
+        "context": "Normal conditions"
+    },
+    "doji_rsi_neutral": {
+        "total": 1,
+        "successful": 0,
+        "pattern": "doji",
+        "context": "Normal conditions"
+    }
+}
