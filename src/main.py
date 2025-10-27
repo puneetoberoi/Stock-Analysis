@@ -17,6 +17,7 @@ import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from datetime import datetime, date, timedelta
+from learning_manager import LearningManager
 
 # 🆕 Email bot imports
 import sqlite3
