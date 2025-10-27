@@ -2173,27 +2173,7 @@ class IntelligentPredictionEngine:
         final_prediction = self._determine_final_action(llm_predictions, confidence_result, candle_patterns)
         
         if final_prediction:
-            # ============================================================
-            # Build comprehensive reasoning from LLM predictions
-            # ============================================================
-            if llm_predictions:
-                # Format: "groq: reasoning | gemini: reasoning | cohere: reasoning"
-                llm_reasoning = " | ".join([
-                    f"{llm_name}: {pred.get('reasoning', pred.get('action', 'No reasoning'))}" 
-                    for llm_name, pred in llm_predictions.items()
-                ])
-            else:
-                llm_reasoning = final_prediction.get('reasoning', 'No LLM reasoning available')
-            
-            # Store prediction with detailed LLM reasoning
-            pred_id = self.prediction_tracker.store_prediction(
-                ticker=ticker,
-                action=final_prediction['action'],
-                confidence=confidence_result['score'],
-                reasoning=llm_reasoning,  # ← Use LLM reasoning, not final_prediction['reasoning']
-                candle_pattern=candle_patterns[0]['name'] if candle_patterns else None,
-                indicators={'rsi': existing_analysis.get('rsi', 50)}
-            )
+            pred_id = self.prediction_tracker.store_prediction(ticker, final_prediction['action'], confidence_result['score'], final_prediction['reasoning'], candle_patterns[0]['name'] if candle_patterns else None, {'rsi': existing_analysis.get('rsi', 50)})
             final_prediction['prediction_id'] = pred_id
         
         return {**existing_analysis, 'candle_patterns': candle_patterns, 'pattern_success_rates': pattern_success_rates, 'llm_predictions': llm_predictions, 'confidence': confidence_result, 'ai_prediction': final_prediction, 'learning_insights': self.learning_memory.get_recent_insights(3)}
