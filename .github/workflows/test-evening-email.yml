@@ -1,0 +1,53 @@
+name: Test Evening Email
+
+on:
+  workflow_dispatch:
+
+jobs:
+  evening-email:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v3
+      
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      
+      - name: 📦 Install Dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      - name: 🔍 Verify Data Exists
+        run: |
+          echo "=== Predictions File ==="
+          if [ -f "data/predictions.json" ]; then
+            echo "✅ Found predictions.json"
+            python -c "import json; data=json.load(open('data/predictions.json')); print(f'Total predictions: {len(data)}'); checked=[p for p in data.values() if p.get(\"was_correct\") is not None]; print(f'Already checked: {len(checked)}'); unchecked=[p for p in data.values() if p.get(\"was_correct\") is None]; print(f'Unchecked: {len(unchecked)}')"
+          else
+            echo "❌ No predictions.json found"
+            exit 1
+          fi
+      
+      - name: 🌙 Run Evening Checker (Production Mode)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+        run: |
+          cd src
+          python check_outcomes.py
+      
+      - name: 📊 Show Results
+        if: always()
+        run: |
+          echo "=== Pattern Combinations Created? ==="
+          if [ -f "data/pattern_combinations.json" ]; then
+            echo "✅ Contextual learning file created!"
+            cat data/pattern_combinations.json | python -m json.tool | head -30
+          else
+            echo "⚠️ Not created (no new predictions checked)"
+          fi
