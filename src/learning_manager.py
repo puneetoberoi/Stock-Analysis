@@ -1,4 +1,4 @@
-
+# src/learning_manager.py
 import json
 import os
 from datetime import datetime, timedelta
@@ -6,6 +6,7 @@ from typing import Dict, List, Optional, Tuple
 import pandas as pd
 from dataclasses import dataclass, asdict
 import numpy as np
+from github import Github
 
 @dataclass
 class PredictionOutcome:
@@ -15,16 +16,9 @@ class PredictionOutcome:
     confidence: float
     actual_return: float
     success: bool
-    technical_context: Dict  # RSI, MACD, volume etc at prediction time
+    technical_context: Dict
     failure_analysis: Optional[str] = None
-    
-@dataclass
-class LearningPattern:
-    pattern_name: str
-    conditions: Dict
-    success_rate: float
-    sample_size: int
-    last_updated: str
+    llm_model: str = "gpt-4"  # Track which LLM made the prediction
 
 class LearningManager:
     def __init__(self, github_token: str, repo_name: str):
@@ -36,8 +30,6 @@ class LearningManager:
     def load_learning_history(self) -> Dict:
         """Load historical predictions and their outcomes"""
         try:
-            # Load from GitHub
-            from github import Github
             g = Github(self.github_token)
             repo = g.get_repo(self.repo_name)
             
@@ -45,36 +37,49 @@ class LearningManager:
                 content = repo.get_contents(self.learning_file)
                 return json.loads(content.decoded_content)
             except:
-                return {"predictions": [], "patterns": {}, "ticker_accuracy": {}}
+                return {
+                    "predictions": [], 
+                    "patterns": {}, 
+                    "ticker_accuracy": {},
+                    "llm_performance": {}
+                }
         except Exception as e:
             print(f"Error loading learning history: {e}")
-            return {"predictions": [], "patterns": {}, "ticker_accuracy": {}}
+            return {
+                "predictions": [], 
+                "patterns": {}, 
+                "ticker_accuracy": {},
+                "llm_performance": {}
+            }
     
     def analyze_failure_patterns(self, ticker: str, prediction: str, 
                                technical_data: Dict, actual_return: float) -> str:
         """Analyze why a prediction failed"""
         analysis = []
         
-        # Check for false signals
+        # Check for false signals based on RSI
+        rsi = technical_data.get('rsi', 50)
+        macd = technical_data.get('macd', 0)
+        volume_ratio = technical_data.get('volume_ratio', 1)
+        
         if prediction == "BUY" and actual_return < -2:
-            if technical_data.get('rsi', 0) > 70:
-                analysis.append("Failed BUY despite overbought RSI (>70) - possible reversal ignored")
-            if technical_data.get('macd_histogram', 0) < 0:
-                analysis.append("Failed BUY with negative MACD histogram - momentum wasn't confirmed")
-            if technical_data.get('volume_ratio', 1) < 0.8:
-                analysis.append("Failed BUY with low volume - lack of conviction in move")
+            if rsi > 70:
+                analysis.append("Failed BUY with RSI>70 (overbought) - reversal pattern ignored")
+            if rsi > 60 and macd < 0:
+                analysis.append("Failed BUY with negative MACD divergence - momentum wasn't confirmed")
+            if volume_ratio < 0.8:
+                analysis.append("Failed BUY with low volume - lack of buyer conviction")
                 
         elif prediction == "SELL" and actual_return > 2:
-            if technical_data.get('rsi', 0) < 30:
-                analysis.append("Failed SELL despite oversold RSI (<30) - possible bounce ignored")
-            if technical_data.get('near_support', False):
-                analysis.append("Failed SELL near support level - support held stronger than expected")
+            if rsi < 30:
+                analysis.append("Failed SELL with RSI<30 (oversold) - bounce probability ignored")
+            if rsi < 40 and macd > 0:
+                analysis.append("Failed SELL with positive MACD - upward momentum building")
                 
-        # Check for pattern conflicts
-        if technical_data.get('double_bottom', False) and prediction == "SELL":
-            analysis.append("Missed double bottom pattern - bullish reversal pattern ignored")
+        elif prediction == "HOLD" and abs(actual_return) > 5:
+            analysis.append(f"Failed HOLD - significant move of {actual_return:.2f}% missed")
             
-        return " | ".join(analysis) if analysis else "No clear pattern identified"
+        return " | ".join(analysis) if analysis else "No clear failure pattern identified"
     
     def get_ticker_learning_context(self, ticker: str, current_technicals: Dict) -> str:
         """Generate learning context for a specific ticker"""
@@ -87,37 +92,40 @@ class LearningManager:
         if not ticker_predictions:
             return "No historical data for learning."
         
-        # Calculate accuracy metrics
-        recent_predictions = ticker_predictions[-10:]  # Last 10 predictions
-        accuracy = sum(1 for p in recent_predictions if p.get('success', False)) / len(recent_predictions)
+        # Get last 10 predictions for this ticker
+        recent_predictions = ticker_predictions[-10:]
+        correct = sum(1 for p in recent_predictions if p.get('success', False))
+        accuracy = (correct / len(recent_predictions)) * 100
         
         # Find similar technical setups
         similar_setups = self._find_similar_setups(current_technicals, ticker_predictions)
         
-        # Build context
         context_parts = [
-            f"Historical accuracy on {ticker}: {accuracy:.1%} (last {len(recent_predictions)} trades)",
+            f"Historical accuracy on {ticker}: {accuracy:.1f}% ({correct}/{len(recent_predictions)} correct)"
         ]
         
         # Add pattern-specific insights
         if similar_setups:
-            success_rate = sum(1 for s in similar_setups if s.get('success', False)) / len(similar_setups)
+            similar_success = sum(1 for s in similar_setups if s.get('success', False))
+            similar_accuracy = (similar_success / len(similar_setups)) * 100
             context_parts.append(
-                f"Similar technical setups occurred {len(similar_setups)} times with {success_rate:.1%} success rate"
+                f"Similar RSI/MACD setups: {len(similar_setups)} times, {similar_accuracy:.1f}% success"
             )
             
-            # Add specific failure lessons
-            failures = [s for s in similar_setups if not s.get('success', False)]
-            if failures:
-                common_failure = failures[0].get('failure_analysis', '')
-                if common_failure:
-                    context_parts.append(f"Common failure pattern: {common_failure}")
+            # Get the most recent failure
+            recent_failures = [s for s in similar_setups if not s.get('success', False)]
+            if recent_failures:
+                last_failure = recent_failures[-1]
+                if last_failure.get('failure_analysis'):
+                    context_parts.append(f"Last similar setup failed: {last_failure['failure_analysis']}")
         
-        # Add recent performance trend
+        # Add recent trend
         if len(recent_predictions) >= 3:
-            recent_returns = [p.get('actual_return', 0) for p in recent_predictions[-3:]]
-            avg_return = np.mean(recent_returns)
-            context_parts.append(f"Recent average return: {avg_return:.2f}%")
+            last_3_success = sum(1 for p in recent_predictions[-3:] if p.get('success', False))
+            if last_3_success == 0:
+                context_parts.append("WARNING: Last 3 predictions all failed")
+            elif last_3_success == 3:
+                context_parts.append("POSITIVE: Last 3 predictions all successful")
         
         return " | ".join(context_parts)
     
@@ -125,51 +133,60 @@ class LearningManager:
         """Find historically similar technical setups"""
         similar = []
         
+        current_rsi = current.get('rsi', 50)
+        current_macd = current.get('macd', 0)
+        
         for hist in historical:
             if not hist.get('technical_context'):
                 continue
                 
             hist_tech = hist['technical_context']
+            hist_rsi = hist_tech.get('rsi', 50)
+            hist_macd = hist_tech.get('macd', 0)
             
-            # Define similarity criteria
-            rsi_similar = abs(current.get('rsi', 50) - hist_tech.get('rsi', 50)) < 10
-            macd_similar_sign = (current.get('macd_histogram', 0) * hist_tech.get('macd_histogram', 0)) > 0
-            volume_similar = abs(current.get('volume_ratio', 1) - hist_tech.get('volume_ratio', 1)) < 0.3
+            # Check if RSI is in similar range (±10)
+            rsi_similar = abs(current_rsi - hist_rsi) < 10
             
-            if rsi_similar and macd_similar_sign and volume_similar:
+            # Check if MACD has same sign (both positive or both negative)
+            macd_similar = (current_macd * hist_macd) > 0
+            
+            if rsi_similar and macd_similar:
                 similar.append(hist)
-                
-        return similar[-5:]  # Return last 5 similar setups
+        
+        return similar[-5:] if similar else []  # Return up to 5 most recent similar setups
     
-    def update_learning_history(self, outcome: PredictionOutcome):
-        """Update learning history with new outcome"""
+    def save_prediction_with_context(self, ticker: str, prediction: str, 
+                                    confidence: float, technical_data: Dict, 
+                                    current_price: float, llm_model: str = "gpt-4"):
+        """Save a new prediction with technical context"""
         history = self.load_learning_history()
         
-        # Add new prediction outcome
-        history['predictions'].append(asdict(outcome))
+        new_prediction = {
+            'ticker': ticker,
+            'date': datetime.now().isoformat(),
+            'prediction': prediction,
+            'confidence': confidence,
+            'price_at_prediction': current_price,
+            'technical_context': technical_data,
+            'llm_model': llm_model,
+            'success': None,  # Will be updated by evening learner
+            'actual_return': None,  # Will be updated by evening learner
+            'failure_analysis': None  # Will be updated if prediction fails
+        }
         
-        # Update ticker accuracy
-        ticker = outcome.ticker
-        if ticker not in history['ticker_accuracy']:
-            history['ticker_accuracy'][ticker] = {'correct': 0, 'total': 0}
-        
-        history['ticker_accuracy'][ticker]['total'] += 1
-        if outcome.success:
-            history['ticker_accuracy'][ticker]['correct'] += 1
-        
-        # Save back to GitHub
+        history['predictions'].append(new_prediction)
         self._save_to_github(history)
         
+        return new_prediction
+    
     def _save_to_github(self, data: Dict):
         """Save learning history to GitHub"""
-        from github import Github
         g = Github(self.github_token)
         repo = g.get_repo(self.repo_name)
         
         content = json.dumps(data, indent=2)
         
         try:
-            # Try to update existing file
             file = repo.get_contents(self.learning_file)
             repo.update_file(
                 self.learning_file,
@@ -178,56 +195,8 @@ class LearningManager:
                 file.sha
             )
         except:
-            # Create new file
             repo.create_file(
                 self.learning_file,
                 f"Initialize learning history - {datetime.now().strftime('%Y-%m-%d %H:%M')}",
                 content
             )
-    
-    def get_pattern_recommendations(self, ticker: str, current_technicals: Dict) -> Dict:
-        """Get recommendations based on learned patterns"""
-        history = self.load_learning_history()
-        patterns = history.get('patterns', {})
-        
-        recommendations = {
-            'confidence_adjustment': 1.0,
-            'warning_flags': [],
-            'positive_signals': [],
-            'suggested_action': None
-        }
-        
-        # Check for known failure patterns
-        for pattern_name, pattern_data in patterns.items():
-            if self._matches_pattern(current_technicals, pattern_data['conditions']):
-                if pattern_data['success_rate'] < 0.3:
-                    recommendations['warning_flags'].append(
-                        f"{pattern_name}: {pattern_data['success_rate']:.1%} success rate"
-                    )
-                    recommendations['confidence_adjustment'] *= 0.7
-                elif pattern_data['success_rate'] > 0.7:
-                    recommendations['positive_signals'].append(
-                        f"{pattern_name}: {pattern_data['success_rate']:.1%} success rate"
-                    )
-                    recommendations['confidence_adjustment'] *= 1.3
-        
-        return recommendations
-    
-    def _matches_pattern(self, current: Dict, conditions: Dict) -> bool:
-        """Check if current technicals match a pattern"""
-        for key, value in conditions.items():
-            if key not in current:
-                return False
-            
-            if isinstance(value, dict):
-                # Range check
-                if 'min' in value and current[key] < value['min']:
-                    return False
-                if 'max' in value and current[key] > value['max']:
-                    return False
-            else:
-                # Direct comparison
-                if current[key] != value:
-                    return False
-        
-        return True
