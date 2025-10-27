@@ -1,0 +1,129 @@
+name: Daily Learning Cycle
+
+on:
+  schedule:
+    # Morning Analysis: 9 AM EST (1 PM UTC) on weekdays
+    - cron: '0 13 * * 1-5'
+    # Evening Check: 5 PM EST (9 PM UTC) on weekdays
+    - cron: '0 21 * * 1-5'
+  workflow_dispatch:
+    inputs:
+      phase:
+        description: 'Which phase to run'
+        required: false
+        type: choice
+        default: 'auto'
+        options:
+          - 'auto'
+          - 'morning'
+          - 'evening'
+
+jobs:
+  daily-cycle:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v3
+      
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      
+      - name: 📦 Install Dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      - name: 🕐 Determine Phase
+        id: phase
+        run: |
+          if [ "${{ github.event.inputs.phase }}" = "auto" ] || [ -z "${{ github.event.inputs.phase }}" ]; then
+            hour=$(date -u +%H)
+            if [ $hour -ge 13 ] && [ $hour -lt 18 ]; then
+              echo "phase=morning" >> $GITHUB_OUTPUT
+              echo "🌅 Auto-detected: MORNING (1 PM UTC)"
+            else
+              echo "phase=evening" >> $GITHUB_OUTPUT
+              echo "🌙 Auto-detected: EVENING (9 PM UTC)"
+            fi
+          else
+            echo "phase=${{ github.event.inputs.phase }}" >> $GITHUB_OUTPUT
+            echo "🎯 Manual override: ${{ github.event.inputs.phase }}"
+          fi
+      
+      - name: 🌅 Morning Analysis & Predictions
+        if: steps.phase.outputs.phase == 'morning'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          COHERE_API_KEY: ${{ secrets.COHERE_API_KEY }}
+          NEWSAPI_KEY: ${{ secrets.NEWSAPI_KEY }}
+          FINNHUB_KEY: ${{ secrets.FINNHUB_KEY }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          echo "=========================================="
+          echo "🌅 MORNING ANALYSIS"
+          echo "Time: $(date)"
+          echo "=========================================="
+          cd src
+          python main.py --output email
+          
+          echo ""
+          echo "✅ Morning analysis complete!"
+          echo "📧 Email sent with predictions"
+      
+      - name: 🌙 Evening Outcome Check
+        if: steps.phase.outputs.phase == 'evening'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+        run: |
+          echo "=========================================="
+          echo "🌙 EVENING CHECK"
+          echo "Time: $(date)"
+          echo "=========================================="
+          cd src
+          python check_outcomes.py
+          
+          echo ""
+          echo "✅ Evening check complete!"
+          echo "📧 Learning email sent"
+      
+      - name: 📊 Show Stats
+        if: always()
+        run: |
+          echo ""
+          echo "=========================================="
+          echo "📊 LEARNING SYSTEM STATUS"
+          echo "=========================================="
+          
+          if [ -f "data/predictions.json" ]; then
+            python - <<'EOF'
+          import json
+          data = json.load(open('data/predictions.json'))
+          total = len(data)
+          checked = len([p for p in data.values() if p.get('was_correct') is not None])
+          correct = len([p for p in data.values() if p.get('was_correct') == True])
+          unchecked = total - checked
+          
+          print(f"Total predictions: {total}")
+          print(f"Checked: {checked}")
+          print(f"Correct: {correct}")
+          print(f"Accuracy: {(correct/checked*100):.1f}%" if checked > 0 else "Accuracy: N/A")
+          print(f"Awaiting check: {unchecked}")
+          EOF
+          fi
+          
+          if [ -f "data/pattern_combinations.json" ]; then
+            echo ""
+            echo "✅ Contextual learning: ACTIVE"
+            combos=$(cat data/pattern_combinations.json | python -c "import sys, json; print(len(json.load(sys.stdin)))")
+            echo "📊 Tracking $combos pattern combinations"
+          fi
