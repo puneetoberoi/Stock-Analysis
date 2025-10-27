@@ -1,0 +1,28 @@
+name: Weekly Learning Report
+
+on:
+  schedule:
+    - cron: '0 12 * * 0'  # Every Sunday at noon UTC
+  workflow_dispatch:
+
+jobs:
+  weekly-report:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      
+      - name: Generate & Send Weekly Report
+        env:
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+        run: |
+          cd src
+          python weekly_learning_report.py
