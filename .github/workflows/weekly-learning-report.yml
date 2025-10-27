@@ -46,5 +46,4 @@ jobs:
           SMTP_USER: ${{ secrets.SMTP_USER }}
           SMTP_PASS: ${{ secrets.SMTP_PASS }}
         run: |
-          # DON'T cd into src - run from repo root
           python src/weekly_learning_report.py
