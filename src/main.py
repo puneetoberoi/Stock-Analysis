@@ -2011,6 +2011,57 @@ class ConfidenceScorer:
         
         # Cap confidence between 0-100
         confidence = max(0, min(100, confidence))
+
+                # ========================================================================
+        # 6. NEWS/EVENTS SCORING (NEW - DOESN'T TOUCH EXISTING CODE)
+        # ========================================================================
+        events_score = 0
+        
+        # Try to load news events engine
+        try:
+            from analysis.news_events_engine import NewsEventsEngine
+            
+            # Get ticker from technical_indicators or predictions
+            ticker = None
+            if technical_indicators and 'ticker' in technical_indicators:
+                ticker = technical_indicators['ticker']
+            elif llm_predictions:
+                # Try to extract ticker from LLM predictions
+                first_pred = next(iter(llm_predictions.values()), {})
+                ticker = first_pred.get('ticker')
+            
+            if ticker:
+                engine = NewsEventsEngine()
+                events_data = engine.analyze_events(ticker, days_back=7)
+                
+                if events_data and events_data.get('event_count', 0) > 0:
+                    events_score = events_data['total_score']
+                    
+                    # Add events to breakdown
+                    for event in events_data.get('events', []):
+                        emoji = event.get('emoji', '📰')
+                        desc = event.get('description', '')
+                        score = event.get('score', 0)
+                        
+                        if score > 0:
+                            breakdown.append(f"✅ {emoji} {desc}: +{score}")
+                        elif score < 0:
+                            breakdown.append(f"⚠️ {emoji} {desc}: {score}")
+                    
+                    # Log major events
+                    if events_data.get('has_major_events'):
+                        logging.info(f"🔥 {ticker}: Major market event detected! Score: {events_score:+d}")
+        
+        except ImportError:
+            logging.debug("News events engine not available")
+        except Exception as e:
+            logging.debug(f"Error in news events scoring: {e}")
+        
+        confidence += events_score
+        # ========================================================================
+        
+        # Cap confidence between 0-100
+        confidence = max(0, min(100, confidence))
         
         # Determine action threshold
         if confidence >= 75:
@@ -2122,7 +2173,27 @@ class IntelligentPredictionEngine:
         final_prediction = self._determine_final_action(llm_predictions, confidence_result, candle_patterns)
         
         if final_prediction:
-            pred_id = self.prediction_tracker.store_prediction(ticker, final_prediction['action'], confidence_result['score'], final_prediction['reasoning'], candle_patterns[0]['name'] if candle_patterns else None, {'rsi': existing_analysis.get('rsi', 50)})
+            # ============================================================
+            # Build comprehensive reasoning from LLM predictions
+            # ============================================================
+            if llm_predictions:
+                # Format: "groq: reasoning | gemini: reasoning | cohere: reasoning"
+                llm_reasoning = " | ".join([
+                    f"{llm_name}: {pred.get('reasoning', pred.get('action', 'No reasoning'))}" 
+                    for llm_name, pred in llm_predictions.items()
+                ])
+            else:
+                llm_reasoning = final_prediction.get('reasoning', 'No LLM reasoning available')
+            
+            # Store prediction with detailed LLM reasoning
+            pred_id = self.prediction_tracker.store_prediction(
+                ticker=ticker,
+                action=final_prediction['action'],
+                confidence=confidence_result['score'],
+                reasoning=llm_reasoning,  # ← Use LLM reasoning, not final_prediction['reasoning']
+                candle_pattern=candle_patterns[0]['name'] if candle_patterns else None,
+                indicators={'rsi': existing_analysis.get('rsi', 50)}
+            )
             final_prediction['prediction_id'] = pred_id
         
         return {**existing_analysis, 'candle_patterns': candle_patterns, 'pattern_success_rates': pattern_success_rates, 'llm_predictions': llm_predictions, 'confidence': confidence_result, 'ai_prediction': final_prediction, 'learning_insights': self.learning_memory.get_recent_insights(3)}
@@ -3759,3 +3830,16 @@ if __name__ == "__main__":
         logging.info("🚀 MARKET INTELLIGENCE SYSTEM v2.1.0")
         logging.info("=" * 60)
         asyncio.run(main(output=args.output))
+# ============================================================================
+# 🆕 NEWS/EVENTS ENGINE INITIALIZATION (NEW - SEPARATE BLOCK)
+# ============================================================================
+try:
+    from analysis.news_events_engine import NewsEventsEngine
+    news_events_engine = NewsEventsEngine()
+    NEWS_EVENTS_ENABLED = True
+    logging.info("✅ News/Events Engine loaded successfully")
+except ImportError as e:
+    news_events_engine = None
+    NEWS_EVENTS_ENABLED = False
+    logging.warning(f"⚠️ News/Events Engine not available: {e}")
+# ============================================================================
