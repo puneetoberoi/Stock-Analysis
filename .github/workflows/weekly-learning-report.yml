@@ -17,8 +17,10 @@ jobs:
           python-version: '3.10'
       
       - name: Install dependencies
-        run: pip install -r requirements.txt
-      
+        run: 
+          pip install ddgs scipy PyGithub
+          pip install pandas ta yfinance requests numpy aiohttp beautifulsoup4 lxml matplotlib seaborn pytrends requests-html nest_asyncio spacy textblob transformers wikipedia-api markdown vaderSentiment asyncio-throttle python-dateutil PyYAML google-generativeai groq cohere ddgs
+        
       - name: Generate & Send Weekly Report
         env:
           SMTP_USER: ${{ secrets.SMTP_USER }}
