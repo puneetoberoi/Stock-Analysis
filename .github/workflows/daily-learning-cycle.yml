@@ -34,7 +34,9 @@ jobs:
       - name: 📦 Install Dependencies
         run: |
           pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install ddgs scipy PyGithub
+          pip install pandas ta yfinance requests numpy aiohttp beautifulsoup4 lxml matplotlib seaborn pytrends requests-html nest_asyncio spacy textblob transformers wikipedia-api markdown vaderSentiment asyncio-throttle python-dateutil PyYAML google-generativeai groq cohere ddgs
+    
       
       - name: 🕐 Determine Phase
         id: phase
