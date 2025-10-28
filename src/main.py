@@ -1442,29 +1442,35 @@ async def generate_comprehensive_watchlist(portfolio_data, pattern_data, macro_d
         # =====================================================================
         # 4. 52-WEEK LEVEL ALERTS
         # =====================================================================
-        week52 = stock.get('week52', {})
-        signal = week52.get('signal', '')
+                # =====================================================================
+        # 4. 52-WEEK LEVEL ALERTS
+        # =====================================================================
+        week52 = stock.get('week52')
         
-        if 'AT 52W HIGH' in signal or 'NEAR 52W HIGH' in signal:
-            watchlist['week52_alerts'].append({
-                'ticker': ticker,
-                'name': name,
-                'type': 'RESISTANCE',
-                'level': week52.get('high', 0),
-                'current': price,
-                'distance_pct': week52.get('distance_from_high_pct', 0),
-                'action': 'Watch for breakout or rejection at resistance'
-            })
-        elif 'AT 52W LOW' in signal or 'NEAR 52W LOW' in signal:
-            watchlist['week52_alerts'].append({
-                'ticker': ticker,
-                'name': name,
-                'type': 'SUPPORT',
-                'level': week52.get('low', 0),
-                'current': price,
-                'distance_pct': week52.get('distance_from_low_pct', 0),
-                'action': 'Watch for bounce or breakdown at support'
-            })
+        # ✅ FIX: Only process if week52 data exists
+        if week52 and isinstance(week52, dict):
+            signal = week52.get('signal', '')
+            
+            if 'AT 52W HIGH' in signal or 'NEAR 52W HIGH' in signal:
+                watchlist['week52_alerts'].append({
+                    'ticker': ticker,
+                    'name': name,
+                    'type': 'RESISTANCE',
+                    'level': week52.get('high', 0),
+                    'current': price,
+                    'distance_pct': week52.get('distance_from_high_pct', 0),
+                    'action': 'Watch for breakout or rejection at resistance'
+                })
+            elif 'AT 52W LOW' in signal or 'NEAR 52W LOW' in signal:
+                watchlist['week52_alerts'].append({
+                    'ticker': ticker,
+                    'name': name,
+                    'type': 'SUPPORT',
+                    'level': week52.get('low', 0),
+                    'current': price,
+                    'distance_pct': week52.get('distance_from_low_pct', 0),
+                    'action': 'Watch for bounce or breakdown at support'
+                })
         
         # =====================================================================
         # 5. GAP ALERTS (from today's session)
