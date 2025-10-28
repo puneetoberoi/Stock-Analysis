@@ -2570,10 +2570,10 @@ class LearningMemory:
         return self.memory['insights'][-count:]
 
 # Initialize the learning system components
-prediction_tracker = PredictionTracker()
-candle_analyzer = CandlePatternAnalyzer()
-learning_memory = LearningMemory()
-enhanced_pattern_detector = None
+#prediction_tracker = PredictionTracker()
+#candle_analyzer = CandlePatternAnalyzer()
+#learning_memory = LearningMemory()
+#enhanced_pattern_detector = None
 # ========================================
 # 🔗 INTEGRATION LAYER - Connects to existing code
 # This READS from your existing functions without changing them
@@ -2827,12 +2827,11 @@ class ConfidenceScorer:
 
 
 # ✅ COMPLETE FIXED CLASS - REPLACE YOUR EXISTING ONE
-# ✅ COMPLETE FINAL CLASS - REPLACE YOUR EXISTING ONE
 class IntelligentPredictionEngine:
     """Multi-LLM consensus with confidence scoring"""
     
     def __init__(self):
-        self.prediction_tracker = prediction_tracker
+        self.prediction_tracker = PredictionTracker()
         self.candle_analyzer = candle_analyzer
         self.learning_memory = learning_memory
         self.confidence_scorer = ConfidenceScorer()
