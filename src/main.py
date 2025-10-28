@@ -1748,34 +1748,59 @@ class PredictionTracker:
         with open(self.predictions_file, 'w') as f:
             json.dump(self.predictions, f, indent=2, default=str)
     
-    def store_prediction(self, ticker, action, confidence, reasoning, candle_pattern=None, indicators=None):
-        """Store a new prediction with all context"""
-        prediction_id = hashlib.md5(f"{ticker}{datetime.now().isoformat()}".encode()).hexdigest()[:8]
+        def store_prediction(self, ticker, action, confidence, reasoning, candle_pattern=None, indicators=None, llm_name=None):
+        """
+        🆕 ENHANCED: Now tracks which LLM made the prediction + full context
         
-        prediction = {
-            'id': prediction_id,
-            'timestamp': datetime.now().isoformat(),
-            'ticker': ticker,
-            'action': action,  # BUY, SELL, HOLD
-            'confidence': confidence,  # 0-100
-            'reasoning': reasoning,
-            'candle_pattern': candle_pattern,
-            'indicators': indicators or {},
-            'price_at_prediction': None,  # Will be filled
-            'outcome': None,  # Will be updated later
-            'was_correct': None  # Will be calculated
-        }
+        Args:
+            ticker: Stock ticker
+            action: BUY/SELL/HOLD
+            confidence: 0-100
+            reasoning: Why this prediction was made
+            candle_pattern: Pattern detected
+            indicators: Dict of technical indicators
+            llm_name: Which LLM made this prediction (NEW)
+        """
+        prediction_id = hashlib.md5(f"{ticker}{datetime.now().isoformat()}".encode()).hexdigest()[:8]
         
         # Get current price
         try:
             import yfinance as yf
             current_price = yf.Ticker(ticker).history(period='1d')['Close'].iloc[-1]
-            prediction['price_at_prediction'] = float(current_price)
         except:
-            pass
+            current_price = None
+        
+        prediction = {
+            'id': prediction_id,
+            'timestamp': datetime.now().isoformat(),
+            'ticker': ticker,
+            'action': action,
+            'confidence': confidence,
+            'reasoning': reasoning,
+            
+            # 🆕 ENHANCED FIELDS
+            'llm_name': llm_name,  # Track which AI made this
+            'candle_pattern': candle_pattern,
+            'indicators': indicators or {},
+            'price_at_prediction': float(current_price) if current_price else None,
+            
+            # 🆕 CONTEXT FIELDS (for failure analysis later)
+            'rsi': indicators.get('rsi', 50) if indicators else 50,
+            'volume_ratio': indicators.get('volume_ratio', 1.0) if indicators else 1.0,
+            'macro_score': indicators.get('macro_score', 0) if indicators else 0,
+            'pattern_type': candle_pattern.get('type') if candle_pattern and isinstance(candle_pattern, dict) else None,
+            
+            # Outcome tracking (filled later by evening learner)
+            'outcome': None,
+            'was_correct': None,
+            'price_after_1d': None,
+            'price_after_5d': None,
+            'failure_reasons': []  # 🆕 Why it failed (for learning)
+        }
         
         self.predictions[prediction_id] = prediction
         self._save_predictions()
+        
         logging.info(f"📝 Stored prediction {prediction_id}: {ticker} - {action} (confidence: {confidence}%)")
         return prediction_id
     
@@ -1839,6 +1864,225 @@ class PredictionTracker:
         
         self._save_predictions()
         return results
+
+# ============================================================================
+# 🆕 MODULE 2B: LLM PERFORMANCE TRACKER
+# Tracks which LLMs are most accurate over time
+# ============================================================================
+
+class LLMPerformanceTracker:
+    """
+    Tracks accuracy of each LLM over time
+    Learns which LLMs are best at specific tasks
+    """
+    
+    def __init__(self, performance_file='data/llm_performance.json'):
+        self.performance_file = Path(performance_file)
+        self.performance_file.parent.mkdir(exist_ok=True)
+        self.stats = self._load_stats()
+    
+    def _load_stats(self):
+        """Load LLM performance statistics from JSON"""
+        if self.performance_file.exists():
+            try:
+                with open(self.performance_file, 'r') as f:
+                    return json.load(f)
+            except Exception as e:
+                logging.warning(f"Could not load LLM stats: {e}")
+                return self._initialize_stats()
+        return self._initialize_stats()
+    
+    def _initialize_stats(self):
+        """Create initial stats structure for all LLMs"""
+        return {
+            'groq': {
+                'total': 0,
+                'correct': 0,
+                'accuracy': 0.0,
+                'by_ticker': {},  # Track per-stock accuracy
+                'by_pattern': {},  # Track per-pattern accuracy
+                'by_action': {
+                    'BUY': {'total': 0, 'correct': 0},
+                    'SELL': {'total': 0, 'correct': 0},
+                    'HOLD': {'total': 0, 'correct': 0}
+                },
+                'recent_predictions': []  # Last 10 predictions
+            },
+            'gemini': {
+                'total': 0,
+                'correct': 0,
+                'accuracy': 0.0,
+                'by_ticker': {},
+                'by_pattern': {},
+                'by_action': {
+                    'BUY': {'total': 0, 'correct': 0},
+                    'SELL': {'total': 0, 'correct': 0},
+                    'HOLD': {'total': 0, 'correct': 0}
+                },
+                'recent_predictions': []
+            },
+            'cohere': {
+                'total': 0,
+                'correct': 0,
+                'accuracy': 0.0,
+                'by_ticker': {},
+                'by_pattern': {},
+                'by_action': {
+                    'BUY': {'total': 0, 'correct': 0},
+                    'SELL': {'total': 0, 'correct': 0},
+                    'HOLD': {'total': 0, 'correct': 0}
+                },
+                'recent_predictions': []
+            }
+        }
+    
+    def update_accuracy(self, llm_name, ticker, action, was_correct, prediction_data):
+        """
+        Update LLM stats after outcome is known
+        
+        Args:
+            llm_name: 'groq', 'gemini', or 'cohere'
+            ticker: Stock ticker
+            action: BUY/SELL/HOLD
+            was_correct: Boolean - was prediction accurate?
+            prediction_data: Full prediction dict with context
+        """
+        if llm_name not in self.stats:
+            logging.warning(f"Unknown LLM: {llm_name}")
+            return
+        
+        llm = self.stats[llm_name]
+        
+        # 1. Overall accuracy
+        llm['total'] += 1
+        if was_correct:
+            llm['correct'] += 1
+        llm['accuracy'] = (llm['correct'] / llm['total']) * 100 if llm['total'] > 0 else 0
+        
+        # 2. Per-ticker accuracy
+        if ticker not in llm['by_ticker']:
+            llm['by_ticker'][ticker] = {'total': 0, 'correct': 0, 'accuracy': 0}
+        
+        llm['by_ticker'][ticker]['total'] += 1
+        if was_correct:
+            llm['by_ticker'][ticker]['correct'] += 1
+        llm['by_ticker'][ticker]['accuracy'] = (
+            llm['by_ticker'][ticker]['correct'] / llm['by_ticker'][ticker]['total']
+        ) * 100
+        
+        # 3. Per-action accuracy
+        llm['by_action'][action]['total'] += 1
+        if was_correct:
+            llm['by_action'][action]['correct'] += 1
+        
+        # 4. Per-pattern accuracy
+        pattern = prediction_data.get('candle_pattern')
+        if pattern:
+            pattern_name = pattern if isinstance(pattern, str) else pattern.get('name', 'unknown')
+            
+            if pattern_name not in llm['by_pattern']:
+                llm['by_pattern'][pattern_name] = {'total': 0, 'correct': 0, 'accuracy': 0}
+            
+            llm['by_pattern'][pattern_name]['total'] += 1
+            if was_correct:
+                llm['by_pattern'][pattern_name]['correct'] += 1
+            llm['by_pattern'][pattern_name]['accuracy'] = (
+                llm['by_pattern'][pattern_name]['correct'] / llm['by_pattern'][pattern_name]['total']
+            ) * 100
+        
+        # 5. Track recent predictions
+        llm['recent_predictions'].append({
+            'ticker': ticker,
+            'action': action,
+            'was_correct': was_correct,
+            'timestamp': prediction_data.get('timestamp', datetime.now().isoformat())
+        })
+        
+        # Keep only last 10 recent predictions
+        llm['recent_predictions'] = llm['recent_predictions'][-10:]
+        
+        self._save_stats()
+        
+        logging.info(f"📊 Updated {llm_name} stats: {llm['accuracy']:.1f}% accuracy ({llm['correct']}/{llm['total']})")
+    
+    def get_llm_weights(self):
+        """
+        Calculate reliability weights for each LLM based on past performance
+        Returns dict with normalized weights (sum = 1.0)
+        """
+        weights = {}
+        
+        for llm_name, stats in self.stats.items():
+            if stats['total'] > 0:
+                # Base weight on accuracy, but don't go below 0.1
+                accuracy = stats['accuracy'] / 100  # Convert to 0-1 range
+                weights[llm_name] = max(0.1, accuracy)
+            else:
+                # No data yet - default weight
+                weights[llm_name] = 0.5
+        
+        # Normalize weights so they sum to 1.0
+        total = sum(weights.values())
+        if total > 0:
+            weights = {k: v/total for k, v in weights.items()}
+        
+        return weights
+    
+    def get_best_llm_for_ticker(self, ticker):
+        """Find which LLM has best accuracy for specific ticker"""
+        best_llm = None
+        best_accuracy = 0
+        
+        for llm_name, stats in self.stats.items():
+            ticker_stats = stats.get('by_ticker', {}).get(ticker, {})
+            if ticker_stats.get('total', 0) >= 3:  # Need at least 3 predictions
+                accuracy = ticker_stats.get('accuracy', 0)
+                if accuracy > best_accuracy:
+                    best_accuracy = accuracy
+                    best_llm = llm_name
+        
+        return best_llm, best_accuracy
+    
+    def get_performance_summary(self):
+        """Get summary of all LLM performances"""
+        summary = {}
+        
+        for llm_name, stats in self.stats.items():
+            summary[llm_name] = {
+                'overall_accuracy': stats['accuracy'],
+                'total_predictions': stats['total'],
+                'correct_predictions': stats['correct'],
+                'buy_accuracy': self._calculate_action_accuracy(stats, 'BUY'),
+                'sell_accuracy': self._calculate_action_accuracy(stats, 'SELL'),
+                'hold_accuracy': self._calculate_action_accuracy(stats, 'HOLD'),
+                'recent_form': self._calculate_recent_form(stats)
+            }
+        
+        return summary
+    
+    def _calculate_action_accuracy(self, stats, action):
+        """Calculate accuracy for specific action type"""
+        action_stats = stats.get('by_action', {}).get(action, {})
+        total = action_stats.get('total', 0)
+        correct = action_stats.get('correct', 0)
+        return (correct / total * 100) if total > 0 else 0
+    
+    def _calculate_recent_form(self, stats):
+        """Calculate accuracy from last 10 predictions"""
+        recent = stats.get('recent_predictions', [])
+        if not recent:
+            return 0
+        
+        correct = sum(1 for p in recent if p.get('was_correct', False))
+        return (correct / len(recent)) * 100
+    
+    def _save_stats(self):
+        """Save stats to JSON file"""
+        try:
+            with open(self.performance_file, 'w') as f:
+                json.dump(self.stats, f, indent=2, default=str)
+        except Exception as e:
+            logging.error(f"Failed to save LLM stats: {e}")
 
 
 class CandlePatternAnalyzer:
@@ -2687,9 +2931,14 @@ class IntelligentPredictionEngine:
                 ticker=ticker,
                 action=final_prediction['action'],
                 confidence=confidence_result['score'],
-                reasoning=llm_reasoning,  # ← Use LLM reasoning, not final_prediction['reasoning']
+                reasoning=llm_reasoning,
                 candle_pattern=candle_patterns[0]['name'] if candle_patterns else None,
-                indicators={'rsi': existing_analysis.get('rsi', 50)}
+                indicators={
+                    'rsi': existing_analysis.get('rsi', 50),
+                    'volume_ratio': existing_analysis.get('volume_ratio', 1.0),
+                    'macro_score': market_context.get('overall_macro_score', 0) if market_context else 0
+                },
+                llm_name=final_prediction.get('llm_count', 0) > 0 and list(llm_predictions.keys())[0] if llm_predictions else None  # Track primary LLM
             )
             final_prediction['prediction_id'] = pred_id
         
