@@ -713,5 +713,303 @@
     "price_at_prediction": 1.840000033378601,
     "outcome": null,
     "was_correct": null
+  },
+  "b45ba01e": {
+    "id": "b45ba01e",
+    "timestamp": "2025-10-28T19:37:16.271084",
+    "ticker": "AAPL",
+    "action": "HOLD",
+    "confidence": 100,
+    "reasoning": "cohere: Technical indicators show indecision with low volume and mixed patterns, while macro conditions are unfavorable, suggesting a cautious approach.",
+    "candle_pattern": {
+      "name": "spinning_top",
+      "type": "indecision",
+      "strength": "weak",
+      "description": "Spinning Top - indecision"
+    },
+    "indicators": {
+      "rsi": 69.1170451103854,
+      "volume_ratio": 0.5464833641006497,
+      "macro_score": -4.174375
+    },
+    "price_at_prediction": 268.8999938964844,
+    "outcome": null,
+    "was_correct": null
+  },
+  "898dab75": {
+    "id": "898dab75",
+    "timestamp": "2025-10-28T19:37:17.443263",
+    "ticker": "MSFT",
+    "action": "HOLD",
+    "confidence": 100,
+    "reasoning": "cohere: Overbought RSI (74.0) and mixed technical patterns (low success rates) alongside negative macro conditions suggest caution despite potential bullish reversal signals.",
+    "candle_pattern": {
+      "name": "double_bottom",
+      "type": "bullish_reversal",
+      "strength": "strong",
+      "description": "W-shape bullish reversal pattern",
+      "enhanced": true,
+      "strength_score": 85
+    },
+    "indicators": {
+      "rsi": 74.04613480308133,
+      "volume_ratio": 1.0940401743029111,
+      "macro_score": -4.174375
+    },
+    "price_at_prediction": 543.9400024414062,
+    "outcome": null,
+    "was_correct": null
+  },
+  "a8509ad4": {
+    "id": "a8509ad4",
+    "timestamp": "2025-10-28T19:37:18.668849",
+    "ticker": "NVDA",
+    "action": "HOLD",
+    "confidence": 100,
+    "reasoning": "cohere: Overbought RSI (70.4) and mixed pattern success rates suggest caution despite bullish continuation signals.",
+    "candle_pattern": {
+      "name": "three_white_soldiers",
+      "type": "bullish_continuation",
+      "strength": "strong",
+      "description": "Three White Soldiers - strong uptrend"
+    },
+    "indicators": {
+      "rsi": 70.44210875540838,
+      "volume_ratio": 1.1011197863318916,
+      "macro_score": -4.174375
+    },
+    "price_at_prediction": 202.64999389648438,
+    "outcome": null,
+    "was_correct": null
+  },
+  "c632640b": {
+    "id": "c632640b",
+    "timestamp": "2025-10-28T19:37:19.723588",
+    "ticker": "TSLA",
+    "action": "HOLD",
+    "confidence": 100,
+    "reasoning": "cohere: Mixed technical signals with moderate RSI, low volume, and uncertain pattern success rates, coupled with a negative macro score, suggest caution.",
+    "candle_pattern": {
+      "name": "double_bottom",
+      "type": "bullish_reversal",
+      "strength": "strong",
+      "description": "W-shape bullish reversal pattern",
+      "enhanced": true,
+      "strength_score": 85
+    },
+    "indicators": {
+      "rsi": 61.037131193405486,
+      "volume_ratio": 0.7197468272159577,
+      "macro_score": -4.174375
+    },
+    "price_at_prediction": 462.0498962402344,
+    "outcome": null,
+    "was_correct": null
+  },
+  "47f441ca": {
+    "id": "47f441ca",
+    "timestamp": "2025-10-28T19:37:20.918375",
+    "ticker": "GOOGL",
+    "action": "HOLD",
+    "confidence": 90,
+    "reasoning": "cohere: Overbought RSI (70.7) and weak macro conditions (-4) offset the uptrend pattern, suggesting caution despite moderate technicals (50/100).",
+    "candle_pattern": {
+      "name": "swing_highs_lows",
+      "type": "uptrend",
+      "strength": "strong",
+      "description": "Price action showing uptrend",
+      "enhanced": true,
+      "strength_score": 75
+    },
+    "indicators": {
+      "rsi": 70.7167532608982,
+      "volume_ratio": 0.6345004809556207,
+      "macro_score": -4.174375
+    },
+    "price_at_prediction": 267.70001220703125,
+    "outcome": null,
+    "was_correct": null
+  },
+  "1e33826d": {
+    "id": "1e33826d",
+    "timestamp": "2025-10-28T19:37:22.415635",
+    "ticker": "TSM",
+    "action": "HOLD",
+    "confidence": 100,
+    "reasoning": "cohere: Mixed technical signals with moderate RSI, low volume, and conflicting pattern success rates, coupled with a negative macro score, suggest caution.",
+    "candle_pattern": {
+      "name": "morning_star",
+      "type": "bullish_reversal",
+      "strength": "very_strong",
+      "description": "Morning Star - major reversal signal"
+    },
+    "indicators": {
+      "rsi": 59.635231257428906,
+      "volume_ratio": 0.6638678943550669,
+      "macro_score": -4.174375
+    },
+    "price_at_prediction": 301.927490234375,
+    "outcome": null,
+    "was_correct": null
+  },
+  "157f65cc": {
+    "id": "157f65cc",
+    "timestamp": "2025-10-28T19:37:23.515295",
+    "ticker": "AMD",
+    "action": "HOLD",
+    "confidence": 80,
+    "reasoning": "cohere: Overbought RSI (75.0) and mixed indecision patterns suggest caution despite bullish continuation signals, with weak macro conditions (-4) adding uncertainty.",
+    "candle_pattern": {
+      "name": "three_white_soldiers",
+      "type": "bullish_continuation",
+      "strength": "strong",
+      "description": "Three White Soldiers - strong uptrend"
+    },
+    "indicators": {
+      "rsi": 75.01743602260905,
+      "volume_ratio": 0.8713425033003047,
+      "macro_score": -4.174375
+    },
+    "price_at_prediction": 259.93798828125,
+    "outcome": null,
+    "was_correct": null
+  },
+  "5726ff8a": {
+    "id": "5726ff8a",
+    "timestamp": "2025-10-28T19:37:24.624161",
+    "ticker": "TD.TO",
+    "action": "HOLD",
+    "confidence": 90,
+    "reasoning": "cohere: Mixed technical signals with overbought RSI and low pattern success rates, coupled with negative macro conditions, suggest caution.",
+    "candle_pattern": {
+      "name": "three_white_soldiers",
+      "type": "bullish_continuation",
+      "strength": "strong",
+      "description": "Three White Soldiers - strong uptrend"
+    },
+    "indicators": {
+      "rsi": 71.67977665340342,
+      "volume_ratio": 0.321380771146478,
+      "macro_score": -4.174375
+    },
+    "price_at_prediction": 115.2249984741211,
+    "outcome": null,
+    "was_correct": null
+  },
+  "836e9866": {
+    "id": "836e9866",
+    "timestamp": "2025-10-28T19:37:25.872329",
+    "ticker": "UHS",
+    "action": "HOLD",
+    "confidence": 100,
+    "reasoning": "cohere: Overbought RSI and mixed technical patterns with a negative macro score suggest caution, but high volume indicates potential momentum.",
+    "candle_pattern": {
+      "name": "doji",
+      "type": "indecision",
+      "strength": "weak",
+      "description": "Doji - market indecision"
+    },
+    "indicators": {
+      "rsi": 72.81870514537101,
+      "volume_ratio": 1.4089655164012955,
+      "macro_score": -4.174375
+    },
+    "price_at_prediction": 218.6300048828125,
+    "outcome": null,
+    "was_correct": null
+  },
+  "dc45d8d7": {
+    "id": "dc45d8d7",
+    "timestamp": "2025-10-28T19:37:27.151086",
+    "ticker": "AMZN",
+    "action": "HOLD",
+    "confidence": 100,
+    "reasoning": "cohere: Mixed technical signals (neutral RSI, low volume, and uncertain pattern success) combined with a negative macro score suggest caution until clearer trends emerge.",
+    "candle_pattern": {
+      "name": "double_bottom",
+      "type": "bullish_reversal",
+      "strength": "strong",
+      "description": "W-shape bullish reversal pattern",
+      "enhanced": true,
+      "strength_score": 85
+    },
+    "indicators": {
+      "rsi": 59.67693261367819,
+      "volume_ratio": 0.8720734318683521,
+      "macro_score": -4.174375
+    },
+    "price_at_prediction": 229.91000366210938,
+    "outcome": null,
+    "was_correct": null
+  },
+  "6b27768e": {
+    "id": "6b27768e",
+    "timestamp": "2025-10-28T19:37:27.457215",
+    "ticker": "BTC",
+    "action": "BUY",
+    "confidence": 60,
+    "reasoning": "Rule-based decision",
+    "candle_pattern": {
+      "name": "swing_highs_lows",
+      "type": "consolidation",
+      "strength": "strong",
+      "description": "Price action showing consolidation",
+      "enhanced": true,
+      "strength_score": 60
+    },
+    "indicators": {
+      "rsi": 50.55865842380113,
+      "volume_ratio": 0.6737641697925929,
+      "macro_score": -4.174375
+    },
+    "price_at_prediction": 50.47999954223633,
+    "outcome": null,
+    "was_correct": null
+  },
+  "1e29b6f1": {
+    "id": "1e29b6f1",
+    "timestamp": "2025-10-28T19:37:27.834813",
+    "ticker": "ETH",
+    "action": "BUY",
+    "confidence": 75,
+    "reasoning": "Rule-based decision",
+    "candle_pattern": {
+      "name": "swing_highs_lows",
+      "type": "uptrend",
+      "strength": "strong",
+      "description": "Price action showing uptrend",
+      "enhanced": true,
+      "strength_score": 75
+    },
+    "indicators": {
+      "rsi": 48.51096071989552,
+      "volume_ratio": 1.0428743879605369,
+      "macro_score": -4.174375
+    },
+    "price_at_prediction": 38.31999969482422,
+    "outcome": null,
+    "was_correct": null
+  },
+  "e0ed01f0": {
+    "id": "e0ed01f0",
+    "timestamp": "2025-10-28T19:37:28.156850",
+    "ticker": "SOL",
+    "action": "BUY",
+    "confidence": 75,
+    "reasoning": "Rule-based decision",
+    "candle_pattern": {
+      "name": "bullish_engulfing",
+      "type": "bullish_reversal",
+      "strength": "strong",
+      "description": "Bullish Engulfing - strong reversal signal"
+    },
+    "indicators": {
+      "rsi": 47.711954208681384,
+      "volume_ratio": 0.48767763428011635,
+      "macro_score": -4.174375
+    },
+    "price_at_prediction": 1.8502000570297241,
+    "outcome": null,
+    "was_correct": null
   }
 }
