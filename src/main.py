@@ -1259,14 +1259,18 @@ class PredictionTracker:
             'id': prediction_id,
             'timestamp': datetime.now().isoformat(),
             'ticker': ticker,
-            'action': action,  # BUY, SELL, HOLD
-            'confidence': confidence,  # 0-100
+            'action': action,
+            'confidence': confidence,
             'reasoning': reasoning,
+            'llm_name': llm_name, # ✅ ADD THIS
             'candle_pattern': candle_pattern,
             'indicators': indicators or {},
-            'price_at_prediction': None,  # Will be filled
-            'outcome': None,  # Will be updated later
-            'was_correct': None  # Will be calculated
+            'price_at_prediction': float(current_price) if current_price else None,
+            'rsi': indicators.get('rsi', 50) if indicators else 50, # ✅ ADD THIS
+            'volume_ratio': indicators.get('volume_ratio', 1.0) if indicators else 1.0, # ✅ ADD THIS
+            'macro_score': indicators.get('macro_score', 0) if indicators else 0, # ✅ ADD THIS
+            'outcome': None,
+            'was_correct': None
         }
         
         # Get current price
@@ -2217,7 +2221,7 @@ Respond ONLY with: ACTION: [BUY/SELL/HOLD] CONFIDENCE: [0-100] REASON: [One sent
         try:
             response = await asyncio.to_thread(
                 self.llm_clients['groq'].chat.completions.create,
-                model="lllama-3.3-70b-versatile", messages=[{"role": "user", "content": prompt}],
+                model="llama-3.3-70b-versatile", messages=[{"role": "user", "content": prompt}],
                 temperature=0.3, max_tokens=100
             )
             return self._parse_llm_response(response.choices[0].message.content, 'groq')
@@ -2227,9 +2231,10 @@ Respond ONLY with: ACTION: [BUY/SELL/HOLD] CONFIDENCE: [0-100] REASON: [One sent
 
     async def _query_gemini(self, prompt, ticker):
         try:
-            # ✅ FIX: Added safety_settings to avoid content blocking
+            # ✅ FIX: Correct async call and added safety settings to prevent content blocking
             response = await self.llm_clients['gemini'].generate_content_async(
-                prompt, generation_config={'temperature': 0.3, 'max_output_tokens': 100},
+                prompt, 
+                generation_config={'temperature': 0.3, 'max_output_tokens': 100},
                 safety_settings={'HARASSMENT': 'BLOCK_NONE', 'HATE_SPEECH': 'BLOCK_NONE', 'SEXUALLY_EXPLICIT': 'BLOCK_NONE', 'DANGEROUS_CONTENT': 'BLOCK_NONE'}
             )
             return self._parse_llm_response(response.text, 'gemini')
