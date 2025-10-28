@@ -2912,7 +2912,7 @@ class IntelligentPredictionEngine:
         confidence_result = self.confidence_scorer.calculate_confidence(llm_predictions, candle_patterns, pattern_success_rates, {'rsi': existing_analysis.get('rsi', 50), 'score': existing_analysis.get('score', 50)}, {'volume_ratio': existing_analysis.get('volume_ratio', 1.0)}, market_context)
         final_prediction = self._determine_final_action(llm_predictions, confidence_result, candle_patterns)
         
-                if final_prediction:
+        if final_prediction:
             # Determine the primary LLM name for tracking
             primary_llm = next(iter(llm_predictions)) if llm_predictions else 'rule-based'
 
