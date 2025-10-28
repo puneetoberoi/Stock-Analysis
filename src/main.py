@@ -3424,6 +3424,355 @@ def generate_enhanced_html_email(df_stocks, context, market_news, macro_data, me
     </div>
     </body></html>"""
 
+# ============================================================================
+# 🆕 MODULE 1C: TOMORROW'S WATCHLIST HTML GENERATOR
+# Version: 1.0
+# Generates beautiful HTML for watchlist email section
+# ============================================================================
+
+def generate_tomorrow_watchlist_html(watchlist, key_levels):
+    """
+    Generate beautiful HTML for tomorrow's watchlist
+    
+    Args:
+        watchlist: Dict from generate_comprehensive_watchlist()
+        key_levels: Dict from calculate_all_key_levels()
+    
+    Returns:
+        HTML string ready to insert into email
+    """
+    
+    if not watchlist:
+        return ""
+    
+    # Get tomorrow's date
+    tomorrow = datetime.now() + timedelta(days=1)
+    tomorrow_formatted = tomorrow.strftime('%A, %B %d')
+    
+    html = f"""
+    <div class="section" style="background-color:#fff7ed;border-left:4px solid #ea580c;">
+        <h2>🔍 TOMORROW'S TRADING WATCHLIST</h2>
+        <p style="font-size:1.1em;color:#666;margin-bottom:20px;">
+            <b>{tomorrow_formatted}</b> - Your action plan for the next trading session
+        </p>
+    """
+    
+    # =========================================================================
+    # 1. SQUEEZE BREAKOUTS (Highest Priority)
+    # =========================================================================
+    if watchlist.get('squeeze_breakouts'):
+        squeezes = watchlist['squeeze_breakouts'][:5]  # Top 5
+        
+        html += """
+        <div style="margin:25px 0;">
+            <h3 style="color:#ea580c;border-bottom:2px solid #fed7aa;padding-bottom:8px;">
+                💥 BOLLINGER SQUEEZE BREAKOUTS - URGENT
+            </h3>
+            <p style="font-size:0.9em;color:#666;margin-bottom:15px;">
+                These stocks are coiled tight. Explosive moves expected within 1-3 days.
+            </p>
+        """
+        
+        for item in squeezes:
+            # Color based on probability
+            prob_color = '#16a34a' if item['probability'] >= 80 else '#f59e0b' if item['probability'] >= 65 else '#6b7280'
+            
+            html += f"""
+            <div style="background:#fff;border:2px solid #fed7aa;border-radius:8px;padding:15px;margin:12px 0;box-shadow:0 2px 4px rgba(0,0,0,0.1);">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                    <div>
+                        <span style="font-size:1.3em;font-weight:bold;color:#1f2937;">{item['ticker']}</span>
+                        <span style="color:#6b7280;margin-left:8px;">- {item['name']}</span>
+                    </div>
+                    <div style="text-align:right;">
+                        <div style="font-size:1.4em;font-weight:bold;color:{prob_color};">{item['probability']}%</div>
+                        <div style="font-size:0.75em;color:#6b7280;">BREAKOUT ODDS</div>
+                    </div>
+                </div>
+                
+                <div style="background:#fef3c7;padding:10px;border-radius:5px;margin:10px 0;">
+                    <div style="font-size:0.9em;color:#78350f;">
+                        <b>Current Price:</b> ${item['current_price']:.2f} | 
+                        <b>Squeeze:</b> {item['squeeze_width']:.1f}% width
+                    </div>
+                </div>
+                
+                <table style="width:100%;margin-top:10px;font-size:0.9em;">
+                    <tr>
+                        <td style="padding:8px;background:#ecfdf5;border-radius:4px;width:48%;">
+                            <div style="color:#065f46;font-weight:bold;">🟢 BULLISH BREAKOUT</div>
+                            <div style="font-size:1.2em;color:#047857;">${item['bullish_break']:.2f}</div>
+                            <div style="font-size:0.85em;color:#059669;">Watch for break ABOVE with volume >{item['volume_needed']:.1f}x</div>
+                        </td>
+                        <td style="width:4%;"></td>
+                        <td style="padding:8px;background:#fee2e2;border-radius:4px;width:48%;">
+                            <div style="color:#991b1b;font-weight:bold;">🔴 BEARISH BREAKDOWN</div>
+                            <div style="font-size:1.2em;color:#b91c1c;">${item['bearish_break']:.2f}</div>
+                            <div style="font-size:0.85em;color:#dc2626;">Watch for break BELOW</div>
+                        </td>
+                    </tr>
+                </table>
+                
+                <div style="margin-top:10px;padding:8px;background:#f3f4f6;border-radius:4px;font-size:0.85em;color:#374151;">
+                    💡 <b>Strategy:</b> Set alerts at both levels. Don't chase - wait for volume confirmation (>{item['volume_needed']:.1f}x average).
+                </div>
+            </div>
+            """
+        
+        html += "</div>"
+    
+    # =========================================================================
+    # 2. RSI EXTREMES
+    # =========================================================================
+    if watchlist.get('rsi_extremes'):
+        html += """
+        <div style="margin:25px 0;">
+            <h3 style="color:#dc2626;border-bottom:2px solid #fecaca;padding-bottom:8px;">
+                📊 RSI EXTREMES - Reversal Watch
+            </h3>
+        """
+        
+        for item in watchlist['rsi_extremes']:
+            bg_color = '#fee2e2' if item['type'] == 'OVERBOUGHT' else '#dcfce7'
+            text_color = '#991b1b' if item['type'] == 'OVERBOUGHT' else '#14532d'
+            emoji = '🔴' if item['type'] == 'OVERBOUGHT' else '🟢'
+            
+            html += f"""
+            <div style="background:{bg_color};padding:12px;margin:8px 0;border-radius:6px;border-left:4px solid {text_color};">
+                <div style="color:{text_color};font-weight:bold;">
+                    {emoji} {item['ticker']} - {item['name']}
+                </div>
+                <div style="font-size:0.9em;color:#374151;margin-top:5px;">
+                    RSI: <b>{item['rsi']:.1f}</b> ({item['type']}) | Price: ${item['price']:.2f}
+                </div>
+                <div style="font-size:0.85em;color:#6b7280;margin-top:5px;">
+                    💡 {item['action']}
+                </div>
+            </div>
+            """
+        
+        html += "</div>"
+    
+    # =========================================================================
+    # 3. PATTERN CONFIRMATIONS
+    # =========================================================================
+    if watchlist.get('pattern_confirmations'):
+        html += """
+        <div style="margin:25px 0;">
+            <h3 style="color:#7c3aed;border-bottom:2px solid #e9d5ff;padding-bottom:8px;">
+                🎨 PATTERN CONFIRMATIONS NEEDED
+            </h3>
+            <p style="font-size:0.9em;color:#666;margin-bottom:15px;">
+                Watch for these confirmations to validate AI predictions
+            </p>
+        """
+        
+        for item in watchlist['pattern_confirmations'][:5]:
+            action_color = '#16a34a' if item['prediction'] == 'BUY' else '#dc2626' if item['prediction'] == 'SELL' else '#6b7280'
+            action_emoji = '🟢' if item['prediction'] == 'BUY' else '🔴' if item['prediction'] == 'SELL' else '⚪'
+            
+            html += f"""
+            <div style="background:#faf5ff;padding:12px;margin:10px 0;border-radius:6px;border-left:4px solid {action_color};">
+                <div style="font-size:1.1em;font-weight:bold;color:#1f2937;margin-bottom:8px;">
+                    {action_emoji} {item['ticker']} - {item['name']}
+                    <span style="color:{action_color};margin-left:10px;">→ {item['prediction']}</span>
+                    <span style="color:#6b7280;font-size:0.85em;margin-left:10px;">({item['confidence']}% confidence)</span>
+                </div>
+                <div style="font-size:0.9em;color:#374151;">
+                    <b>Watch for:</b>
+                    <ul style="margin:8px 0;padding-left:20px;">
+            """
+            
+            for need in item['needs']:
+                html += f"<li style='margin:4px 0;'>{need}</li>"
+            
+            html += """
+                    </ul>
+                </div>
+            </div>
+            """
+        
+        html += "</div>"
+    
+    # =========================================================================
+    # 4. KEY MARKET LEVELS (SPY & QQQ)
+    # =========================================================================
+    if key_levels and ('SPY' in key_levels or 'QQQ' in key_levels):
+        html += """
+        <div style="margin:25px 0;">
+            <h3 style="color:#059669;border-bottom:2px solid #a7f3d0;padding-bottom:8px;">
+                📊 KEY MARKET LEVELS - SPY & QQQ
+            </h3>
+        """
+        
+        for ticker in ['SPY', 'QQQ']:
+            if ticker in key_levels and 'error' not in key_levels[ticker]:
+                levels = key_levels[ticker]
+                
+                # Determine position
+                at_support = levels.get('at_support', False)
+                at_resistance = levels.get('at_resistance', False)
+                position_text = ""
+                position_color = "#6b7280"
+                
+                if at_support:
+                    position_text = "🔻 AT SUPPORT - Watch for bounce or breakdown"
+                    position_color = "#dc2626"
+                elif at_resistance:
+                    position_text = "🔺 AT RESISTANCE - Watch for breakout or rejection"
+                    position_color = "#f59e0b"
+                
+                html += f"""
+                <div style="background:#ecfdf5;padding:12px;margin:10px 0;border-radius:6px;">
+                    <div style="font-size:1.2em;font-weight:bold;color:#065f46;margin-bottom:8px;">
+                        {ticker}: ${levels['current']:.2f}
+                    </div>
+                    <table style="width:100%;font-size:0.9em;">
+                        <tr>
+                            <td style="padding:5px;">
+                                <span style="color:#6b7280;">Support:</span>
+                                <b style="color:#059669;">${levels['support']:.2f}</b>
+                                <span style="color:#6b7280;">({levels['distance_to_support_pct']:+.1f}%)</span>
+                            </td>
+                            <td style="padding:5px;">
+                                <span style="color:#6b7280;">Resistance:</span>
+                                <b style="color:#dc2626;">${levels['resistance']:.2f}</b>
+                                <span style="color:#6b7280;">({levels['distance_to_resistance_pct']:+.1f}%)</span>
+                            </td>
+                        </tr>
+                    </table>
+                """
+                
+                if position_text:
+                    html += f"""
+                    <div style="margin-top:8px;padding:8px;background:#fef3c7;border-radius:4px;color:{position_color};font-size:0.9em;font-weight:bold;">
+                        {position_text}
+                    </div>
+                    """
+                
+                html += "</div>"
+        
+        html += "</div>"
+    
+    # =========================================================================
+    # 5. EARNINGS CALENDAR
+    # =========================================================================
+    if watchlist.get('earnings_this_week'):
+        html += """
+        <div style="margin:25px 0;">
+            <h3 style="color:#7c3aed;border-bottom:2px solid #e9d5ff;padding-bottom:8px;">
+                📅 EARNINGS THIS WEEK
+            </h3>
+        """
+        
+        for item in watchlist['earnings_this_week']:
+            urgency_color = '#dc2626' if item['urgency'] == 'TOMORROW' else '#f59e0b'
+            urgency_emoji = '🚨' if item['urgency'] == 'TOMORROW' else '📆'
+            
+            html += f"""
+            <div style="background:#faf5ff;padding:12px;margin:8px 0;border-radius:6px;border-left:4px solid {urgency_color};">
+                <div style="font-weight:bold;color:#1f2937;">
+                    {urgency_emoji} {item['ticker']} - {item['name']}
+                </div>
+                <div style="font-size:0.9em;color:#374151;margin-top:5px;">
+                    Date: <b>{item['date']}</b> ({item['days_until']} days) | 
+                    Expected Volatility: <b>±{item['volatility_expected']:.1f}%</b>
+                </div>
+            </div>
+            """
+        
+        html += "</div>"
+    
+    # =========================================================================
+    # 6. VOLUME & GAP ALERTS (Combined)
+    # =========================================================================
+    alerts = []
+    
+    # Add volume spikes
+    for item in watchlist.get('volume_spikes', [])[:3]:
+        emoji = '🔥' if item['type'] == 'HIGH' else '⚠️'
+        alerts.append({
+            'emoji': emoji,
+            'ticker': item['ticker'],
+            'message': f"Volume {item['volume_ratio']:.1f}x average ({item['type']})",
+            'action': item['action']
+        })
+    
+    # Add gap alerts (only significant ones)
+    for item in watchlist.get('gap_alerts', [])[:3]:
+        if abs(item.get('gap_percent', 0)) > 2:  # Only gaps >2%
+            emoji = '⬆️' if item['gap_percent'] > 0 else '⬇️'
+            alerts.append({
+                'emoji': emoji,
+                'ticker': item['ticker'],
+                'message': f"Gapped {item['gap_type']} {item['gap_percent']:+.1f}%",
+                'action': item['action']
+            })
+    
+    if alerts:
+        html += """
+        <div style="margin:25px 0;">
+            <h3 style="color:#f59e0b;border-bottom:2px solid #fef3c7;padding-bottom:8px;">
+                📈 VOLUME & GAP ALERTS
+            </h3>
+        """
+        
+        for alert in alerts:
+            html += f"""
+            <div style="background:#fef3c7;padding:10px;margin:6px 0;border-radius:5px;font-size:0.9em;">
+                {alert['emoji']} <b>{alert['ticker']}</b>: {alert['message']}
+                <div style="color:#78350f;font-size:0.85em;margin-top:3px;">💡 {alert['action']}</div>
+            </div>
+            """
+        
+        html += "</div>"
+    
+    # =========================================================================
+    # 7. MACRO ALERTS
+    # =========================================================================
+    if watchlist.get('macro_alerts'):
+        html += """
+        <div style="margin:25px 0;">
+            <h3 style="color:#dc2626;border-bottom:2px solid #fecaca;padding-bottom:8px;">
+                🌍 MACRO ENVIRONMENT ALERTS
+            </h3>
+        """
+        
+        for item in watchlist['macro_alerts']:
+            severity_color = '#dc2626' if item['severity'] == 'HIGH' else '#f59e0b'
+            
+            html += f"""
+            <div style="background:#fee2e2;padding:12px;margin:8px 0;border-radius:6px;border-left:4px solid {severity_color};">
+                <div style="color:#991b1b;font-weight:bold;">
+                    ⚠️ {item['type']}: {item['message']}
+                </div>
+                <div style="font-size:0.9em;color:#374151;margin-top:5px;">
+                    💡 Action: {item['action']}
+                </div>
+            </div>
+            """
+        
+        html += "</div>"
+    
+    # =========================================================================
+    # CLOSING PRO TIP
+    # =========================================================================
+    html += """
+        <div style="background:#dbeafe;padding:15px;border-radius:8px;margin-top:20px;border-left:4px solid #1e40af;">
+            <div style="font-weight:bold;color:#1e40af;margin-bottom:8px;">💡 PRO TIPS FOR TOMORROW:</div>
+            <ul style="margin:5px 0;padding-left:20px;color:#1e3a8a;font-size:0.9em;">
+                <li>Set price alerts for all squeeze breakout levels</li>
+                <li>Don't chase breakouts without volume confirmation (>1.5x average)</li>
+                <li>Watch the first 30 minutes - fake breakouts often reverse by 10 AM</li>
+                <li>RSI extremes + low volume = wait for better entry</li>
+                <li>Earnings volatility can override all technicals - use wider stops</li>
+            </ul>
+        </div>
+    </div>
+    """
+    
+    return html
+
 def send_email(html_body):
     SMTP_USER, SMTP_PASS = os.getenv("SMTP_USER"), os.getenv("SMTP_PASS")
     if not SMTP_USER or not SMTP_PASS:
