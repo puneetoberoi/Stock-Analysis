@@ -3001,6 +3001,22 @@ async def main(output="print"):
             'bottom_stock': stock_results[-1] if stock_results else {}
         }
         ai_analysis = await generate_ai_oracle_analysis(market_summary, portfolio_data, pattern_data)
+        
+        # 🆕 Step 8: Generate tomorrow's watchlist
+        logging.info("🔍 Step 8: Generating tomorrow's watchlist...")
+        watchlist_data = None
+        if portfolio_data:
+            watchlist_data = await generate_comprehensive_watchlist(
+                portfolio_data, 
+                pattern_data, 
+                macro_data
+            )
+        
+        # 🆕 Step 9: Calculate key levels
+        logging.info("🔍 Step 9: Calculating key levels...")
+        key_levels_data = None
+        if portfolio_data:
+            key_levels_data = await calculate_all_key_levels(portfolio_data)
     
     # Outside session context - generate email
     if output == "email":
@@ -3008,7 +3024,8 @@ async def main(output="print"):
         html_email = generate_enhanced_html_email(
             df_stocks, context_data, market_news, macro_data, 
             previous_day_memory, portfolio_data, pattern_data, 
-            ai_analysis, portfolio_recommendations
+            ai_analysis, portfolio_recommendations,
+            watchlist_data, key_levels_data  # 🆕 ADD THESE TWO PARAMETERS
         )
         send_email(html_email)
     
@@ -3029,7 +3046,8 @@ async def main(output="print"):
 # EMAIL GENERATION - Updated for v2.0.0
 # ========================================
 
-def generate_enhanced_html_email(df_stocks, context, market_news, macro_data, memory, portfolio_data, pattern_data, ai_analysis, portfolio_recommendations=None):
+def generate_enhanced_html_email(df_stocks, context, market_news, macro_data, memory, portfolio_data, pattern_data, ai_analysis, portfolio_recommendations=None, watchlist_data=None, key_levels_data=None):
+
     """FIXED v2.0.0: Clear, non-conflicting email display"""
     
     def format_articles(articles):
@@ -3158,6 +3176,11 @@ def generate_enhanced_html_email(df_stocks, context, market_news, macro_data, me
 
     # AI Predictions section
     ai_predictions_html = ""
+    if watchlist_data and key_levels_data:
+        logging.info("🔍 Generating watchlist HTML for email...")
+        watchlist_html = generate_tomorrow_watchlist_html(watchlist_data, key_levels_data)
+        logging.info("✅ Watchlist HTML generated")
+        
     if portfolio_data and portfolio_data.get('learning_active'):
         predictions_made = portfolio_data.get('predictions_made', 0)
         
@@ -3351,6 +3374,7 @@ def generate_enhanced_html_email(df_stocks, context, market_news, macro_data, me
         {ai_oracle_html}
         {portfolio_html}
         {ai_predictions_html}
+        {watchlist_html}
         {pattern_html}
         
         <div class="section">
