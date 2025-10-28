@@ -2912,32 +2912,23 @@ class IntelligentPredictionEngine:
         confidence_result = self.confidence_scorer.calculate_confidence(llm_predictions, candle_patterns, pattern_success_rates, {'rsi': existing_analysis.get('rsi', 50), 'score': existing_analysis.get('score', 50)}, {'volume_ratio': existing_analysis.get('volume_ratio', 1.0)}, market_context)
         final_prediction = self._determine_final_action(llm_predictions, confidence_result, candle_patterns)
         
-        if final_prediction:
-            # ============================================================
-            # Build comprehensive reasoning from LLM predictions
-            # ============================================================
-            if llm_predictions:
-                # Format: "groq: reasoning | gemini: reasoning | cohere: reasoning"
-                llm_reasoning = " | ".join([
-                    f"{llm_name}: {pred.get('reasoning', pred.get('action', 'No reasoning'))}" 
-                    for llm_name, pred in llm_predictions.items()
-                ])
-            else:
-                llm_reasoning = final_prediction.get('reasoning', 'No LLM reasoning available')
-            
-            # Store prediction with detailed LLM reasoning
+                if final_prediction:
+            # Determine the primary LLM name for tracking
+            primary_llm = next(iter(llm_predictions)) if llm_predictions else 'rule-based'
+
+            # Store the prediction with full context for learning
             pred_id = self.prediction_tracker.store_prediction(
                 ticker=ticker,
                 action=final_prediction['action'],
                 confidence=confidence_result['score'],
                 reasoning=llm_reasoning,
-                candle_pattern=candle_patterns[0]['name'] if candle_patterns else None,
+                llm_name=primary_llm,  # ✅ Use the safer variable
+                candle_pattern=candle_patterns[0] if candle_patterns else None,
                 indicators={
                     'rsi': existing_analysis.get('rsi', 50),
                     'volume_ratio': existing_analysis.get('volume_ratio', 1.0),
                     'macro_score': market_context.get('overall_macro_score', 0) if market_context else 0
-                },
-                llm_name=final_prediction.get('llm_count', 0) > 0 and list(llm_predictions.keys())[0] if llm_predictions else None  # Track primary LLM
+                }
             )
             final_prediction['prediction_id'] = pred_id
         
