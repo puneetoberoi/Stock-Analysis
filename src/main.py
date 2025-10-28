@@ -1275,8 +1275,9 @@ def determine_confirmation_criteria(stock, prediction):
     # BUY CONFIRMATIONS
     if prediction.get('action') == 'BUY':
         # 1. Bollinger squeeze breakout
-        if stock.get('bollinger', {}).get('squeeze'):
-            upper_band = stock['bollinger']['upper']
+        bb = stock.get('bollinger')
+        if bb and isinstance(bb, dict) and bb.get('squeeze'):
+            upper_band = bb['upper']
             criteria['needs'].append(f"Break above ${upper_band:.2f} with volume >1.5x")
         
         # 2. RSI momentum
@@ -1300,11 +1301,18 @@ def determine_confirmation_criteria(stock, prediction):
     # SELL CONFIRMATIONS
     elif prediction.get('action') == 'SELL':
         # 1. Breakdown level
-        if stock.get('week52', {}).get('signal') == 'AT 52W HIGH':
-            breakdown_level = stock['week52']['high'] * 0.98
-            criteria['needs'].append(f"Break below ${breakdown_level:.2f} (2% from 52W high)")
-        elif stock.get('bollinger', {}).get('squeeze'):
-            lower_band = stock['bollinger']['lower']
+        week52 = stock.get('week52')
+        
+        # ✅ FIX: Check week52 exists before using
+        if week52 and isinstance(week52, dict):
+            if week52.get('signal') == 'AT 52W HIGH':
+                breakdown_level = week52['high'] * 0.98
+                criteria['needs'].append(f"Break below ${breakdown_level:.2f} (2% from 52W high)")
+        
+        # Check Bollinger for breakdown level (if no week52 data)
+        bb = stock.get('bollinger')
+        if bb and isinstance(bb, dict) and bb.get('squeeze'):
+            lower_band = bb['lower']
             criteria['needs'].append(f"Break below ${lower_band:.2f} confirms breakdown")
         
         # 2. RSI divergence
@@ -1317,9 +1325,12 @@ def determine_confirmation_criteria(stock, prediction):
     
     # HOLD - what changes the thesis
     else:
-        if stock.get('bollinger', {}).get('squeeze'):
-            upper = stock['bollinger']['upper']
-            lower = stock['bollinger']['lower']
+        bb = stock.get('bollinger')
+        
+        # ✅ FIX: Check bollinger exists
+        if bb and isinstance(bb, dict) and bb.get('squeeze'):
+            upper = bb['upper']
+            lower = bb['lower']
             criteria['needs'].append(f"Breakout direction: Above ${upper:.2f} = BUY signal, Below ${lower:.2f} = SELL signal")
         
         # Check for decision levels
