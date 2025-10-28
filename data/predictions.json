@@ -908,5 +908,200 @@
     "price_at_prediction": 1.840000033378601,
     "outcome": null,
     "was_correct": null
+  },
+  "fe9e5a4f": {
+    "id": "fe9e5a4f",
+    "timestamp": "2025-10-28T18:09:59.244979",
+    "ticker": "AAPL",
+    "action": "HOLD",
+    "confidence": 100,
+    "reasoning": "groq: The stock's high RSI value and low volume, combined with indecisive candlestick patterns, suggest a potential pause or reversal in the uptrend, warranting a cautious hold stance. | cohere: Mixed technical signals with RSI near overbought levels and indecision candlestick patterns, coupled with a negative macro score, suggest caution.",
+    "candle_pattern": "doji",
+    "indicators": {
+      "rsi": 69.26991228819725
+    },
+    "price_at_prediction": 269.1141052246094,
+    "outcome": null,
+    "was_correct": null
+  },
+  "22316232": {
+    "id": "22316232",
+    "timestamp": "2025-10-28T18:10:01.224354",
+    "ticker": "MSFT",
+    "action": "SELL",
+    "confidence": 85,
+    "reasoning": "groq: The high RSI value of 73.74 indicates overbought conditions, suggesting a potential reversal, and the negative Macro Score of -6 further supports a bearish outlook. | cohere: Overbought RSI (73.74) suggests potential pullback despite bullish candlestick patterns and uptrend, with negative macro context (-6 Macro Score) adding caution.",
+    "candle_pattern": "double_bottom",
+    "indicators": {
+      "rsi": 73.73556663104107
+    },
+    "price_at_prediction": 543.3499755859375,
+    "outcome": null,
+    "was_correct": null
+  },
+  "fcbdbd42": {
+    "id": "fcbdbd42",
+    "timestamp": "2025-10-28T18:10:03.578442",
+    "ticker": "NVDA",
+    "action": "HOLD",
+    "confidence": 100,
+    "reasoning": "groq: The stock's high RSI value and low historical success rates of bullish candlestick patterns, combined with a negative macro score, suggest a cautious approach. | cohere: Mixed technical signals with bullish patterns but low historical success rates, coupled with a negative macro context, suggest caution.",
+    "candle_pattern": "three_white_soldiers",
+    "indicators": {
+      "rsi": 67.1913930994785
+    },
+    "price_at_prediction": 197.75999450683594,
+    "outcome": null,
+    "was_correct": null
+  },
+  "39b29d5f": {
+    "id": "39b29d5f",
+    "timestamp": "2025-10-28T18:10:05.455490",
+    "ticker": "TSLA",
+    "action": "HOLD",
+    "confidence": 100,
+    "reasoning": "groq: The stock's RSI indicates a neutral position, and the low volume, combined with mixed candlestick patterns and a negative macro score, suggests a cautious approach. | cohere: Mixed signals with RSI indicating neutral momentum, low volume, and conflicting candlestick patterns in a bearish macro context.",
+    "candle_pattern": "double_bottom",
+    "indicators": {
+      "rsi": 60.8346184278978
+    },
+    "price_at_prediction": 461.4200134277344,
+    "outcome": null,
+    "was_correct": null
+  },
+  "74d8596c": {
+    "id": "74d8596c",
+    "timestamp": "2025-10-28T18:10:07.233497",
+    "ticker": "GOOGL",
+    "action": "SELL",
+    "confidence": 75,
+    "reasoning": "groq: The stock's high RSI value indicates overbought conditions, which, combined with a low-volume uptrend and a negative macro score, suggests a potential reversal. | cohere: Overbought RSI (71.5) and weak macro context (-6) offset the uptrend signal, suggesting caution despite low volume.",
+    "candle_pattern": "swing_highs_lows",
+    "indicators": {
+      "rsi": 71.51515174248053
+    },
+    "price_at_prediction": 268.1300048828125,
+    "outcome": null,
+    "was_correct": null
+  },
+  "11a1c4b1": {
+    "id": "11a1c4b1",
+    "timestamp": "2025-10-28T18:10:09.251461",
+    "ticker": "TSM",
+    "action": "HOLD",
+    "confidence": 85,
+    "reasoning": "groq: The neutral technical indicators, such as the RSI and candlestick patterns indicating indecision and consolidation, combined with a negative macro score, suggest a cautious approach. | cohere: Indecision indicated by spinning tops, low volume, and consolidation suggest a wait-and-see approach amid negative macro conditions.",
+    "candle_pattern": "spinning_top",
+    "indicators": {
+      "rsi": 58.018996430963696
+    },
+    "price_at_prediction": 298.80999755859375,
+    "outcome": null,
+    "was_correct": null
+  },
+  "6b50d704": {
+    "id": "6b50d704",
+    "timestamp": "2025-10-28T18:10:11.347059",
+    "ticker": "AMD",
+    "action": "SELL",
+    "confidence": 65,
+    "reasoning": "groq: The high RSI value and presence of indecision candlestick patterns, combined with a negative Macro Score, suggest a potential reversal in AMD's price. | cohere: Overbought RSI (74.57) and indecision candlestick patterns suggest caution, while below-average volume and negative macro context (-6) lack strong bullish confirmation.",
+    "candle_pattern": "doji",
+    "indicators": {
+      "rsi": 74.57844210293977
+    },
+    "price_at_prediction": 259.3349914550781,
+    "outcome": null,
+    "was_correct": null
+  },
+  "2fc0c836": {
+    "id": "2fc0c836",
+    "timestamp": "2025-10-28T18:10:13.043182",
+    "ticker": "TD.TO",
+    "action": "SELL",
+    "confidence": 75,
+    "reasoning": "groq: The stock's high RSI value of 72.29 indicates overbought conditions, suggesting a potential reversal, and the low volume of 0.3x average further supports a sell recommendation. | cohere: Overbought RSI (72.29) and weak candlestick pattern success rates suggest caution despite bullish signals.",
+    "candle_pattern": "three_white_soldiers",
+    "indicators": {
+      "rsi": 72.29479113787309
+    },
+    "price_at_prediction": 115.44999694824219,
+    "outcome": null,
+    "was_correct": null
+  },
+  "28debe40": {
+    "id": "28debe40",
+    "timestamp": "2025-10-28T18:10:14.863635",
+    "ticker": "UHS",
+    "action": "SELL",
+    "confidence": 100,
+    "reasoning": "groq: The high RSI value and bearish candlestick patterns, combined with a negative Macro Score, indicate a potential downtrend, suggesting a sell recommendation. | cohere: Overbought RSI (71.62), bearish market context (Macro Score: -6), and indecisive candlestick patterns suggest a potential downturn.",
+    "candle_pattern": "spinning_top",
+    "indicators": {
+      "rsi": 71.6166316184117
+    },
+    "price_at_prediction": 217.15499877929688,
+    "outcome": null,
+    "was_correct": null
+  },
+  "f1fbce1f": {
+    "id": "f1fbce1f",
+    "timestamp": "2025-10-28T18:10:15.909180",
+    "ticker": "AMZN",
+    "action": "HOLD",
+    "confidence": 100,
+    "reasoning": "groq: The stock's neutral RSI and average volume, combined with a low macro score, suggest a cautious approach, while the bullish reversal pattern and uptrend indication provide some support for the current price. | cohere: Mixed technical signals with a neutral RSI, below-average volume, and uncertain candlestick patterns in a negative macro environment.",
+    "candle_pattern": "double_bottom",
+    "indicators": {
+      "rsi": 59.86753561406859
+    },
+    "price_at_prediction": 230.1199951171875,
+    "outcome": null,
+    "was_correct": null
+  },
+  "47dbf373": {
+    "id": "47dbf373",
+    "timestamp": "2025-10-28T18:10:17.735959",
+    "ticker": "BTC",
+    "action": "HOLD",
+    "confidence": 85,
+    "reasoning": "groq: The indecision candlestick patterns and low volume, combined with a negative macro score, suggest a neutral stance is best until a clearer trend emerges.",
+    "candle_pattern": "spinning_top",
+    "indicators": {
+      "rsi": 52.66183726363963
+    },
+    "price_at_prediction": 51.045799255371094,
+    "outcome": null,
+    "was_correct": null
+  },
+  "72adeaf8": {
+    "id": "72adeaf8",
+    "timestamp": "2025-10-28T18:10:19.880925",
+    "ticker": "ETH",
+    "action": "HOLD",
+    "confidence": 100,
+    "reasoning": "groq: The indecision indicated by the doji and long_legged_doji candlestick patterns, combined with a neutral RSI value, suggests a hold position due to lack of clear trend direction.",
+    "candle_pattern": "doji",
+    "indicators": {
+      "rsi": 50.429973856529756
+    },
+    "price_at_prediction": 39.0099983215332,
+    "outcome": null,
+    "was_correct": null
+  },
+  "2cfcf21e": {
+    "id": "2cfcf21e",
+    "timestamp": "2025-10-28T18:10:20.229960",
+    "ticker": "SOL",
+    "action": "BUY",
+    "confidence": 100,
+    "reasoning": "groq: The presence of multiple bullish candlestick patterns, including a bullish engulfing and piercing line, suggests a potential reversal, outweighing the neutral RSI and negative macro score.",
+    "candle_pattern": "bullish_engulfing",
+    "indicators": {
+      "rsi": 49.94533576159111
+    },
+    "price_at_prediction": 1.8600000143051147,
+    "outcome": null,
+    "was_correct": null
   }
 }
