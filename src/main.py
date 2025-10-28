@@ -3470,14 +3470,14 @@ def generate_tomorrow_watchlist_html(watchlist, key_levels):
         return ""
     
     # Get tomorrow's date
-    tomorrow = datetime.now() + timedelta(days=1)
-    tomorrow_formatted = tomorrow.strftime('%A, %B %d')
+    today = datetime.now()
+    today_formatted = today.strftime('%A, %B %d')
     
     html = f"""
     <div class="section" style="background-color:#fff7ed;border-left:4px solid #ea580c;">
-        <h2>🔍 TOMORROW'S TRADING WATCHLIST</h2>
+        <h2>🔍 TODAY'S TRADING WATCHLIST</h2>
         <p style="font-size:1.1em;color:#666;margin-bottom:20px;">
-            <b>{tomorrow_formatted}</b> - Your action plan for the next trading session
+            <b>{today_formatted}</b> - Your action plan for today's trading session
         </p>
     """
     
