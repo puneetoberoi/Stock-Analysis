@@ -2569,11 +2569,30 @@ class LearningMemory:
         """Get recent learned insights"""
         return self.memory['insights'][-count:]
 
-# Initialize the learning system components
-#prediction_tracker = PredictionTracker()
-#candle_analyzer = CandlePatternAnalyzer()
-#learning_memory = LearningMemory()
-#enhanced_pattern_detector = None
+# ============================================================================
+# 🆕 MODULE 2: INITIALIZE LEARNING COMPONENTS
+# This restores the global instances needed by the original prediction engine.
+# ============================================================================
+
+prediction_tracker = PredictionTracker()
+candle_analyzer = CandlePatternAnalyzer()
+learning_memory = LearningMemory()
+enhanced_pattern_detector = None # This will be initialized later
+
+# Initialize the Enhanced Pattern Detector
+try:
+    from src.analysis.enhanced_patterns import EnhancedPatternDetector
+    enhanced_pattern_detector = EnhancedPatternDetector()
+    ENHANCED_PATTERNS_ENABLED = True
+    logging.info("✅ Enhanced Pattern Detector initialized at global scope.")
+except ImportError:
+    ENHANCED_PATTERNS_ENABLED = False
+    logging.warning("⚠️ Enhanced Pattern Detection not available at global scope.")
+
+# ========================================
+# 🔗 INTEGRATION LAYER - Connects to existing code
+# This READS from your existing functions without changing them
+# ========================================
 # ========================================
 # 🔗 INTEGRATION LAYER - Connects to existing code
 # This READS from your existing functions without changing them
