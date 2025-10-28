@@ -1,0 +1,40 @@
+name: Test Module 1 - Watchlist Generator
+
+on:
+  workflow_dispatch:  # Manual trigger only
+
+jobs:
+  test_module_1:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+      
+      - name: Run Module 1 Test
+        env:
+          NEWSAPI_KEY: ${{ secrets.NEWSAPI_KEY }}
+          FINNHUB_KEY: ${{ secrets.FINNHUB_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          COHERE_API_KEY: ${{ secrets.COHERE_API_KEY }}
+        run: |
+          python main.py --test-module-1
+      
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: module-1-test-results
+          path: |
+            *.log
+            data/
