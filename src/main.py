@@ -1749,60 +1749,60 @@ class PredictionTracker:
             json.dump(self.predictions, f, indent=2, default=str)
     
         def store_prediction(self, ticker, action, confidence, reasoning, candle_pattern=None, indicators=None, llm_name=None):
-        """
-        🆕 ENHANCED: Now tracks which LLM made the prediction + full context
-        
-        Args:
-            ticker: Stock ticker
-            action: BUY/SELL/HOLD
-            confidence: 0-100
-            reasoning: Why this prediction was made
-            candle_pattern: Pattern detected
-            indicators: Dict of technical indicators
-            llm_name: Which LLM made this prediction (NEW)
-        """
-        prediction_id = hashlib.md5(f"{ticker}{datetime.now().isoformat()}".encode()).hexdigest()[:8]
-        
-        # Get current price
-        try:
-            import yfinance as yf
-            current_price = yf.Ticker(ticker).history(period='1d')['Close'].iloc[-1]
-        except:
-            current_price = None
-        
-        prediction = {
-            'id': prediction_id,
-            'timestamp': datetime.now().isoformat(),
-            'ticker': ticker,
-            'action': action,
-            'confidence': confidence,
-            'reasoning': reasoning,
+            """
+            🆕 ENHANCED: Now tracks which LLM made the prediction + full context
             
-            # 🆕 ENHANCED FIELDS
-            'llm_name': llm_name,  # Track which AI made this
-            'candle_pattern': candle_pattern,
-            'indicators': indicators or {},
-            'price_at_prediction': float(current_price) if current_price else None,
+            Args:
+                ticker: Stock ticker
+                action: BUY/SELL/HOLD
+                confidence: 0-100
+                reasoning: Why this prediction was made
+                candle_pattern: Pattern detected
+                indicators: Dict of technical indicators
+                llm_name: Which LLM made this prediction (NEW)
+            """
+            prediction_id = hashlib.md5(f"{ticker}{datetime.now().isoformat()}".encode()).hexdigest()[:8]
             
-            # 🆕 CONTEXT FIELDS (for failure analysis later)
-            'rsi': indicators.get('rsi', 50) if indicators else 50,
-            'volume_ratio': indicators.get('volume_ratio', 1.0) if indicators else 1.0,
-            'macro_score': indicators.get('macro_score', 0) if indicators else 0,
-            'pattern_type': candle_pattern.get('type') if candle_pattern and isinstance(candle_pattern, dict) else None,
+            # Get current price
+            try:
+                import yfinance as yf
+                current_price = yf.Ticker(ticker).history(period='1d')['Close'].iloc[-1]
+            except:
+                current_price = None
             
-            # Outcome tracking (filled later by evening learner)
-            'outcome': None,
-            'was_correct': None,
-            'price_after_1d': None,
-            'price_after_5d': None,
-            'failure_reasons': []  # 🆕 Why it failed (for learning)
-        }
-        
-        self.predictions[prediction_id] = prediction
-        self._save_predictions()
-        
-        logging.info(f"📝 Stored prediction {prediction_id}: {ticker} - {action} (confidence: {confidence}%)")
-        return prediction_id
+            prediction = {
+                'id': prediction_id,
+                'timestamp': datetime.now().isoformat(),
+                'ticker': ticker,
+                'action': action,
+                'confidence': confidence,
+                'reasoning': reasoning,
+                
+                # 🆕 ENHANCED FIELDS
+                'llm_name': llm_name,  # Track which AI made this
+                'candle_pattern': candle_pattern,
+                'indicators': indicators or {},
+                'price_at_prediction': float(current_price) if current_price else None,
+                
+                # 🆕 CONTEXT FIELDS (for failure analysis later)
+                'rsi': indicators.get('rsi', 50) if indicators else 50,
+                'volume_ratio': indicators.get('volume_ratio', 1.0) if indicators else 1.0,
+                'macro_score': indicators.get('macro_score', 0) if indicators else 0,
+                'pattern_type': candle_pattern.get('type') if candle_pattern and isinstance(candle_pattern, dict) else None,
+                
+                # Outcome tracking (filled later by evening learner)
+                'outcome': None,
+                'was_correct': None,
+                'price_after_1d': None,
+                'price_after_5d': None,
+                'failure_reasons': []  # 🆕 Why it failed (for learning)
+            }
+            
+            self.predictions[prediction_id] = prediction
+            self._save_predictions()
+            
+            logging.info(f"📝 Stored prediction {prediction_id}: {ticker} - {action} (confidence: {confidence}%)")
+            return prediction_id
     
     def check_outcomes(self, days_to_check=1):
         """Check outcomes of past predictions"""
