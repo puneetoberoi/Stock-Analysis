@@ -1,17 +1,23 @@
 name: Test Module 1 - Watchlist Generator
 
 on:
-  workflow_dispatch:  # Manual trigger only
+  workflow_dispatch:  # Manual trigger
+  push:
+    branches:
+      - main
+    paths:
+      - 'test_module_1.py'
+      - 'main.py'
 
 jobs:
-  test_module_1:
+  test-module-1:
     runs-on: ubuntu-latest
     
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v3
       
-      - name: Set up Python
+      - name: Set up Python 3.10
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
@@ -24,6 +30,11 @@ jobs:
           pip install pandas ta yfinance requests numpy aiohttp beautifulsoup4 lxml matplotlib seaborn pytrends requests-html nest_asyncio spacy textblob transformers wikipedia-api markdown vaderSentiment asyncio-throttle python-dateutil PyYAML google-generativeai groq cohere ddgs
     
       
+      - name: Verify test file exists
+        run: |
+          ls -la test_module_1.py
+          echo "Test file found ✓"
+      
       - name: Run Module 1 Test
         env:
           NEWSAPI_KEY: ${{ secrets.NEWSAPI_KEY }}
@@ -31,14 +42,18 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           COHERE_API_KEY: ${{ secrets.COHERE_API_KEY }}
+          ALPHAVANTAGE_KEY: ${{ secrets.ALPHAVANTAGE_KEY }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
         run: |
-          python main.py --test-module-1
+          python test_module_1.py
       
-      - name: Upload test results
+      - name: Upload test logs
         if: always()
         uses: actions/upload-artifact@v3
         with:
-          name: module-1-test-results
+          name: module-1-test-logs
           path: |
             *.log
             data/
+          retention-days: 7
