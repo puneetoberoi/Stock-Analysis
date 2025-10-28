@@ -1251,7 +1251,7 @@ class PredictionTracker:
         with open(self.predictions_file, 'w') as f:
             json.dump(self.predictions, f, indent=2, default=str)
     
-    def store_prediction(self, ticker, action, confidence, reasoning, candle_pattern=None, indicators=None):
+     def store_prediction(self, ticker, action, confidence, reasoning, candle_pattern=None, indicators=None, llm_name=None):
         """Store a new prediction with all context"""
         prediction_id = hashlib.md5(f"{ticker}{datetime.now().isoformat()}".encode()).hexdigest()[:8]
         
@@ -2118,7 +2118,7 @@ class IntelligentPredictionEngine:
             try:
                 import google.generativeai as genai
                 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-                self.llm_clients['gemini'] = genai.GenerativeModel('gemini-1.5-flash') 
+                self.llm_clients['gemini'] = genai.GenerativeModel('gemini-2.5-flash') 
                 logging.info("✅ SUCCESS: Gemini LLM client initialized.")
             except Exception as e:
                 logging.error(f"❌ FAILED: Gemini initialization error: {e}")
@@ -2217,7 +2217,7 @@ Respond ONLY with: ACTION: [BUY/SELL/HOLD] CONFIDENCE: [0-100] REASON: [One sent
         try:
             response = await asyncio.to_thread(
                 self.llm_clients['groq'].chat.completions.create,
-                model="llama-3.1-70b-versatile", messages=[{"role": "user", "content": prompt}],
+                model="lllama-3.3-70b-versatile", messages=[{"role": "user", "content": prompt}],
                 temperature=0.3, max_tokens=100
             )
             return self._parse_llm_response(response.choices[0].message.content, 'groq')
@@ -2241,7 +2241,7 @@ Respond ONLY with: ACTION: [BUY/SELL/HOLD] CONFIDENCE: [0-100] REASON: [One sent
         try:
             response = await asyncio.to_thread(
                 self.llm_clients['cohere'].chat, message=prompt,
-                model='command-r', temperature=0.3
+                model='command-a-03-2025', temperature=0.3
             )
             return self._parse_llm_response(response.text, 'cohere')
         except Exception as e:
