@@ -1251,7 +1251,7 @@ class PredictionTracker:
         with open(self.predictions_file, 'w') as f:
             json.dump(self.predictions, f, indent=2, default=str)
     
-     def store_prediction(self, ticker, action, confidence, reasoning, candle_pattern=None, indicators=None, llm_name=None):
+    def store_prediction(self, ticker, action, confidence, reasoning, candle_pattern=None, indicators=None, llm_name=None):
         """Store a new prediction with all context"""
         prediction_id = hashlib.md5(f"{ticker}{datetime.now().isoformat()}".encode()).hexdigest()[:8]
         
