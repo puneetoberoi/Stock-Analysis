@@ -1475,38 +1475,43 @@ async def generate_comprehensive_watchlist(portfolio_data, pattern_data, macro_d
         # =====================================================================
         # 5. GAP ALERTS (from today's session)
         # =====================================================================
-        gap_data = stock.get('gap', {})
-        gap_signal = gap_data.get('signal', 'NO GAP')
+        gap_data = stock.get('gap')
         
-        if 'GAP' in gap_signal and gap_signal != 'NO GAP':
-            gap_pct = gap_data.get('gap_percent', 0)
+        # ✅ FIX: Only process if gap data exists
+        if gap_data and isinstance(gap_data, dict):
+            gap_signal = gap_data.get('signal', 'NO GAP')
             
-            watchlist['gap_alerts'].append({
-                'ticker': ticker,
-                'name': name,
-                'gap_type': gap_signal,
-                'gap_percent': gap_pct,
-                'action': 'Watch for gap fill or continuation' if abs(gap_pct) > 2 else 'Minor gap - monitor',
-                'price': price
-            })
+            if 'GAP' in gap_signal and gap_signal != 'NO GAP':
+                gap_pct = gap_data.get('gap_percent', 0)
+                
+                watchlist['gap_alerts'].append({
+                    'ticker': ticker,
+                    'name': name,
+                    'gap_type': gap_signal,
+                    'gap_percent': gap_pct,
+                    'action': 'Watch for gap fill or continuation' if abs(gap_pct) > 2 else 'Minor gap - monitor',
+                    'price': price
+                })
         
         # =====================================================================
         # 6. EARNINGS THIS WEEK
         # =====================================================================
         earnings = stock.get('earnings')
         
-        if earnings and earnings.get('days_until', 999) <= 7:
+        # ✅ FIX: Check earnings exists and has required fields
+        if earnings and isinstance(earnings, dict) and earnings.get('days_until') is not None:
             days = earnings['days_until']
             
-            watchlist['earnings_this_week'].append({
-                'ticker': ticker,
-                'name': name,
-                'date': earnings.get('date', 'Unknown'),
-                'days_until': days,
-                'urgency': 'TOMORROW' if days <= 1 else 'THIS WEEK',
-                'volatility_expected': stock.get('atr', {}).get('percent', 3.0),
-                'action': 'Expect increased volatility'
-            })
+            if days <= 7:
+                watchlist['earnings_this_week'].append({
+                    'ticker': ticker,
+                    'name': name,
+                    'date': earnings.get('date', 'Unknown'),
+                    'days_until': days,
+                    'urgency': 'TOMORROW' if days <= 1 else 'THIS WEEK',
+                    'volatility_expected': stock.get('atr', {}).get('percent', 3.0),
+                    'action': 'Expect increased volatility'
+                })
         
         # =====================================================================
         # 7. PATTERN CONFIRMATIONS
