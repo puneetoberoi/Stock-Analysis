@@ -59,7 +59,7 @@ jobs:
           SMTP_PASS: ${{ secrets.SMTP_PASS }}
         run: |
           echo "Starting Module 1 test..."
-          python test_module_1.py
+          python src/test_module_1.py
       
       - name: Upload test results
         if: always()
