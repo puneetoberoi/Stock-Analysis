@@ -1252,28 +1252,28 @@ class PredictionTracker:
             json.dump(self.predictions, f, indent=2, default=str)
     
         def store_prediction(self, ticker, action, confidence, reasoning, current_price, candle_pattern=None, indicators=None, llm_name=None):
-        """
-        ✅ FIX: Now accepts current_price as an argument and correctly stores all context.
-        """
-        prediction_id = hashlib.md5(f"{ticker}{datetime.now().isoformat()}".encode()).hexdigest()[:8]
-
-        prediction = {
-            'id': prediction_id,
-            'timestamp': datetime.now().isoformat(),
-            'ticker': ticker,
-            'action': action,
-            'confidence': confidence,
-            'reasoning': reasoning,
-            'llm_name': llm_name,
-            'candle_pattern': candle_pattern,
-            'indicators': indicators or {},
-            'price_at_prediction': float(current_price) if current_price is not None else None,
-            'rsi': indicators.get('rsi', 50) if indicators else 50,
-            'volume_ratio': indicators.get('volume_ratio', 1.0) if indicators else 1.0,
-            'macro_score': indicators.get('macro_score', 0) if indicators else 0,
-            'outcome': None,
-            'was_correct': None
-        }
+            """
+            ✅ FIX: Now accepts current_price as an argument and correctly stores all context.
+            """
+            prediction_id = hashlib.md5(f"{ticker}{datetime.now().isoformat()}".encode()).hexdigest()[:8]
+    
+            prediction = {
+                'id': prediction_id,
+                'timestamp': datetime.now().isoformat(),
+                'ticker': ticker,
+                'action': action,
+                'confidence': confidence,
+                'reasoning': reasoning,
+                'llm_name': llm_name,
+                'candle_pattern': candle_pattern,
+                'indicators': indicators or {},
+                'price_at_prediction': float(current_price) if current_price is not None else None,
+                'rsi': indicators.get('rsi', 50) if indicators else 50,
+                'volume_ratio': indicators.get('volume_ratio', 1.0) if indicators else 1.0,
+                'macro_score': indicators.get('macro_score', 0) if indicators else 0,
+                'outcome': None,
+                'was_correct': None
+            }
 
         self.predictions[prediction_id] = prediction
         self._save_predictions()
