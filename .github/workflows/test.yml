@@ -1,0 +1,57 @@
+name: testing-1
+
+on:
+  schedule:
+    - cron: '0 11 * * 1-5'  # 6 AM EST
+  workflow_dispatch:
+
+permissions:
+  contents: write  # ✅ ADD THIS LINE
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        fetch-depth: 0
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        # ✅ FIXED: All packages in one block, including groq and cohere
+        pip install ddgs scipy
+        pip install pandas ta yfinance requests numpy aiohttp beautifulsoup4 lxml matplotlib seaborn pytrends requests-html nest_asyncio spacy textblob transformers wikipedia-api markdown vaderSentiment asyncio-throttle python-dateutil PyYAML google-generativeai groq cohere ddgs
+    
+    - name: Run market analysis with predictions
+      env:
+        # ✅ ALL THREE LLM KEYS MUST BE HERE
+        GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        COHERE_API_KEY: ${{ secrets.COHERE_API_KEY }}
+        
+        # Your other existing keys
+        FINNHUB_KEY: ${{ secrets.FINNHUB_KEY }}
+        NEWSAPI_KEY: ${{ secrets.NEWSAPI_KEY }}
+        SMTP_USER: ${{ secrets.SMTP_USER }}
+        SMTP_PASS: ${{ secrets.SMTP_PASS }}
+        
+        ENABLE_V2_FEATURES: true
+      run: |
+        python src/main.py --output email
+    
+    - name: Commit predictions and learning data
+      run: |
+        git config --global user.email "action@github.com"
+        git config --global user.name "GitHub Action"
+        git add data/*.json logs/*.json || true
+        git add market_memory.json || true
+        git diff --quiet && git diff --staged --quiet || git commit -m "📊 Daily predictions and analysis [skip ci]"
+        git push || echo "No changes to push"
