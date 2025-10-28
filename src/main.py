@@ -1251,10 +1251,12 @@ class PredictionTracker:
         with open(self.predictions_file, 'w') as f:
             json.dump(self.predictions, f, indent=2, default=str)
     
-    def store_prediction(self, ticker, action, confidence, reasoning, candle_pattern=None, indicators=None, llm_name=None):
-        """Store a new prediction with all context"""
+        def store_prediction(self, ticker, action, confidence, reasoning, current_price, candle_pattern=None, indicators=None, llm_name=None):
+        """
+        ✅ FIX: Now accepts current_price as an argument and correctly stores all context.
+        """
         prediction_id = hashlib.md5(f"{ticker}{datetime.now().isoformat()}".encode()).hexdigest()[:8]
-        
+
         prediction = {
             'id': prediction_id,
             'timestamp': datetime.now().isoformat(),
@@ -1262,27 +1264,20 @@ class PredictionTracker:
             'action': action,
             'confidence': confidence,
             'reasoning': reasoning,
-            'llm_name': llm_name, # ✅ ADD THIS
+            'llm_name': llm_name,
             'candle_pattern': candle_pattern,
             'indicators': indicators or {},
-            'price_at_prediction': float(current_price) if current_price else None,
-            'rsi': indicators.get('rsi', 50) if indicators else 50, # ✅ ADD THIS
-            'volume_ratio': indicators.get('volume_ratio', 1.0) if indicators else 1.0, # ✅ ADD THIS
-            'macro_score': indicators.get('macro_score', 0) if indicators else 0, # ✅ ADD THIS
+            'price_at_prediction': float(current_price) if current_price is not None else None,
+            'rsi': indicators.get('rsi', 50) if indicators else 50,
+            'volume_ratio': indicators.get('volume_ratio', 1.0) if indicators else 1.0,
+            'macro_score': indicators.get('macro_score', 0) if indicators else 0,
             'outcome': None,
             'was_correct': None
         }
-        
-        # Get current price
-        try:
-            import yfinance as yf
-            current_price = yf.Ticker(ticker).history(period='1d')['Close'].iloc[-1]
-            prediction['price_at_prediction'] = float(current_price)
-        except:
-            pass
-        
+
         self.predictions[prediction_id] = prediction
         self._save_predictions()
+        
         logging.info(f"📝 Stored prediction {prediction_id}: {ticker} - {action} (confidence: {confidence}%)")
         return prediction_id
     
@@ -2100,7 +2095,6 @@ class IntelligentPredictionEngine:
     """Multi-LLM consensus with confidence scoring"""
     
     def __init__(self):
-        # This now correctly uses the global instances we restored
         self.prediction_tracker = prediction_tracker
         self.candle_analyzer = candle_analyzer
         self.learning_memory = learning_memory
@@ -2115,30 +2109,25 @@ class IntelligentPredictionEngine:
                 from groq import Groq
                 self.llm_clients['groq'] = Groq(api_key=os.getenv("GROQ_API_KEY"))
                 logging.info("✅ SUCCESS: Groq LLM client initialized.")
-            except Exception as e:
-                logging.error(f"❌ FAILED: Groq initialization error: {e}")
+            except Exception as e: logging.error(f"❌ FAILED: Groq initialization error: {e}")
         
         if os.getenv("GEMINI_API_KEY") and GEMINI_API_KEY:
             try:
                 import google.generativeai as genai
                 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-                self.llm_clients['gemini'] = genai.GenerativeModel('gemini-2.5-flash') 
+                self.llm_clients['gemini'] = genai.GenerativeModel('gemini-1.5-flash') 
                 logging.info("✅ SUCCESS: Gemini LLM client initialized.")
-            except Exception as e:
-                logging.error(f"❌ FAILED: Gemini initialization error: {e}")
+            except Exception as e: logging.error(f"❌ FAILED: Gemini initialization error: {e}")
 
         if os.getenv("COHERE_API_KEY") and COHERE_AVAILABLE:
             try:
                 import cohere
                 self.llm_clients['cohere'] = cohere.Client(os.getenv("COHERE_API_KEY"))
                 logging.info("✅ SUCCESS: Cohere LLM client initialized.")
-            except Exception as e:
-                logging.error(f"❌ FAILED: Cohere initialization error: {e}")
+            except Exception as e: logging.error(f"❌ FAILED: Cohere initialization error: {e}")
         
-        if not self.llm_clients:
-            logging.error("❌ CRITICAL: No LLM clients available.")
-        else:
-            logging.info(f"✅ LLM clients loaded: {list(self.llm_clients.keys())}")
+        if not self.llm_clients: logging.error("❌ CRITICAL: No LLM clients available.")
+        else: logging.info(f"✅ LLM clients loaded: {list(self.llm_clients.keys())}")
             
     async def analyze_with_learning(self, ticker, existing_analysis, hist_data, market_context=None):
         """Analyzes a stock and stores a prediction for learning."""
@@ -2151,8 +2140,7 @@ class IntelligentPredictionEngine:
                     candle_patterns.append({
                         'name': ep['name'], 'type': ep['type'],
                         'strength': 'very_strong' if ep['strength'] >= 90 else 'strong',
-                        'description': ep['description'], 'enhanced': True,
-                        'strength_score': ep['strength']
+                        'description': ep['description'], 'enhanced': True, 'strength_score': ep['strength']
                     })
                 if enhanced_patterns:
                     strongest = enhanced_patterns[0]
@@ -2166,20 +2154,20 @@ class IntelligentPredictionEngine:
         confidence_result = self.confidence_scorer.calculate_confidence(
             llm_predictions, candle_patterns, pattern_success_rates, 
             {'rsi': existing_analysis.get('rsi', 50), 'score': existing_analysis.get('score', 50)}, 
-            {'volume_ratio': existing_analysis.get('volume_ratio', 1.0)}, 
-            market_context
+            {'volume_ratio': existing_analysis.get('volume_ratio', 1.0)}, market_context
         )
         final_prediction = self._determine_final_action(llm_predictions, confidence_result, candle_patterns)
         
         if final_prediction:
             llm_reasoning = " | ".join([f"{name}: {pred.get('reasoning', 'No reasoning')}" for name, pred in llm_predictions.items()]) if llm_predictions else final_prediction.get('reasoning', 'Rule-based')
             
-            # ✅ FIX: This is the correct call to the global prediction_tracker
+            # ✅ FIX: Call the global prediction_tracker with all required arguments
             pred_id = prediction_tracker.store_prediction(
                 ticker=ticker,
                 action=final_prediction['action'],
                 confidence=confidence_result['score'],
                 reasoning=llm_reasoning,
+                current_price=existing_analysis.get('price'), # Pass the current price
                 llm_name=next(iter(llm_predictions)) if llm_predictions else 'rule-based',
                 candle_pattern=candle_patterns[0] if candle_patterns else None,
                 indicators={
@@ -2195,33 +2183,34 @@ class IntelligentPredictionEngine:
     async def _get_multi_llm_consensus(self, ticker, existing_analysis, candle_patterns, pattern_success_rates, market_context):
         pattern_text = "\n".join([f"- {p['name']} ({p['type']}, {pattern_success_rates.get(p['name'], 50):.0f}% success)" for p in candle_patterns[:3]]) if candle_patterns else "No clear patterns."
         context = f"""Analyze {ticker} and provide a BUY/HOLD/SELL recommendation.
-TECHNICALS: Score: {existing_analysis.get('score', 50):.0f}/100, RSI: {existing_analysis.get('rsi', 50):.1f}, Volume: {existing_analysis.get('volume_ratio', 1.0):.1f}x avg.
+TECHNICALS: RSI: {existing_analysis.get('rsi', 50):.1f}, Volume: {existing_analysis.get('volume_ratio', 1.0):.1f}x avg.
 PATTERNS: {pattern_text}
 MACRO: Score {market_context.get('overall_macro_score', 0):.0f}.
 Respond ONLY with: ACTION: [BUY/SELL/HOLD] CONFIDENCE: [0-100] REASON: [One sentence]"""
         
-        tasks, llm_names = [], []
-        for name, client in self.llm_clients.items():
+        tasks = []
+        for name in self.llm_clients.keys():
             if name == 'groq': tasks.append(self._query_groq(context, ticker))
             elif name == 'gemini': tasks.append(self._query_gemini(context, ticker))
             elif name == 'cohere': tasks.append(self._query_cohere(context, ticker))
-            llm_names.append(name)
+        
+        results = await asyncio.gather(*tasks, return_exceptions=True)
         
         predictions = {}
-        if tasks:
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-            for name, result in zip(llm_names, results):
-                if not isinstance(result, Exception) and result:
-                    predictions[name] = result
+        for name, result in zip(self.llm_clients.keys(), results):
+            if not isinstance(result, Exception) and result:
+                predictions[name] = result
         
         logging.info(f"🔍[{ticker}] Received {len(predictions)} LLM predictions.")
         return predictions
 
     async def _query_groq(self, prompt, ticker):
         try:
+            # ✅ FIX: Using current, working model name
             response = await asyncio.to_thread(
                 self.llm_clients['groq'].chat.completions.create,
-                model="llama-3.3-70b-versatile", messages=[{"role": "user", "content": prompt}],
+                model="llama3-70b-8192", 
+                messages=[{"role": "user", "content": prompt}],
                 temperature=0.3, max_tokens=100
             )
             return self._parse_llm_response(response.choices[0].message.content, 'groq')
@@ -2231,7 +2220,7 @@ Respond ONLY with: ACTION: [BUY/SELL/HOLD] CONFIDENCE: [0-100] REASON: [One sent
 
     async def _query_gemini(self, prompt, ticker):
         try:
-            # ✅ FIX: Correct async call and added safety settings to prevent content blocking
+            # ✅ FIX: Corrected async call and added safety settings
             response = await self.llm_clients['gemini'].generate_content_async(
                 prompt, 
                 generation_config={'temperature': 0.3, 'max_output_tokens': 100},
@@ -2244,9 +2233,12 @@ Respond ONLY with: ACTION: [BUY/SELL/HOLD] CONFIDENCE: [0-100] REASON: [One sent
 
     async def _query_cohere(self, prompt, ticker):
         try:
+            # ✅ FIX: Using current, working model name
             response = await asyncio.to_thread(
-                self.llm_clients['cohere'].chat, message=prompt,
-                model='command-a-03-2025', temperature=0.3
+                self.llm_clients['cohere'].chat, 
+                message=prompt,
+                model='command-r-plus', 
+                temperature=0.3
             )
             return self._parse_llm_response(response.text, 'cohere')
         except Exception as e:
