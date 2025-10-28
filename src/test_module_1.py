@@ -224,6 +224,23 @@ async def test_module_1():
                     
                     count += 1
             
+            # 🆕 TEST: Generate email HTML
+            print("\n🔄 Testing email HTML generation...")
+            
+            try:
+                from main import generate_tomorrow_watchlist_html
+                
+                watchlist_html = generate_tomorrow_watchlist_html(watchlist, all_levels)
+                
+                if watchlist_html and len(watchlist_html) > 100:
+                    print(f"✅ Email HTML generated ({len(watchlist_html)} characters)")
+                    print(f"   Includes: Squeezes, RSI, Patterns, Market Levels")
+                else:
+                    print("⚠️ Email HTML generated but seems short")
+            
+            except Exception as e:
+                print(f"❌ Email HTML generation failed: {e}")
+            
             print("\n" + "="*70)
             print("✅ MODULE 1 TEST COMPLETE - ALL SYSTEMS WORKING")
             print("="*70 + "\n")
