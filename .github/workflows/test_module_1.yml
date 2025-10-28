@@ -18,7 +18,11 @@ jobs:
       
       - name: Install dependencies
         run: |
-          pip install -r requirements.txt
+          python -m pip install --upgrade pip
+          # ✅ FIXED: All packages in one block, including groq and cohere
+          pip install ddgs scipy
+          pip install pandas ta yfinance requests numpy aiohttp beautifulsoup4 lxml matplotlib seaborn pytrends requests-html nest_asyncio spacy textblob transformers wikipedia-api markdown vaderSentiment asyncio-throttle python-dateutil PyYAML google-generativeai groq cohere ddgs
+    
       
       - name: Run Module 1 Test
         env:
