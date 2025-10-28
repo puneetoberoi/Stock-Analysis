@@ -1,74 +1,57 @@
-name: Test Module 1 - Watchlist Generator
+name: Morning Market Analysis with Learning-1
 
 on:
+  schedule:
+    - cron: '0 11 * * 1-5'  # 6 AM EST
   workflow_dispatch:
-  push:
-    branches:
-      - main
-    paths:
-      - 'test_module_1.py'
-      - '.github/workflows/test_module_1.yml'
 
 permissions:
-  contents: write
+  contents: write  # ✅ ADD THIS LINE
 
 jobs:
-  test-module-1:
+  analyze:
     runs-on: ubuntu-latest
     
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-      
-      - name: Set up Python 3.10
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-      
-      - name: Cache Python dependencies
-        uses: actions/cache@v3
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
-      
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then
-            pip install -r requirements.txt
-          else
-            pip install pandas ta yfinance requests numpy aiohttp beautifulsoup4 lxml vaderSentiment asyncio-throttle google-generativeai groq cohere ddgs
-          fi
-      
-      - name: Verify test file exists
-        run: |
-          echo "Checking for test file..."
-          ls -la test_module_1.py || echo "ERROR: test_module_1.py not found!"
-          echo "Checking for main.py..."
-          ls -la main.py || echo "ERROR: main.py not found!"
-      
-      - name: Run Module 1 Test
-        env:
-          NEWSAPI_KEY: ${{ secrets.NEWSAPI_KEY }}
-          FINNHUB_KEY: ${{ secrets.FINNHUB_KEY }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-          COHERE_API_KEY: ${{ secrets.COHERE_API_KEY }}
-          ALPHAVANTAGE_KEY: ${{ secrets.ALPHAVANTAGE_KEY }}
-          SMTP_USER: ${{ secrets.SMTP_USER }}
-          SMTP_PASS: ${{ secrets.SMTP_PASS }}
-        run: |
-          echo "Starting Module 1 test..."
-          python test_module_1.py
-      
-      - name: Upload test results
-        if: always()
-        uses: actions/upload-artifact@v3
-        with:
-          name: module-1-test-results
-          path: |
-            *.log
-            data/
-          retention-days: 7
+    - uses: actions/checkout@v3
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        fetch-depth: 0
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        # ✅ FIXED: All packages in one block, including groq and cohere
+        pip install ddgs scipy
+        pip install pandas ta yfinance requests numpy aiohttp beautifulsoup4 lxml matplotlib seaborn pytrends requests-html nest_asyncio spacy textblob transformers wikipedia-api markdown vaderSentiment asyncio-throttle python-dateutil PyYAML google-generativeai groq cohere ddgs
+    
+    - name: Run market analysis with predictions
+      env:
+        # ✅ ALL THREE LLM KEYS MUST BE HERE
+        GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        COHERE_API_KEY: ${{ secrets.COHERE_API_KEY }}
+        
+        # Your other existing keys
+        FINNHUB_KEY: ${{ secrets.FINNHUB_KEY }}
+        NEWSAPI_KEY: ${{ secrets.NEWSAPI_KEY }}
+        SMTP_USER: ${{ secrets.SMTP_USER }}
+        SMTP_PASS: ${{ secrets.SMTP_PASS }}
+        
+        ENABLE_V2_FEATURES: true
+      run: |
+        python src/main.py --output email
+    
+    - name: Commit predictions and learning data
+      run: |
+        git config --global user.email "action@github.com"
+        git config --global user.name "GitHub Action"
+        git add data/*.json logs/*.json || true
+        git add market_memory.json || true
+        git diff --quiet && git diff --staged --quiet || git commit -m "📊 Daily predictions and analysis [skip ci]"
+        git push || echo "No changes to push"
