@@ -1218,6 +1218,481 @@ async def generate_portfolio_recommendations_from_pattern(portfolio_data, patter
     
     return recommendations
 
+# ============================================================================
+# 🆕 MODULE 1: TOMORROW'S WATCHLIST GENERATOR (Comprehensive)
+# Version: 1.0
+# Added: 2024-12-21
+# Location: After portfolio recommendations, before main()
+# ============================================================================
+
+def calculate_breakout_probability(stock):
+    """
+    Calculate probability of breakout based on historical data
+    Factors: squeeze width, volume, RSI, patterns
+    """
+    base_probability = 50
+    
+    # Factor 1: Squeeze width (tighter = higher probability)
+    bb = stock.get('bollinger', {})
+    width = bb.get('width', 20)
+    if width < 5:
+        base_probability += 25  # Very tight squeeze
+    elif width < 10:
+        base_probability += 15  # Tight squeeze
+    
+    # Factor 2: Volume (higher = more energy)
+    vol_ratio = stock.get('volume_ratio', 1.0)
+    if vol_ratio > 1.5:
+        base_probability += 15
+    elif vol_ratio > 1.0:
+        base_probability += 10
+    
+    # Factor 3: RSI (balanced = better odds)
+    rsi = stock.get('rsi', 50)
+    if 40 <= rsi <= 60:
+        base_probability += 10
+    
+    # Factor 4: Pattern confirmation
+    if stock.get('ai_prediction', {}).get('strongest_pattern'):
+        base_probability += 10
+    
+    return min(100, base_probability)
+
+
+def determine_confirmation_criteria(stock, prediction):
+    """
+    For each prediction, determine what needs to happen to confirm it
+    Looks at: Bollinger bands, RSI, patterns, 52-week levels
+    """
+    criteria = {
+        'ticker': stock['ticker'],
+        'name': stock.get('name', stock['ticker']),
+        'prediction': prediction.get('action', 'HOLD'),
+        'confidence': prediction.get('confidence', 50),
+        'needs': []
+    }
+    
+    # BUY CONFIRMATIONS
+    if prediction.get('action') == 'BUY':
+        # 1. Bollinger squeeze breakout
+        if stock.get('bollinger', {}).get('squeeze'):
+            upper_band = stock['bollinger']['upper']
+            criteria['needs'].append(f"Break above ${upper_band:.2f} with volume >1.5x")
+        
+        # 2. RSI momentum
+        rsi = stock.get('rsi', 50)
+        if rsi < 40:
+            criteria['needs'].append(f"RSI rising from oversold ({rsi:.1f}) - watch for upturn")
+        elif 40 <= rsi <= 60:
+            criteria['needs'].append(f"RSI balanced ({rsi:.1f}) - confirm with second green candle")
+        
+        # 3. Pattern confirmation
+        patterns = stock.get('candle_patterns', [])
+        if patterns:
+            pattern_name = patterns[0].get('name', '').replace('_', ' ').title()
+            criteria['needs'].append(f"Second bullish candle confirms {pattern_name}")
+        
+        # 4. Volume confirmation
+        current_vol = stock.get('volume_ratio', 1.0)
+        if current_vol < 1.0:
+            criteria['needs'].append(f"Volume needs to exceed {1.5:.1f}x (currently {current_vol:.1f}x)")
+    
+    # SELL CONFIRMATIONS
+    elif prediction.get('action') == 'SELL':
+        # 1. Breakdown level
+        if stock.get('week52', {}).get('signal') == 'AT 52W HIGH':
+            breakdown_level = stock['week52']['high'] * 0.98
+            criteria['needs'].append(f"Break below ${breakdown_level:.2f} (2% from 52W high)")
+        elif stock.get('bollinger', {}).get('squeeze'):
+            lower_band = stock['bollinger']['lower']
+            criteria['needs'].append(f"Break below ${lower_band:.2f} confirms breakdown")
+        
+        # 2. RSI divergence
+        rsi = stock.get('rsi', 50)
+        if rsi > 70:
+            criteria['needs'].append(f"Watch for RSI divergence (currently {rsi:.1f})")
+        
+        # 3. Volume on breakdown
+        criteria['needs'].append(f"Breakdown needs volume >1.2x for confirmation")
+    
+    # HOLD - what changes the thesis
+    else:
+        if stock.get('bollinger', {}).get('squeeze'):
+            upper = stock['bollinger']['upper']
+            lower = stock['bollinger']['lower']
+            criteria['needs'].append(f"Breakout direction: Above ${upper:.2f} = BUY signal, Below ${lower:.2f} = SELL signal")
+        
+        # Check for decision levels
+        rsi = stock.get('rsi', 50)
+        if 60 < rsi < 70:
+            criteria['needs'].append(f"If RSI breaks 70 → Consider trimming position")
+        elif 30 < rsi < 40:
+            criteria['needs'].append(f"If RSI breaks 30 → Consider adding to position")
+    
+    return criteria
+
+
+async def generate_comprehensive_watchlist(portfolio_data, pattern_data, macro_data):
+    """
+    🆕 COMPREHENSIVE WATCHLIST - Scans EVERYTHING in your portfolio
+    
+    Generates 7 categories:
+    1. Bollinger squeeze breakouts
+    2. RSI extremes (overbought/oversold)
+    3. Volume spikes
+    4. 52-week level alerts
+    5. Gap alerts (from today)
+    6. Earnings this week
+    7. Pattern confirmations needed
+    """
+    
+    logging.info("📋 Generating COMPREHENSIVE watchlist for tomorrow...")
+    
+    watchlist = {
+        'squeeze_breakouts': [],
+        'rsi_extremes': [],
+        'volume_spikes': [],
+        'week52_alerts': [],
+        'gap_alerts': [],
+        'earnings_this_week': [],
+        'pattern_confirmations': [],
+        'macro_alerts': []
+    }
+    
+    if not portfolio_data or not portfolio_data.get('stocks'):
+        logging.warning("No portfolio data for watchlist")
+        return watchlist
+    
+    # SCAN EACH STOCK
+    for stock in portfolio_data.get('stocks', []):
+        ticker = stock['ticker']
+        name = stock.get('name', ticker)
+        price = stock.get('price', 0)
+        
+        # =====================================================================
+        # 1. BOLLINGER SQUEEZE BREAKOUTS
+        # =====================================================================
+        if stock.get('bollinger', {}).get('squeeze'):
+            bb = stock['bollinger']
+            
+            watchlist['squeeze_breakouts'].append({
+                'ticker': ticker,
+                'name': name,
+                'squeeze_width': bb['width'],
+                'bullish_break': bb['upper'],
+                'bearish_break': bb['lower'],
+                'current_price': price,
+                'volume_current': stock.get('volume_ratio', 1.0),
+                'volume_needed': max(1.5, stock.get('volume_ratio', 1.0) * 2),
+                'probability': calculate_breakout_probability(stock),
+                'rsi': stock.get('rsi', 50)
+            })
+        
+        # =====================================================================
+        # 2. RSI EXTREMES
+        # =====================================================================
+        rsi = stock.get('rsi', 50)
+        
+        if rsi > 70:
+            watchlist['rsi_extremes'].append({
+                'ticker': ticker,
+                'name': name,
+                'rsi': rsi,
+                'type': 'OVERBOUGHT',
+                'action': 'Watch for reversal or profit-taking',
+                'level': 70,
+                'price': price
+            })
+        elif rsi < 30:
+            watchlist['rsi_extremes'].append({
+                'ticker': ticker,
+                'name': name,
+                'rsi': rsi,
+                'type': 'OVERSOLD',
+                'action': 'Watch for bounce or accumulation opportunity',
+                'level': 30,
+                'price': price
+            })
+        
+        # =====================================================================
+        # 3. VOLUME SPIKES
+        # =====================================================================
+        vol_ratio = stock.get('volume_ratio', 1.0)
+        
+        if vol_ratio > 2.0:
+            watchlist['volume_spikes'].append({
+                'ticker': ticker,
+                'name': name,
+                'volume_ratio': vol_ratio,
+                'type': 'HIGH',
+                'action': 'Unusual activity - investigate news/events',
+                'price': price,
+                'daily_change': stock.get('daily_change', 0)
+            })
+        elif vol_ratio < 0.3:
+            watchlist['volume_spikes'].append({
+                'ticker': ticker,
+                'name': name,
+                'volume_ratio': vol_ratio,
+                'type': 'LOW',
+                'action': 'Low conviction - wait for volume confirmation',
+                'price': price
+            })
+        
+        # =====================================================================
+        # 4. 52-WEEK LEVEL ALERTS
+        # =====================================================================
+        week52 = stock.get('week52', {})
+        signal = week52.get('signal', '')
+        
+        if 'AT 52W HIGH' in signal or 'NEAR 52W HIGH' in signal:
+            watchlist['week52_alerts'].append({
+                'ticker': ticker,
+                'name': name,
+                'type': 'RESISTANCE',
+                'level': week52.get('high', 0),
+                'current': price,
+                'distance_pct': week52.get('distance_from_high_pct', 0),
+                'action': 'Watch for breakout or rejection at resistance'
+            })
+        elif 'AT 52W LOW' in signal or 'NEAR 52W LOW' in signal:
+            watchlist['week52_alerts'].append({
+                'ticker': ticker,
+                'name': name,
+                'type': 'SUPPORT',
+                'level': week52.get('low', 0),
+                'current': price,
+                'distance_pct': week52.get('distance_from_low_pct', 0),
+                'action': 'Watch for bounce or breakdown at support'
+            })
+        
+        # =====================================================================
+        # 5. GAP ALERTS (from today's session)
+        # =====================================================================
+        gap_data = stock.get('gap', {})
+        gap_signal = gap_data.get('signal', 'NO GAP')
+        
+        if 'GAP' in gap_signal and gap_signal != 'NO GAP':
+            gap_pct = gap_data.get('gap_percent', 0)
+            
+            watchlist['gap_alerts'].append({
+                'ticker': ticker,
+                'name': name,
+                'gap_type': gap_signal,
+                'gap_percent': gap_pct,
+                'action': 'Watch for gap fill or continuation' if abs(gap_pct) > 2 else 'Minor gap - monitor',
+                'price': price
+            })
+        
+        # =====================================================================
+        # 6. EARNINGS THIS WEEK
+        # =====================================================================
+        earnings = stock.get('earnings')
+        
+        if earnings and earnings.get('days_until', 999) <= 7:
+            days = earnings['days_until']
+            
+            watchlist['earnings_this_week'].append({
+                'ticker': ticker,
+                'name': name,
+                'date': earnings.get('date', 'Unknown'),
+                'days_until': days,
+                'urgency': 'TOMORROW' if days <= 1 else 'THIS WEEK',
+                'volatility_expected': stock.get('atr', {}).get('percent', 3.0),
+                'action': 'Expect increased volatility'
+            })
+        
+        # =====================================================================
+        # 7. PATTERN CONFIRMATIONS
+        # =====================================================================
+        if 'ai_prediction' in stock and stock['ai_prediction']:
+            pred = stock['ai_prediction']
+            
+            # Only add if prediction is BUY or SELL (not HOLD)
+            if pred.get('action') in ['BUY', 'SELL']:
+                confirmation = determine_confirmation_criteria(stock, pred)
+                
+                # Only add if there are actual criteria
+                if confirmation.get('needs'):
+                    watchlist['pattern_confirmations'].append(confirmation)
+    
+    # =====================================================================
+    # 8. MACRO ALERTS (market-wide)
+    # =====================================================================
+    if macro_data:
+        macro_score = macro_data.get('overall_macro_score', 0)
+        
+        if macro_score < -15:
+            watchlist['macro_alerts'].append({
+                'type': 'RISK',
+                'severity': 'HIGH',
+                'message': f'Macro environment very negative ({macro_score:.0f}/30)',
+                'action': 'Consider defensive positioning, reduce leverage'
+            })
+        elif macro_score > 15:
+            watchlist['macro_alerts'].append({
+                'type': 'OPPORTUNITY',
+                'severity': 'HIGH',
+                'message': f'Macro environment very positive ({macro_score:.0f}/30)',
+                'action': 'Favorable conditions for risk-on trades'
+            })
+        
+        # Specific risks
+        geo_risk = macro_data.get('geopolitical_risk', 0)
+        trade_risk = macro_data.get('trade_risk', 0)
+        
+        if geo_risk > 70:
+            watchlist['macro_alerts'].append({
+                'type': 'GEOPOLITICAL',
+                'severity': 'HIGH',
+                'message': f'Elevated geopolitical risk ({geo_risk}/100)',
+                'action': 'Monitor defense sector, consider hedges'
+            })
+        
+        if trade_risk > 70:
+            watchlist['macro_alerts'].append({
+                'type': 'TRADE',
+                'severity': 'HIGH',
+                'message': f'Trade tensions elevated ({trade_risk}/100)',
+                'action': 'Avoid China-exposed stocks, watch tariff news'
+            })
+    
+    # =====================================================================
+    # SORT AND PRIORITIZE
+    # =====================================================================
+    watchlist['squeeze_breakouts'].sort(key=lambda x: x['probability'], reverse=True)
+    watchlist['rsi_extremes'].sort(key=lambda x: abs(x['rsi'] - 50), reverse=True)
+    watchlist['volume_spikes'].sort(key=lambda x: x['volume_ratio'], reverse=True)
+    watchlist['earnings_this_week'].sort(key=lambda x: x['days_until'])
+    
+    # =====================================================================
+    # LOG SUMMARY
+    # =====================================================================
+    logging.info(f"✅ Comprehensive watchlist generated:")
+    logging.info(f"   - {len(watchlist['squeeze_breakouts'])} squeeze breakouts")
+    logging.info(f"   - {len(watchlist['rsi_extremes'])} RSI extremes")
+    logging.info(f"   - {len(watchlist['volume_spikes'])} volume alerts")
+    logging.info(f"   - {len(watchlist['week52_alerts'])} 52-week level alerts")
+    logging.info(f"   - {len(watchlist['gap_alerts'])} gap alerts")
+    logging.info(f"   - {len(watchlist['earnings_this_week'])} earnings this week")
+    logging.info(f"   - {len(watchlist['pattern_confirmations'])} pattern confirmations")
+    logging.info(f"   - {len(watchlist['macro_alerts'])} macro alerts")
+    
+    return watchlist
+
+# ============================================================================
+# 🆕 MODULE 1B: KEY LEVELS CALCULATOR (All Portfolio Stocks)
+# Version: 1.0
+# Calculates support/resistance for SPY, QQQ, and ALL portfolio stocks
+# ============================================================================
+
+def calculate_key_levels(ticker):
+    """
+    Calculate support and resistance levels for a ticker
+    
+    Method:
+    - Support: 20-day low OR 50-day MA (whichever is higher)
+    - Resistance: 20-day high
+    - Also calculates distance from current price
+    """
+    try:
+        import yfinance as yf
+        
+        # Get 3 months of data
+        stock = yf.Ticker(ticker)
+        hist = stock.history(period='3mo', interval='1d')
+        
+        if hist.empty or len(hist) < 20:
+            return {
+                'ticker': ticker,
+                'current': 0,
+                'support': 0,
+                'resistance': 0,
+                'error': 'Insufficient data'
+            }
+        
+        current_price = hist['Close'].iloc[-1]
+        
+        # Support = higher of:
+        # 1. 20-day low
+        # 2. 50-day moving average (if available)
+        support_20d = hist['Low'].tail(20).min()
+        
+        if len(hist) >= 50:
+            ma_50 = hist['Close'].tail(50).mean()
+            # Support is MA-50 with 5% buffer, or 20-day low (whichever is higher)
+            support = max(support_20d, ma_50 * 0.95)
+        else:
+            support = support_20d
+        
+        # Resistance = 20-day high
+        resistance = hist['High'].tail(20).max()
+        
+        # Calculate distances
+        distance_to_support = ((current_price - support) / current_price) * 100
+        distance_to_resistance = ((resistance - current_price) / current_price) * 100
+        
+        return {
+            'ticker': ticker,
+            'current': float(current_price),
+            'support': float(support),
+            'resistance': float(resistance),
+            'distance_to_support_pct': float(distance_to_support),
+            'distance_to_resistance_pct': float(distance_to_resistance),
+            'at_support': distance_to_support < 2,  # Within 2% of support
+            'at_resistance': distance_to_resistance < 2  # Within 2% of resistance
+        }
+        
+    except Exception as e:
+        logging.error(f"Error calculating levels for {ticker}: {e}")
+        return {
+            'ticker': ticker,
+            'current': 0,
+            'support': 0,
+            'resistance': 0,
+            'error': str(e)
+        }
+
+
+async def calculate_all_key_levels(portfolio_data):
+    """
+    Calculate key levels for:
+    1. Market indices (SPY, QQQ)
+    2. ALL stocks in portfolio
+    
+    Returns dict with levels for each ticker
+    """
+    logging.info("📊 Calculating key levels for market + portfolio...")
+    
+    all_levels = {}
+    
+    # 1. Market indices (always calculate)
+    for ticker in ['SPY', 'QQQ']:
+        all_levels[ticker] = calculate_key_levels(ticker)
+        
+        if 'error' not in all_levels[ticker]:
+            logging.info(f"   {ticker}: Support ${all_levels[ticker]['support']:.2f}, "
+                        f"Resistance ${all_levels[ticker]['resistance']:.2f}")
+    
+    # 2. Portfolio stocks
+    if portfolio_data and portfolio_data.get('stocks'):
+        for stock in portfolio_data['stocks']:
+            ticker = stock['ticker']
+            
+            levels = calculate_key_levels(ticker)
+            all_levels[ticker] = levels
+            
+            # Log if at key level
+            if 'error' not in levels:
+                if levels['at_support']:
+                    logging.info(f"   ⚠️ {ticker} at support level ${levels['support']:.2f}")
+                elif levels['at_resistance']:
+                    logging.info(f"   ⚠️ {ticker} at resistance level ${levels['resistance']:.2f}")
+    
+    logging.info(f"✅ Calculated key levels for {len(all_levels)} tickers")
+    
+    return all_levels
+
 # ========================================
 # 🧠 INTELLIGENT LEARNING SYSTEM v3.0
 # 100% Free, GitHub Actions Compatible
