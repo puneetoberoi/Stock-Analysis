@@ -2570,24 +2570,33 @@ class LearningMemory:
         return self.memory['insights'][-count:]
 
 # ============================================================================
-# 🆕 MODULE 2: INITIALIZE LEARNING COMPONENTS
-# This restores the global instances needed by the original prediction engine.
+# 🧠 LEARNING SYSTEM COMPONENTS (Global Instances)
+# These are initialized once and used by the prediction engine.
 # ============================================================================
 
 prediction_tracker = PredictionTracker()
 candle_analyzer = CandlePatternAnalyzer()
 learning_memory = LearningMemory()
-enhanced_pattern_detector = None # This will be initialized later
+enhanced_pattern_detector = None # Will be initialized below
 
-# Initialize the Enhanced Pattern Detector
 try:
-    from src.analysis.enhanced_patterns import EnhancedPatternDetector
+    # Try multiple import paths (works in both local and GitHub Actions)
+    try:
+        from src.analysis.enhanced_patterns import EnhancedPatternDetector
+    except ImportError:
+        from analysis.enhanced_patterns import EnhancedPatternDetector
+    
     enhanced_pattern_detector = EnhancedPatternDetector()
     ENHANCED_PATTERNS_ENABLED = True
-    logging.info("✅ Enhanced Pattern Detector initialized at global scope.")
-except ImportError:
+    logging.info("✅ SUCCESS: Enhanced Pattern Detector initialized globally.")
+    
+except ImportError as e:
     ENHANCED_PATTERNS_ENABLED = False
-    logging.warning("⚠️ Enhanced Pattern Detection not available at global scope.")
+    logging.warning(f"⚠️ SKIPPED: Enhanced Pattern Detection not available: {e}")
+
+# ========================================
+# 🔗 INTEGRATION LAYER - Connects to existing code
+# ========================================
 
 # ========================================
 # 🔗 INTEGRATION LAYER - Connects to existing code
@@ -2850,7 +2859,8 @@ class IntelligentPredictionEngine:
     """Multi-LLM consensus with confidence scoring"""
     
     def __init__(self):
-        self.prediction_tracker = PredictionTracker()
+        # ✅ FIX: This now correctly uses the global instances we just re-created.
+        self.prediction_tracker = prediction_tracker
         self.candle_analyzer = candle_analyzer
         self.learning_memory = learning_memory
         self.confidence_scorer = ConfidenceScorer()
@@ -3188,67 +3198,6 @@ async def check_prediction_outcomes():
     logging.info(f"✅ Checked {results['checked']} predictions: {results['correct']} correct, {results['wrong']} wrong")
     
     return results
-
-# ============================================================================
-# 🆕 FAIL-SAFE WRAPPER - Guarantees AI Predictions are not lost
-# ============================================================================
-
-async def run_portfolio_analysis_with_failsafe(session, market_context):
-    """
-    This function wraps the main portfolio analysis. If the analysis fails
-    to return predictions due to an internal error, this function will
-    re-run a simplified prediction step to ensure the email section is
-    never empty.
-    """
-    logging.info("🛡️ Running portfolio analysis with fail-safe wrapper...")
-    
-    try:
-        # Run the original function
-        portfolio_data = await analyze_portfolio_with_predictions(session, market_context=market_context)
-
-        # CHECK if predictions are missing
-        if portfolio_data and portfolio_data.get('predictions_made', 0) == 0 and len(portfolio_data.get('stocks', [])) > 0:
-            logging.warning("⚠️ Original analysis returned 0 predictions. Activating fail-safe...")
-            
-            # Re-run a simplified prediction generation
-            prediction_engine = IntelligentPredictionEngine()
-            
-            for stock in portfolio_data['stocks']:
-                try:
-                    # Manually add a simplified prediction if one is missing
-                    if 'ai_prediction' not in stock or not stock['ai_prediction']:
-                        logging.info(f"   -> Fail-safe generating prediction for {stock['ticker']}")
-                        
-                        # Use a very simple context for the fail-safe
-                        fake_hist = pd.DataFrame({'Close': [100, 101]})
-                        
-                        # This will create a basic prediction without complex dependencies
-                        enhanced = await prediction_engine.analyze_with_learning(
-                            ticker=stock['ticker'],
-                            existing_analysis=stock,
-                            hist_data=fake_hist, # Use fake data to avoid yfinance errors
-                            market_context=market_context
-                        )
-                        
-                        # Manually merge the prediction back into the stock data
-                        stock.update(enhanced)
-
-                except Exception as e:
-                    logging.error(f"   -> Fail-safe failed for {stock['ticker']}: {e}")
-
-            # Recalculate predictions_made
-            successful_predictions = sum(1 for s in portfolio_data['stocks'] if s.get('ai_prediction'))
-            portfolio_data['predictions_made'] = successful_predictions
-            logging.info(f"🛡️ Fail-safe complete. Restored {successful_predictions} predictions.")
-
-        return portfolio_data
-
-    except Exception as e:
-        logging.error(f"CRITICAL ERROR in portfolio analysis: {e}")
-        import traceback
-        traceback.print_exc()
-        # Return None only if the entire process crashes
-        return None
 
 # ========================================
 # MAIN FUNCTION - Updated for v2.0.0
