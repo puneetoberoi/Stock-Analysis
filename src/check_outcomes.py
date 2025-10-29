@@ -405,20 +405,24 @@ async def run_learning_process():
         })
         
         # Pattern performance
-        if original_pred.get('candle_pattern'):
-            pattern = original_pred['candle_pattern']
-            if pattern not in pattern_performance:
-                pattern_performance[pattern] = {'correct': 0, 'total': 0}
-            pattern_performance[pattern]['total'] += 1
+        pattern_data = original_pred.get('candle_pattern')
+        if pattern_data:
+            # ✅ FIX: Ensure we use the pattern NAME (string) as the key
+            pattern_name = pattern_data if isinstance(pattern_data, str) else pattern_data.get('name', 'unknown_pattern')
+            
+            if pattern_name not in pattern_performance:
+                pattern_performance[pattern_name] = {'correct': 0, 'total': 0}
+            
+            pattern_performance[pattern_name]['total'] += 1
             if was_correct:
-                pattern_performance[pattern]['correct'] += 1
+                pattern_performance[pattern_name]['correct'] += 1
             
             # Update basic pattern analyzer
-            candle_analyzer.update_pattern_outcome(pattern, original_pred['ticker'], was_correct)
+            candle_analyzer.update_pattern_outcome(pattern_name, original_pred['ticker'], was_correct)
             
-            # 🆕 Update contextual pattern learner
+            # Update contextual pattern learner
             indicators = original_pred.get('indicators', {})
-            contextual_learner.update_combination(pattern, indicators, was_correct)
+            contextual_learner.update_combination(pattern_name, indicators, was_correct)
     
     # Save
     prediction_tracker._save_predictions()
