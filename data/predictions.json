@@ -4496,5 +4496,299 @@
     "price_at_prediction": 25.079999923706055,
     "outcome": null,
     "was_correct": null
+  },
+  "433d8bf3": {
+    "id": "433d8bf3",
+    "timestamp": "2025-10-29T16:13:55.729901",
+    "ticker": "TSLA",
+    "action": "HOLD",
+    "confidence": 85,
+    "reasoning": "groq: The current technicals and patterns for TSLA do not strongly indicate a clear buying or selling opportunity, with a relatively neutral RSI and low volume, alongside a low macro score. | cohere: TSLA's current technicals and patterns indicate a potential consolidation phase, and the negative macro score adds uncertainty.",
+    "llm_name": "groq",
+    "candle_pattern": "double_bottom",
+    "indicators": {
+      "rsi": 59.64640263682469,
+      "volume_ratio": 0.3185071824557884,
+      "macro_score": -3.021000000000001
+    },
+    "price_at_prediction": 458.239990234375,
+    "rsi": 59.64640263682469,
+    "volume_ratio": 0.3185071824557884,
+    "macro_score": -3.021000000000001,
+    "outcome": null,
+    "was_correct": null
+  },
+  "42cb0c96": {
+    "id": "42cb0c96",
+    "timestamp": "2025-10-29T16:13:55.816244",
+    "ticker": "AMD",
+    "action": "HOLD",
+    "confidence": 60,
+    "reasoning": "groq: The high RSI value of 73.9 and low volume indicate overbought conditions, suggesting a potential reversal, similar to past instances where AMD's stock price dropped after reaching similar technical levels. | cohere: AMD's RSI indicates overbought conditions, and the swing pattern suggests a potential consolidation phase, warranting a cautious approach.",
+    "llm_name": "groq",
+    "candle_pattern": "swing_highs_lows",
+    "indicators": {
+      "rsi": 73.87207499892291,
+      "volume_ratio": 0.5234745808605121,
+      "macro_score": -3.021000000000001
+    },
+    "price_at_prediction": 258.8500061035156,
+    "rsi": 73.87207499892291,
+    "volume_ratio": 0.5234745808605121,
+    "macro_score": -3.021000000000001,
+    "outcome": null,
+    "was_correct": null
+  },
+  "4ec698de": {
+    "id": "4ec698de",
+    "timestamp": "2025-10-29T16:13:55.832553",
+    "ticker": "NVDA",
+    "action": "HOLD",
+    "confidence": 65,
+    "reasoning": "groq: The high RSI value of 72.2 and a low macro score of -3 suggest a potential downturn, despite the presence of a double bottom pattern which has historically had a 19% success rate as a bullish reversal indicator. | cohere: NVDA's technical indicators suggest a potential overbought condition, and the macro score indicates a neutral outlook.",
+    "llm_name": "groq",
+    "candle_pattern": "double_bottom",
+    "indicators": {
+      "rsi": 72.1513999069473,
+      "volume_ratio": 0.8066566804497186,
+      "macro_score": -3.021000000000001
+    },
+    "price_at_prediction": 205.3000030517578,
+    "rsi": 72.1513999069473,
+    "volume_ratio": 0.8066566804497186,
+    "macro_score": -3.021000000000001,
+    "outcome": null,
+    "was_correct": null
+  },
+  "d7b1e92e": {
+    "id": "d7b1e92e",
+    "timestamp": "2025-10-29T16:13:55.872942",
+    "ticker": "GOOGL",
+    "action": "BUY",
+    "confidence": 60,
+    "reasoning": "groq: The stock's high RSI of 73.0 and low volume of 0.4x average, combined with a negative macro score, suggest a potential reversal of the uptrend. | cohere: GOOGL's RSI indicates overbought conditions, but the uptrend pattern and above-average volume suggest a potential continuation, providing a buying opportunity.",
+    "llm_name": "groq",
+    "candle_pattern": "swing_highs_lows",
+    "indicators": {
+      "rsi": 73.04954442775922,
+      "volume_ratio": 0.35378738290462547,
+      "macro_score": -3.021000000000001
+    },
+    "price_at_prediction": 271.79998779296875,
+    "rsi": 73.04954442775922,
+    "volume_ratio": 0.35378738290462547,
+    "macro_score": -3.021000000000001,
+    "outcome": null,
+    "was_correct": null
+  },
+  "5fed5a16": {
+    "id": "5fed5a16",
+    "timestamp": "2025-10-29T16:13:56.093191",
+    "ticker": "TD.TO",
+    "action": "HOLD",
+    "confidence": 70,
+    "reasoning": "groq: The stock's technicals and patterns, including a double bottom and swing highs lows, suggest potential for an uptrend, but the low volume and negative macro score warrant caution. | cohere: TD.TO's technical indicators suggest an uptrend with a potential double bottom reversal pattern, indicating a possible entry point.",
+    "llm_name": "groq",
+    "candle_pattern": "double_bottom",
+    "indicators": {
+      "rsi": 65.76016481351715,
+      "volume_ratio": 0.15822880577879345,
+      "macro_score": -3.021000000000001
+    },
+    "price_at_prediction": 114.3499984741211,
+    "rsi": 65.76016481351715,
+    "volume_ratio": 0.15822880577879345,
+    "macro_score": -3.021000000000001,
+    "outcome": null,
+    "was_correct": null
+  },
+  "9ec4db44": {
+    "id": "9ec4db44",
+    "timestamp": "2025-10-29T16:13:56.256562",
+    "ticker": "MSFT",
+    "action": "BUY",
+    "confidence": 95,
+    "reasoning": "groq: The presence of a double_bottom pattern, a bullish_reversal indicator with a 56% historical success rate, suggests a potential upward movement for MSFT. | cohere: MSFT's technical indicators suggest an upward trend, with a potential double-bottom pattern and above-average RSI, indicating a buying opportunity.",
+    "llm_name": "groq",
+    "candle_pattern": "double_bottom",
+    "indicators": {
+      "rsi": 69.13125553178516,
+      "volume_ratio": 0.5072886720084746,
+      "macro_score": -3.021000000000001
+    },
+    "price_at_prediction": 539.1900024414062,
+    "rsi": 69.13125553178516,
+    "volume_ratio": 0.5072886720084746,
+    "macro_score": -3.021000000000001,
+    "outcome": null,
+    "was_correct": null
+  },
+  "5fbaad8b": {
+    "id": "5fbaad8b",
+    "timestamp": "2025-10-29T16:13:56.323342",
+    "ticker": "CGL-C.TO",
+    "action": "SELL",
+    "confidence": 95,
+    "reasoning": "groq: The stock's technicals, including two consecutive bearish marubozu patterns with 100% success rate, indicate a strong downtrend, supporting a sell decision.",
+    "llm_name": "groq",
+    "candle_pattern": "bearish_marubozu",
+    "indicators": {
+      "rsi": 49.41975957374279,
+      "volume_ratio": 0.4777211037009249,
+      "macro_score": -3.021000000000001
+    },
+    "price_at_prediction": 46.43000030517578,
+    "rsi": 49.41975957374279,
+    "volume_ratio": 0.4777211037009249,
+    "macro_score": -3.021000000000001,
+    "outcome": null,
+    "was_correct": null
+  },
+  "d26e5196": {
+    "id": "d26e5196",
+    "timestamp": "2025-10-29T16:13:56.431080",
+    "ticker": "ETH",
+    "action": "HOLD",
+    "confidence": 90,
+    "reasoning": "groq: The current RSI of 45.2 and average volume suggest a neutral stance, while the macro score of -3 and lack of successful swing highs and lows pattern indicate caution, warranting a hold rather than a buy or sell.",
+    "llm_name": "groq",
+    "candle_pattern": "swing_highs_lows",
+    "indicators": {
+      "rsi": 45.206876607518915,
+      "volume_ratio": 0.6875113762828601,
+      "macro_score": -3.021000000000001
+    },
+    "price_at_prediction": 37.06999969482422,
+    "rsi": 45.206876607518915,
+    "volume_ratio": 0.6875113762828601,
+    "macro_score": -3.021000000000001,
+    "outcome": null,
+    "was_correct": null
+  },
+  "d59d3867": {
+    "id": "d59d3867",
+    "timestamp": "2025-10-29T16:13:56.437427",
+    "ticker": "SVR-C.TO",
+    "action": "SELL",
+    "confidence": 100,
+    "reasoning": "groq: The stock's technicals, including two consecutive bearish marubozu patterns with 100% success rate, indicate a strong downtrend, supporting a sell decision.",
+    "llm_name": "groq",
+    "candle_pattern": "bearish_marubozu",
+    "indicators": {
+      "rsi": 49.323311143244666,
+      "volume_ratio": 0.6879751102386777,
+      "macro_score": -3.021000000000001
+    },
+    "price_at_prediction": 25.079999923706055,
+    "rsi": 49.323311143244666,
+    "volume_ratio": 0.6879751102386777,
+    "macro_score": -3.021000000000001,
+    "outcome": null,
+    "was_correct": null
+  },
+  "277fc9ac": {
+    "id": "277fc9ac",
+    "timestamp": "2025-10-29T16:13:56.458101",
+    "ticker": "TSM",
+    "action": "HOLD",
+    "confidence": 95,
+    "reasoning": "groq: The indecisive doji pattern and low volume suggest caution, while the double bottom and swing highs lows patterns indicate potential for a bullish reversal, but the low success rates of these patterns and negative macro score warrant a hold. | cohere: Indecision indicated by the doji pattern and mixed technicals and patterns suggest a wait-and-see approach.",
+    "llm_name": "groq",
+    "candle_pattern": "doji",
+    "indicators": {
+      "rsi": 61.522698667019455,
+      "volume_ratio": 0.643422448201817,
+      "macro_score": -3.021000000000001
+    },
+    "price_at_prediction": 305.3500061035156,
+    "rsi": 61.522698667019455,
+    "volume_ratio": 0.643422448201817,
+    "macro_score": -3.021000000000001,
+    "outcome": null,
+    "was_correct": null
+  },
+  "3353ce41": {
+    "id": "3353ce41",
+    "timestamp": "2025-10-29T16:13:56.562551",
+    "ticker": "UHS",
+    "action": "BUY",
+    "confidence": 70,
+    "reasoning": "groq: The presence of multiple bullish reversal patterns, including a piercing line with a 100% success rate, suggests a potential upward trend, outweighing the moderately overbought RSI and negative macro score.",
+    "llm_name": "groq",
+    "candle_pattern": "bullish_engulfing",
+    "indicators": {
+      "rsi": 77.37948689542479,
+      "volume_ratio": 0.34073640689077805,
+      "macro_score": -3.021000000000001
+    },
+    "price_at_prediction": 225.2550048828125,
+    "rsi": 77.37948689542479,
+    "volume_ratio": 0.34073640689077805,
+    "macro_score": -3.021000000000001,
+    "outcome": null,
+    "was_correct": null
+  },
+  "93a1303a": {
+    "id": "93a1303a",
+    "timestamp": "2025-10-29T16:13:56.657775",
+    "ticker": "BTC",
+    "action": "SELL",
+    "confidence": 100,
+    "reasoning": "groq: The presence of multiple bearish continuation patterns, including three_black_crows and bearish_marubozu with 100% historical success rates, indicates a strong likelihood of further downward price movement. | cohere: The presence of multiple bearish patterns and low RSI indicate a high likelihood of continued downward momentum.",
+    "llm_name": "groq",
+    "candle_pattern": "three_black_crows",
+    "indicators": {
+      "rsi": 46.080159511711216,
+      "volume_ratio": 0.8292834004500383,
+      "macro_score": -3.021000000000001
+    },
+    "price_at_prediction": 49.130001068115234,
+    "rsi": 46.080159511711216,
+    "volume_ratio": 0.8292834004500383,
+    "macro_score": -3.021000000000001,
+    "outcome": null,
+    "was_correct": null
+  },
+  "8deb536e": {
+    "id": "8deb536e",
+    "timestamp": "2025-10-29T16:13:56.676788",
+    "ticker": "AMZN",
+    "action": "HOLD",
+    "confidence": 95,
+    "reasoning": "groq: The current technicals and patterns, including a doji indicating indecision and a double bottom with 0% success, suggest a cautious approach, especially given the low macro score of -3. | cohere: Indecision indicated by the doji pattern and low success rate of the double bottom pattern suggest a wait-and-see approach.",
+    "llm_name": "groq",
+    "candle_pattern": "doji",
+    "indicators": {
+      "rsi": 60.9843268033075,
+      "volume_ratio": 0.596360974885683,
+      "macro_score": -3.021000000000001
+    },
+    "price_at_prediction": 231.22999572753906,
+    "rsi": 60.9843268033075,
+    "volume_ratio": 0.596360974885683,
+    "macro_score": -3.021000000000001,
+    "outcome": null,
+    "was_correct": null
+  },
+  "2ba80499": {
+    "id": "2ba80499",
+    "timestamp": "2025-10-29T16:14:00.982894",
+    "ticker": "AAPL",
+    "action": "SELL",
+    "confidence": 85,
+    "reasoning": "groq: The presence of two bearish_engulfing patterns with a 50% success rate, combined with a negative MACRO score, suggests a potential reversal, warranting a sell action. | cohere: The presence of two bearish engulfing patterns and a weak RSI suggest a potential reversal, especially with low volume and a negative macro score.",
+    "llm_name": "groq",
+    "candle_pattern": "bearish_engulfing",
+    "indicators": {
+      "rsi": 68.65751755399167,
+      "volume_ratio": 0.37015482790694865,
+      "macro_score": -3.021000000000001
+    },
+    "price_at_prediction": 268.7099914550781,
+    "rsi": 68.65751755399167,
+    "volume_ratio": 0.37015482790694865,
+    "macro_score": -3.021000000000001,
+    "outcome": null,
+    "was_correct": null
   }
 }
