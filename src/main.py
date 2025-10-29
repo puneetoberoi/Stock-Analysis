@@ -2386,76 +2386,42 @@ Respond ONLY with: ACTION: [BUY/SELL/HOLD] CONFIDENCE: [0-100] REASON: [One sent
 # Wraps your existing portfolio analysis with predictions
 # ========================================
 
+# ============================================================
+# 🎯 REBUILT & VERIFIED - Portfolio Analyzer
+# ============================================================
 async def analyze_portfolio_with_predictions(session, portfolio_file='portfolio.json', market_context=None):
-    """
-    Enhanced portfolio analysis with predictions and market context
-    """
-    
     logging.info("=" * 60)
-    logging.info("🧠 ANALYZE WITH PREDICTIONS - START")
-    logging.info(f"Market context provided: {market_context is not None}")
+    logging.info("🧠 ANALYZE WITH PREDICTIONS (REBUILT) - START")
     
-    # Call v2.0 portfolio analysis (has Bollinger, ATR, etc.)
     original_portfolio_data = await analyze_portfolio_with_v2_features(session, portfolio_file)
-    
-    if not original_portfolio_data:
-        logging.warning("No portfolio data from v2 features")
-        return original_portfolio_data
+    if not original_portfolio_data or not original_portfolio_data.get('stocks'):
+        logging.warning("No portfolio data to analyze.")
+        return {'stocks': [], 'predictions_made': 0, 'learning_active': False}
     
     logging.info(f"Original portfolio has {len(original_portfolio_data.get('stocks', []))} stocks")
     
-    # Initialize prediction engine
     try:
         prediction_engine = IntelligentPredictionEngine()
-        logging.info(f"Prediction engine initialized. LLMs available: {list(prediction_engine.llm_clients.keys())}")
     except Exception as e:
-        logging.error(f"Failed to initialize prediction engine: {e}")
-        # Return original data without predictions
-        return {
-            **original_portfolio_data,
-            'learning_active': False,
-            'predictions_made': 0
-        }
+        logging.error(f"CRITICAL: Failed to initialize prediction engine: {e}")
+        return {**original_portfolio_data, 'learning_active': False, 'predictions_made': 0}
     
-    # Add predictions to each stock
     enhanced_stocks = []
-    successful_predictions = 0
-    
-    for stock in original_portfolio_data['stocks']:
-        try:
-            ticker = stock['ticker']
-            logging.info(f"🔍 Processing {ticker}...")
-            
-            yf_ticker = yf.Ticker(ticker)
-            hist = await asyncio.to_thread(yf_ticker.history, period="3mo", interval="1d")
-            
-            if hist.empty:
-                logging.warning(f"No history for {ticker}, skipping predictions")
-                enhanced_stocks.append(stock)
-                continue
-            
-            # Get enhanced analysis with market context
-            enhanced = await prediction_engine.analyze_with_learning(
-                ticker=ticker,
-                existing_analysis=stock,
-                hist_data=hist,
-                market_context=market_context
-            )
-            
-            # Verify prediction was added
-            if 'ai_prediction' in enhanced:
-                successful_predictions += 1
-                logging.info(f"✅ {ticker}: Prediction added - {enhanced['ai_prediction']['action']}")
-            else:
-                logging.warning(f"⚠️ {ticker}: No prediction generated")
-            
-            enhanced_stocks.append(enhanced)
-            
-        except Exception as e:
-            logging.error(f"Error enhancing {ticker}: {e}")
-            enhanced_stocks.append(stock)  # Keep original
-    
-    result = {
+    tasks = []
+
+    # Create a task for each stock analysis
+    for stock in original_portfolio_data.get('stocks', []):
+        tasks.append(
+            process_single_stock_for_prediction(stock, prediction_engine, market_context)
+        )
+
+    # Run all stock analyses concurrently
+    results = await asyncio.gather(*tasks)
+
+    successful_predictions = sum(1 for r in results if r.get('ai_prediction'))
+    enhanced_stocks = results # The results are the enhanced stock dicts
+
+    final_result = {
         **original_portfolio_data,
         'stocks': enhanced_stocks,
         'predictions_made': successful_predictions,
@@ -2466,7 +2432,40 @@ async def analyze_portfolio_with_predictions(session, portfolio_file='portfolio.
     logging.info(f"✅ PREDICTIONS COMPLETE: {successful_predictions}/{len(enhanced_stocks)} stocks")
     logging.info("=" * 60)
     
-    return result
+    return final_result
+
+async def process_single_stock_for_prediction(stock, prediction_engine, market_context):
+    """Helper function to process one stock in the portfolio analysis."""
+    try:
+        ticker = stock['ticker']
+        logging.info(f"🔍 Processing {ticker}...")
+        
+        # Use yfinance to get fresh historical data for analysis
+        yf_ticker = yf.Ticker(ticker)
+        hist = await asyncio.to_thread(yf_ticker.history, period="3mo", interval="1d")
+        
+        if hist.empty:
+            logging.warning(f"No history for {ticker}, skipping predictions.")
+            return stock # Return original stock data
+
+        # Call the engine's analysis method
+        enhanced = await prediction_engine.analyze_with_learning(
+            ticker=ticker, 
+            existing_analysis=stock, 
+            hist_data=hist, 
+            market_context=market_context
+        )
+        
+        if enhanced.get('ai_prediction'):
+            logging.info(f"✅ {ticker}: Prediction added - {enhanced['ai_prediction']['action']}")
+        else:
+            logging.warning(f"⚠️ {ticker}: No prediction generated by engine.")
+        
+        return enhanced
+        
+    except Exception as e:
+        logging.error(f"Error enhancing {stock.get('ticker', 'UNKNOWN')}: {e}", exc_info=True)
+        return stock # Return original stock data on error
 
 # ========================================
 # MAIN FUNCTION - Updated for v2.0.0
