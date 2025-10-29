@@ -2304,42 +2304,44 @@ Respond ONLY with: ACTION: [BUY/SELL/HOLD] CONFIDENCE: [0-100] REASON: [One sent
         logging.info(f"🔍[{ticker}] Received {len(predictions)} LLM predictions.")
         return predictions
 
-    async def _query_groq(self, prompt, ticker):
+        async def _query_groq(self, prompt, ticker):
         try:
-            async with self.throttler: # ✅ USE THE THROTTLER
-                # ✅ FIX: Llama 3.1 8B is the most stable free model
-                response = await asyncio.to_thread(
-                    self.llm_clients['groq'].chat.completions.create,
-                    model="llama-3.1-8b-instant", messages=[{"role": "user", "content": prompt}],
-                    temperature=0.2, max_tokens=100
-                )
-                return self._parse_llm_response(response.choices[0].message.content, 'groq')
+            # ✅ FIX: Using the absolute latest model for high-volume, free use.
+            response = await asyncio.to_thread(
+                self.llm_clients['groq'].chat.completions.create,
+                model="llama3-8b-8192", 
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.2, max_tokens=100
+            )
+            return self._parse_llm_response(response.choices[0].message.content, 'groq')
         except Exception as e:
             logging.warning(f"Groq query failed for {ticker}: {e}")
             return None
 
     async def _query_gemini(self, prompt, ticker):
         try:
-            async with self.throttler: # ✅ USE THE THROTTLER
-                # ✅ FIX: Using 'gemini-1.5-flash-latest' and safety settings
-                response = await self.llm_clients['gemini'].generate_content_async(
-                    prompt, generation_config={'temperature': 0.3, 'max_output_tokens': 100},
-                    safety_settings={'HARASSMENT': 'BLOCK_NONE', 'HATE_SPEECH': 'BLOCK_NONE', 'SEXUALLY_EXPLICIT': 'BLOCK_NONE', 'DANGEROUS_CONTENT': 'BLOCK_NONE'}
-                )
-                return self._parse_llm_response(response.text, 'gemini')
+            # ✅ FIX: Using the "latest" stable version and robust safety settings.
+            model = genai.GenerativeModel('gemini-1.5-flash-latest')
+            response = await model.generate_content_async(
+                prompt, 
+                generation_config={'temperature': 0.3, 'max_output_tokens': 100},
+                safety_settings={'HARASSMENT': 'BLOCK_NONE', 'HATE_SPEECH': 'BLOCK_NONE', 'SEXUALLY_EXPLICIT': 'BLOCK_NONE', 'DANGEROUS_CONTENT': 'BLOCK_NONE'}
+            )
+            return self._parse_llm_response(response.text, 'gemini')
         except Exception as e:
             logging.warning(f"Gemini query failed for {ticker}: {e}")
             return None
 
     async def _query_cohere(self, prompt, ticker):
         try:
-            async with self.throttler: # ✅ USE THE THROTTLER
-                # ✅ FIX: 'command-r' is the correct stable model
-                response = await asyncio.to_thread(
-                    self.llm_clients['cohere'].chat, message=prompt,
-                    model='command-r', temperature=0.3
-                )
-                return self._parse_llm_response(response.text, 'cohere')
+            # ✅ FIX: Using the latest stable model name from Cohere's documentation.
+            response = await asyncio.to_thread(
+                self.llm_clients['cohere'].chat, 
+                message=prompt,
+                model='command-r', 
+                temperature=0.3
+            )
+            return self._parse_llm_response(response.text, 'cohere')
         except Exception as e:
             logging.warning(f"Cohere query failed for {ticker}: {e}")
             return None
