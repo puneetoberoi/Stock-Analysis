@@ -2147,6 +2147,57 @@ def generate_learning_context(llm_name, ticker):
         logging.warning(f"Could not generate learning context for {llm_name} on {ticker}: {e}")
         return ""
 
+# ============================================================================
+# 🆕 MODULE 2C: LEARNING CONTEXT GENERATOR
+# ============================================================================
+def generate_learning_context(llm_name, ticker):
+    """
+    Generates a concise learning summary for an LLM prompt based on past performance.
+    """
+    try:
+        performance_file = Path('data/llm_performance.json')
+        predictions_file = Path('data/predictions.json')
+        
+        if not performance_file.exists() or not predictions_file.exists():
+            return ""
+
+        with open(performance_file, 'r') as f:
+            performance_data = json.load(f)
+        with open(predictions_file, 'r') as f:
+            prediction_history = json.load(f)
+
+        llm_stats = performance_data.get(llm_name)
+        if not llm_stats or llm_stats.get('total', 0) < 1: # Start learning after 1 prediction
+            return ""
+
+        context_lines = ["\n--- YOUR PAST PERFORMANCE & LESSONS ---"]
+        overall_acc = llm_stats.get('accuracy', 0)
+        context_lines.append(f"Your overall accuracy is {overall_acc:.1f}%.")
+        
+        recent_mistakes = []
+        for pred_id, pred in reversed(list(prediction_history.items())):
+            if len(recent_mistakes) >= 2: break
+            if (pred.get('llm_name') == llm_name and 
+                pred.get('ticker') == ticker and 
+                pred.get('was_correct') is False):
+                outcome_pct = pred.get('outcome', {}).get('price_change_pct', 0)
+                reason = (f"On {pred['timestamp'][:10]}, you predicted {pred['action']} but price moved {outcome_pct:+.1f}%. "
+                          f"Context: RSI {pred.get('rsi', 0):.0f}, Vol {pred.get('volume_ratio', 0):.1f}x.")
+                recent_mistakes.append(reason)
+        
+        if recent_mistakes:
+            context_lines.append("\nRecent Mistakes on this stock:")
+            for mistake in recent_mistakes:
+                context_lines.append(f"- {mistake}")
+
+        context_lines.append("\nApply these lessons. Explain how you are avoiding past mistakes.")
+        context_lines.append("-------------------------------------------\n")
+        
+        return "\n".join(context_lines)
+    except Exception as e:
+        logging.warning(f"Could not generate learning context: {e}")
+        return ""
+
 # ✅ COMPLETE FINAL CLASS - REPLACE YOUR EXISTING ONE
 class IntelligentPredictionEngine:
     """Multi-LLM consensus with confidence scoring"""
@@ -2196,36 +2247,6 @@ class IntelligentPredictionEngine:
             logging.error("❌ CRITICAL: No LLM clients available. System is operating in rule-based mode only.")
         else:
             logging.info(f"✅ LLM clients loaded: {list(self.llm_clients.keys())}")
-            
-            
-    async def analyze_with_learning(self, ticker, existing_analysis, hist_data, market_context=None):
-    # Get patterns from BOTH analyzers
-        candle_patterns = self.candle_analyzer.identify_pattern(hist_data)  # Basic patterns (18)
-        
-        # 🆕 Add enhanced patterns (30+ advanced patterns)
-        if ENHANCED_PATTERNS_ENABLED and enhanced_pattern_detector:
-            try:
-                enhanced_patterns = enhanced_pattern_detector.detect_all_patterns(hist_data)
-                
-                # Convert enhanced pattern format to match existing format
-                for ep in enhanced_patterns:
-                    candle_patterns.append({
-                        'name': ep['name'],
-                        'type': ep['type'],
-                        'strength': 'very_strong' if ep['strength'] >= 90 else 'strong' if ep['strength'] >= 80 else 'medium',
-                        'description': ep['description'],
-                        'enhanced': True,  # Mark as enhanced pattern
-                        'strength_score': ep['strength']  # Keep original score
-                    })
-                
-                # Log the strongest pattern from enhanced detector
-                if enhanced_patterns:
-                    strongest = enhanced_patterns[0]  # Already sorted by strength
-                    emoji = "🟢" if strongest['signal'] == 'BUY' else "🔴" if strongest['signal'] == 'SELL' else "⚪"
-                    logging.info(f"   🕯️ Enhanced: {strongest['name']} {emoji} ({strongest['signal']}, {strongest['strength']}%)")
-            
-            except Exception as e:
-                logging.debug(f"Enhanced pattern detection error for {ticker}: {e}")
     
         # Rest of your existing code stays the same
         pattern_success_rates = {p['name']: self.candle_analyzer.get_pattern_success_rate(p['name'], ticker) for p in candle_patterns}
@@ -2261,31 +2282,28 @@ class IntelligentPredictionEngine:
 
         async def _get_multi_llm_consensus(self, ticker, existing_analysis, candle_patterns, pattern_success_rates, market_context):
             logging.info(f"🔍[{ticker}] Getting LLM consensus with LEARNING CONTEXT...")
-        
-        pattern_text = "\n".join([f"- {p['name']} ({p['type']}, {pattern_success_rates.get(p['name'], 50):.0f}% success)" for p in candle_patterns[:3]]) if candle_patterns else "No clear patterns."
-        
-        base_prompt = f"""
---- CURRENT DATA ---
-Analyze {ticker}.
-TECHNICALS: RSI: {existing_analysis.get('rsi', 50):.1f}, Volume: {existing_analysis.get('volume_ratio', 1.0):.1f}x avg.
-PATTERNS: {pattern_text}
-MACRO: Score {market_context.get('overall_macro_score', 0):.0f}.
---- YOUR TASK ---
-Respond ONLY with: ACTION: [BUY/SELL/HOLD] CONFIDENCE: [0-100] REASON: [One sentence. Reference your past performance if it influences your decision.]"""
-
-        tasks, llm_names = [], []
-        
-        for name, client in self.llm_clients.items():
-            # 🆕 Generate specific learning context for each LLM
-            learning_context = generate_learning_context(name, ticker)
             
-            # 🆕 Prepend learning context to the prompt
+            pattern_text = "\n".join([f"- {p['name']} ({p['type']}, {pattern_success_rates.get(p['name'], 50):.0f}% success)" for p in candle_patterns[:3]]) if candle_patterns else "No clear patterns."
+            
+            base_prompt = f"""
+    --- CURRENT DATA ---
+    Analyze {ticker}.
+    TECHNICALS: RSI: {existing_analysis.get('rsi', 50):.1f}, Volume: {existing_analysis.get('volume_ratio', 1.0):.1f}x avg.
+    PATTERNS: {pattern_text}
+    MACRO: Score {market_context.get('overall_macro_score', 0):.0f}.
+    --- YOUR TASK ---
+    Respond ONLY with: ACTION: [BUY/SELL/HOLD] CONFIDENCE: [0-100] REASON: [One sentence. Reference your past performance if it influences your decision.]"""
+
+        tasks = []
+        llm_names = list(self.llm_clients.keys()) # Get names before creating tasks
+        
+        for name in llm_names:
+            learning_context = generate_learning_context(name, ticker)
             enhanced_prompt = learning_context + base_prompt
             
             if name == 'groq': tasks.append(self._query_groq(enhanced_prompt, ticker))
             elif name == 'gemini': tasks.append(self._query_gemini(enhanced_prompt, ticker))
             elif name == 'cohere': tasks.append(self._query_cohere(enhanced_prompt, ticker))
-            llm_names.append(name)
         
         results = await asyncio.gather(*tasks, return_exceptions=True)
         
@@ -2456,43 +2474,6 @@ async def analyze_portfolio_with_predictions(session, portfolio_file='portfolio.
     logging.info("=" * 60)
     
     return result
-
-
-# ========================================
-# 🔄 OUTCOME CHECKER - Runs in evening
-# ========================================
-
-async def check_prediction_outcomes():
-    """
-    This runs in the evening to check how our predictions did
-    Standalone function - doesn't modify existing code
-    """
-    logging.info("🔍 Checking prediction outcomes...")
-    
-    # Check outcomes from yesterday
-    results = prediction_tracker.check_outcomes(days_to_check=1)
-    
-    # Update pattern success rates based on outcomes
-    for pred_id, pred in prediction_tracker.predictions.items():
-        if pred.get('was_correct') is not None and pred.get('candle_pattern'):
-            candle_analyzer.update_pattern_outcome(
-                pattern=pred['candle_pattern'],
-                ticker=pred['ticker'],
-                was_successful=pred['was_correct']
-            )
-    
-    # Generate learning insights
-    if results['checked'] > 0:
-        accuracy = (results['correct'] / results['checked']) * 100
-        insight = f"Today's accuracy: {accuracy:.1f}% ({results['correct']}/{results['checked']} correct)"
-        learning_memory.add_insight(insight)
-        
-        # Update LLM accuracy if we tracked which LLM made predictions
-        # This will be implemented in next iteration
-    
-    logging.info(f"✅ Checked {results['checked']} predictions: {results['correct']} correct, {results['wrong']} wrong")
-    
-    return results
 
 # ========================================
 # MAIN FUNCTION - Updated for v2.0.0
