@@ -2084,8 +2084,69 @@ class ConfidenceScorer:
             'action_advice': action_advice
         }
 
+# ============================================================================
+# 🆕 MODULE 2C: LEARNING CONTEXT GENERATOR
+# ============================================================================
+def generate_learning_context(llm_name, ticker):
+    """
+    Generates a concise learning summary for an LLM prompt based on past performance.
+    """
+    try:
+        performance_file = Path('data/llm_performance.json')
+        predictions_file = Path('data/predictions.json')
+        
+        if not performance_file.exists() or not predictions_file.exists():
+            return ""
 
-# ✅ COMPLETE FIXED CLASS - REPLACE YOUR EXISTING ONE
+        with open(performance_file, 'r') as f:
+            performance_data = json.load(f)
+        with open(predictions_file, 'r') as f:
+            prediction_history = json.load(f)
+
+        llm_stats = performance_data.get(llm_name)
+        if not llm_stats or llm_stats.get('total', 0) < 2:
+            return "" # Not enough data to generate meaningful context
+
+        context_lines = ["\n--- YOUR PAST PERFORMANCE & LESSONS ---"]
+
+        # 1. Overall and Ticker-Specific Accuracy
+        overall_acc = llm_stats.get('accuracy', 0)
+        ticker_stats = llm_stats.get('by_ticker', {}).get(ticker, {})
+        ticker_acc = ticker_stats.get('accuracy', -1) if ticker_stats else -1
+
+        context_lines.append(f"Your overall accuracy is {overall_acc:.1f}%.")
+        if ticker_acc != -1:
+            context_lines.append(f"On {ticker}, your accuracy is {ticker_acc:.1f}%.")
+            if ticker_acc < 50:
+                context_lines.append(f"CAUTION: You are historically not good at predicting {ticker}.")
+
+        # 2. Find recent mistakes on this specific ticker
+        recent_mistakes = []
+        for pred_id, pred in reversed(list(prediction_history.items())):
+            if len(recent_mistakes) >= 2: break
+            if (pred.get('llm_name') == llm_name and 
+                pred.get('ticker') == ticker and 
+                pred.get('was_correct') is False):
+                outcome_pct = pred.get('outcome', {}).get('price_change_pct', 0)
+                reason = (f"On {pred['timestamp'][:10]}, you predicted {pred['action']} "
+                          f"but the price moved {outcome_pct:+.1f}%. Context was RSI {pred.get('rsi', 0):.0f}, "
+                          f"Volume {pred.get('volume_ratio', 0):.1f}x.")
+                recent_mistakes.append(reason)
+        
+        if recent_mistakes:
+            context_lines.append("\nRecent Mistakes on this stock to learn from:")
+            for i, mistake in enumerate(recent_mistakes, 1):
+                context_lines.append(f"{i}. {mistake}")
+
+        context_lines.append("\nApply these lessons. Explain how you are avoiding past mistakes.")
+        context_lines.append("-------------------------------------------\n")
+        
+        return "\n".join(context_lines)
+
+    except Exception as e:
+        logging.warning(f"Could not generate learning context for {llm_name} on {ticker}: {e}")
+        return ""
+
 # ✅ COMPLETE FINAL CLASS - REPLACE YOUR EXISTING ONE
 class IntelligentPredictionEngine:
     """Multi-LLM consensus with confidence scoring"""
@@ -2198,40 +2259,39 @@ class IntelligentPredictionEngine:
         
         return {**existing_analysis, 'candle_patterns': candle_patterns, 'pattern_success_rates': pattern_success_rates, 'llm_predictions': llm_predictions, 'confidence': confidence_result, 'ai_prediction': final_prediction, 'learning_insights': self.learning_memory.get_recent_insights(3)}
 
-    async def _get_multi_llm_consensus(self, ticker, existing_analysis, candle_patterns, pattern_success_rates, market_context):
-        logging.info(f"🔍[{ticker}] Getting LLM consensus. Available models: {list(self.llm_clients.keys())}")
-        pattern_text = "\n".join([f"{p['name']} ({p['type']}, {pattern_success_rates.get(p['name'], 50):.0f}% historical success)" for p in candle_patterns[:3]]) if candle_patterns else "No clear patterns identified"
-        context = f"""Analyze {ticker} and provide BUY/HOLD/SELL recommendation.
-TECHNICAL DATA:
-- Score: {existing_analysis.get('score', 'N/A')}/100
-- RSI: {existing_analysis.get('rsi', 'N/A')}
-- Volume: {existing_analysis.get('volume_ratio', 1.0):.1f}x average
-CANDLESTICK PATTERNS (Today):
-{pattern_text}
-MARKET CONTEXT:
-{f"Macro Score: {market_context.get('overall_macro_score', 0):.0f}" if market_context else "Not available"}
-Respond with ONLY:
-ACTION: [BUY/HOLD/SELL]
-CONFIDENCE: [0-100]
-REASON: [One sentence]"""
+        async def _get_multi_llm_consensus(self, ticker, existing_analysis, candle_patterns, pattern_success_rates, market_context):
+        logging.info(f"🔍[{ticker}] Getting LLM consensus with LEARNING CONTEXT...")
         
+        pattern_text = "\n".join([f"- {p['name']} ({p['type']}, {pattern_success_rates.get(p['name'], 50):.0f}% success)" for p in candle_patterns[:3]]) if candle_patterns else "No clear patterns."
+        
+        base_prompt = f"""
+--- CURRENT DATA ---
+Analyze {ticker}.
+TECHNICALS: RSI: {existing_analysis.get('rsi', 50):.1f}, Volume: {existing_analysis.get('volume_ratio', 1.0):.1f}x avg.
+PATTERNS: {pattern_text}
+MACRO: Score {market_context.get('overall_macro_score', 0):.0f}.
+--- YOUR TASK ---
+Respond ONLY with: ACTION: [BUY/SELL/HOLD] CONFIDENCE: [0-100] REASON: [One sentence. Reference your past performance if it influences your decision.]"""
+
         tasks, llm_names = [], []
-        if 'groq' in self.llm_clients:
-            tasks.append(self._query_groq(context, ticker))
-            llm_names.append('groq')
-        if 'gemini' in self.llm_clients:
-            tasks.append(self._query_gemini(context, ticker))
-            llm_names.append('gemini')
-        if 'cohere' in self.llm_clients:
-            tasks.append(self._query_cohere(context, ticker))
-            llm_names.append('cohere')
+        
+        for name, client in self.llm_clients.items():
+            # 🆕 Generate specific learning context for each LLM
+            learning_context = generate_learning_context(name, ticker)
+            
+            # 🆕 Prepend learning context to the prompt
+            enhanced_prompt = learning_context + base_prompt
+            
+            if name == 'groq': tasks.append(self._query_groq(enhanced_prompt, ticker))
+            elif name == 'gemini': tasks.append(self._query_gemini(enhanced_prompt, ticker))
+            elif name == 'cohere': tasks.append(self._query_cohere(enhanced_prompt, ticker))
+            llm_names.append(name)
+        
+        results = await asyncio.gather(*tasks, return_exceptions=True)
         
         predictions = {}
-        if tasks:
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-            for llm_name, result in zip(llm_names, results):
-                if not isinstance(result, Exception) and result:
-                    predictions[llm_name] = result
+        for name, result in zip(llm_names, results):
+            if not isinstance(result, Exception) and result: predictions[name] = result
         
         logging.info(f"🔍[{ticker}] Received {len(predictions)} LLM predictions.")
         return predictions
