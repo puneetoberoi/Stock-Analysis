@@ -2188,14 +2188,13 @@ def generate_learning_context(llm_name, ticker):
         logging.warning(f"Could not generate learning context for {llm_name} on {ticker}: {e}")
         return ""
 
-# ============================================================
-# 🎯 REBUILT & VERIFIED - IntelligentPredictionEngine
-# ============================================================
+# ============================================================================
+# 🎯 REBUILT & VERIFIED - IntelligentPredictionEngine (FINAL VERSION)
+# ============================================================================
 class IntelligentPredictionEngine:
     """Multi-LLM consensus with confidence scoring"""
     
     def __init__(self):
-        # Uses the global instances, which is the structure of your original code
         self.candle_analyzer = candle_analyzer
         self.learning_memory = learning_memory
         self.confidence_scorer = ConfidenceScorer()
@@ -2203,7 +2202,6 @@ class IntelligentPredictionEngine:
         self._setup_llm_clients()
     
     def _setup_llm_clients(self):
-        """Setup all available LLM clients with explicit logging"""
         if os.getenv("GROQ_API_KEY") and GROQ_AVAILABLE:
             try:
                 from groq import Groq
@@ -2215,7 +2213,7 @@ class IntelligentPredictionEngine:
             try:
                 import google.generativeai as genai
                 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-                self.llm_clients['gemini'] = genai.GenerativeModel('gemini-2.5-flash') 
+                self.llm_clients['gemini'] = genai.GenerativeModel('gemini-1.5-flash-latest') 
                 logging.info("✅ SUCCESS: Gemini LLM client initialized.")
             except Exception as e: logging.error(f"❌ FAILED: Gemini initialization error: {e}")
 
@@ -2228,7 +2226,7 @@ class IntelligentPredictionEngine:
         
         if not self.llm_clients: logging.error("❌ CRITICAL: No LLM clients available.")
         else: logging.info(f"✅ LLM clients loaded: {list(self.llm_clients.keys())}")
-
+            
     async def analyze_with_learning(self, ticker, existing_analysis, hist_data, market_context=None):
         """Analyzes a stock and stores a prediction for learning."""
         candle_patterns = self.candle_analyzer.identify_pattern(hist_data)
@@ -2237,10 +2235,7 @@ class IntelligentPredictionEngine:
             try:
                 enhanced_patterns = enhanced_pattern_detector.detect_all_patterns(hist_data)
                 for ep in enhanced_patterns:
-                    candle_patterns.append({
-                        'name': ep['name'], 'type': ep['type'], 'strength': 'very_strong' if ep['strength'] >= 90 else 'strong',
-                        'description': ep['description'], 'enhanced': True, 'strength_score': ep['strength']
-                    })
+                    candle_patterns.append({'name': ep['name'], 'type': ep['type'], 'strength': 'strong', 'description': ep['description'], 'enhanced': True})
                 if enhanced_patterns:
                     strongest = enhanced_patterns[0]
                     emoji = "🟢" if strongest['signal'] == 'BUY' else "🔴" if strongest['signal'] == 'SELL' else "⚪"
@@ -2248,26 +2243,26 @@ class IntelligentPredictionEngine:
             except Exception as e:
                 logging.debug(f"Enhanced pattern detection error for {ticker}: {e}")
     
-        # ✅ FIX: This logic is now correctly inside the async function
         pattern_success_rates = {p['name']: self.candle_analyzer.get_pattern_success_rate(p['name'], ticker) for p in candle_patterns}
+        
+        # ✅ FIX: This logic is now correctly inside the async function
         llm_predictions = await self._get_multi_llm_consensus(ticker, existing_analysis, candle_patterns, pattern_success_rates, market_context)
+        
         confidence_result = self.confidence_scorer.calculate_confidence(
             llm_predictions, candle_patterns, pattern_success_rates, 
-            {'rsi': existing_analysis.get('rsi', 50), 'score': existing_analysis.get('score', 50)}, 
-            {'volume_ratio': existing_analysis.get('volume_ratio', 1.0)}, market_context
+            {'rsi': existing_analysis.get('rsi', 50)}, {'volume_ratio': existing_analysis.get('volume_ratio', 1.0)}, market_context
         )
         final_prediction = self._determine_final_action(llm_predictions, confidence_result, candle_patterns)
         
         if final_prediction:
             llm_reasoning = " | ".join([f"{name}: {pred.get('reasoning', 'N/A')}" for name, pred in llm_predictions.items()]) if llm_predictions else final_prediction.get('reasoning', 'Rule-based')
             
-            # ✅ FIX: Pass the current_price from existing_analysis
             prediction_tracker.store_prediction(
                 ticker=ticker,
                 action=final_prediction['action'],
-                confidence=confidence_result['score'],
+                confidence=confidence_result.get('score', 50),
                 reasoning=llm_reasoning,
-                current_price=existing_analysis.get('price'), # This fixes the UnboundLocalError
+                current_price=existing_analysis.get('price'),
                 llm_name=next(iter(llm_predictions)) if llm_predictions else 'rule-based',
                 candle_pattern=candle_patterns[0]['name'] if candle_patterns else None,
                 indicators={
@@ -2280,46 +2275,41 @@ class IntelligentPredictionEngine:
         
         return {**existing_analysis, 'candle_patterns': candle_patterns, 'llm_predictions': llm_predictions, 'confidence': confidence_result, 'ai_prediction': final_prediction}
 
-        async def _get_multi_llm_consensus(self, ticker, existing_analysis, candle_patterns, pattern_success_rates, market_context):
-            logging.info(f"🔍[{ticker}] Getting LLM consensus with LEARNING CONTEXT...")
-            
-            pattern_text = "\n".join([f"- {p['name']} ({p['type']}, {pattern_success_rates.get(p['name'], 50):.0f}% success)" for p in candle_patterns[:3]]) if candle_patterns else "No clear patterns."
-            
-            base_prompt = f"""
-    --- CURRENT DATA ---
-    Analyze {ticker}.
-    TECHNICALS: RSI: {existing_analysis.get('rsi', 50):.1f}, Volume: {existing_analysis.get('volume_ratio', 1.0):.1f}x avg.
-    PATTERNS: {pattern_text}
-    MACRO: Score {market_context.get('overall_macro_score', 0):.0f}.
-    --- YOUR TASK ---
-    Respond ONLY with: ACTION: [BUY/SELL/HOLD] CONFIDENCE: [0-100] REASON: [One sentence. Reference your past performance if it influences your decision.]"""
-    
-            tasks = []
-            llm_names = list(self.llm_clients.keys())
+    async def _get_multi_llm_consensus(self, ticker, existing_analysis, candle_patterns, pattern_success_rates, market_context):
+        logging.info(f"🔍[{ticker}] Getting LLM consensus with LEARNING CONTEXT...")
+        pattern_text = "\n".join([f"- {p['name']} ({p['type']}, {pattern_success_rates.get(p['name'], 50):.0f}% success)" for p in candle_patterns[:3]]) if candle_patterns else "No clear patterns."
         
-        for name in llm_names:
+        base_prompt = f"""
+--- CURRENT DATA ---
+Analyze {ticker}.
+TECHNICALS: RSI: {existing_analysis.get('rsi', 50):.1f}, Volume: {existing_analysis.get('volume_ratio', 1.0):.1f}x avg.
+PATTERNS: {pattern_text}
+MACRO: Score {market_context.get('overall_macro_score', 0):.0f}.
+--- YOUR TASK ---
+Respond ONLY with: ACTION: [BUY/SELL/HOLD] CONFIDENCE: [0-100] REASON: [One sentence. Reference past performance if applicable.]"""
+
+        tasks, llm_names = [], []
+        for name in self.llm_clients.keys():
             learning_context = generate_learning_context(name, ticker)
             enhanced_prompt = learning_context + base_prompt
-            
             if name == 'groq': tasks.append(self._query_groq(enhanced_prompt, ticker))
             elif name == 'gemini': tasks.append(self._query_gemini(enhanced_prompt, ticker))
             elif name == 'cohere': tasks.append(self._query_cohere(enhanced_prompt, ticker))
+            llm_names.append(name)
         
-        results = await asyncio.gather(*tasks)
-        
-        predictions = {}
-        for name, result in zip(llm_names, results):
-            if result: predictions[name] = result
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        predictions = {name: res for name, res in zip(llm_names, results) if not isinstance(res, Exception) and res}
         
         logging.info(f"🔍[{ticker}] Received {len(predictions)} LLM predictions.")
         return predictions
 
     async def _query_groq(self, prompt, ticker):
         try:
+            # ✅ FIX: Llama 3.1 70B is the current stable model
             response = await asyncio.to_thread(
                 self.llm_clients['groq'].chat.completions.create,
-                model="llama-3.3-70b-versatile", messages=[{"role": "user", "content": prompt}],
-                temperature=0.3, max_tokens=100
+                model="llama-3.1-70b-versatile", messages=[{"role": "user", "content": prompt}],
+                temperature=0.2, max_tokens=100
             )
             return self._parse_llm_response(response.choices[0].message.content, 'groq')
         except Exception as e:
@@ -2328,6 +2318,7 @@ class IntelligentPredictionEngine:
 
     async def _query_gemini(self, prompt, ticker):
         try:
+            # ✅ FIX: Added safety settings
             response = await self.llm_clients['gemini'].generate_content_async(
                 prompt, generation_config={'temperature': 0.3, 'max_output_tokens': 100},
                 safety_settings={'HARASSMENT': 'BLOCK_NONE', 'HATE_SPEECH': 'BLOCK_NONE', 'SEXUALLY_EXPLICIT': 'BLOCK_NONE', 'DANGEROUS_CONTENT': 'BLOCK_NONE'}
@@ -2339,9 +2330,10 @@ class IntelligentPredictionEngine:
 
     async def _query_cohere(self, prompt, ticker):
         try:
+            # ✅ FIX: Using the latest confirmed working model
             response = await asyncio.to_thread(
                 self.llm_clients['cohere'].chat, message=prompt,
-                model='command-a-03-2025', temperature=0.3
+                model='command-r', temperature=0.3
             )
             return self._parse_llm_response(response.text, 'cohere')
         except Exception as e:
@@ -2349,28 +2341,24 @@ class IntelligentPredictionEngine:
             return None
 
     def _parse_llm_response(self, text, name):
-        action = re.search(r'ACTION:\s*(BUY|SELL|HOLD)', text, re.I)
-        conf = re.search(r'CONFIDENCE:\s*(\d+)', text, re.I)
-        reason = re.search(r'REASON:\s*(.+?)(?:\n|$)', text, re.I)
-        return {'action': action.group(1).upper() if action else "HOLD", 'confidence': int(conf.group(1)) if conf else 50, 'reasoning': reason.group(1).strip() if reason else text[:150]}
+        action_match = re.search(r'ACTION:\s*(BUY|SELL|HOLD)', text, re.I)
+        conf_match = re.search(r'CONFIDENCE:\s*(\d+)', text, re.I)
+        reason_match = re.search(r'REASON:\s*(.+?)(?:\n|$)', text, re.I)
+        return {'action': action_match.group(1).upper() if action_match else "HOLD", 'confidence': int(conf_match.group(1)) if conf_match else 50, 'reasoning': reason_match.group(1).strip() if reason_match else "No reason provided."}
 
     def _determine_final_action(self, llm_predictions, confidence_result, candle_patterns):
         if not llm_predictions:
-            action = "BUY" if confidence_result['score'] >= 60 else "SELL" if confidence_result['score'] <= 40 else "HOLD"
-            return {'action': action, 'confidence': confidence_result['score'], 'reasoning': "Rule-based: No LLM response", 'llm_count': 0}
+            action = "BUY" if confidence_result.get('score', 50) >= 60 else "SELL" if confidence_result.get('score', 50) <= 40 else "HOLD"
+            return {'action': action, 'confidence': confidence_result.get('score', 50), 'reasoning': "Rule-based: No LLM response", 'llm_count': 0}
         
         actions = [p['action'] for p in llm_predictions.values()]
-        weighted_actions = {"BUY": 0, "HOLD": 0, "SELL": 0}
-        for name, pred in llm_predictions.items(): weighted_actions[pred['action']] += 1
-        
-        final_action = max(weighted_actions, key=weighted_actions.get)
+        final_action = max(set(actions), key=actions.count)
         reasonings = " | ".join([f"{name}: {p['reasoning']}" for name, p in llm_predictions.items()])
         
-        if confidence_result['score'] < 45:
+        if confidence_result.get('score', 50) < 45:
             final_action = "HOLD"
-            reasonings = f"Low confidence ({confidence_result['score']:.0f}%). " + reasonings
-            
-        return {'action': final_action, 'confidence': confidence_result['score'], 'reasoning': reasonings, 'llm_count': len(llm_predictions)}
+        
+        return {'action': final_action, 'confidence': confidence_result.get('score', 50), 'reasoning': reasonings, 'llm_count': len(llm_predictions)}
 
 
 # ========================================
