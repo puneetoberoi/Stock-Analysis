@@ -2526,7 +2526,95 @@ async def main(output="print"):
     
     logging.info("✅ Analysis complete with v2.0.0 features.")
 
+# ============================================================================
+# 🆕 MODULE 1: TODAY'S TRADING WATCHLIST (NEW FUNCTIONS)
+# ============================================================================
 
+def calculate_key_levels(ticker, hist_data):
+    """Calculates support & resistance for a given history DataFrame."""
+    try:
+        if hist_data.empty or len(hist_data) < 20:
+            return {'support': 0, 'resistance': 0, 'error': 'Insufficient data'}
+        
+        current_price = hist_data['Close'].iloc[-1]
+        support_20d = hist_data['Low'].tail(20).min()
+        resistance_20d = hist_data['High'].tail(20).max()
+        
+        return {
+            'current': float(current_price),
+            'support': float(support_20d),
+            'resistance': float(resistance_20d)
+        }
+    except Exception as e:
+        logging.error(f"Error calculating levels for {ticker}: {e}")
+        return {'support': 0, 'resistance': 0, 'error': str(e)}
+
+async def generate_today_watchlist(portfolio_data, macro_data):
+    """Generates a comprehensive watchlist for the upcoming trading day."""
+    logging.info("📋 Generating Today's Watchlist...")
+    watchlist = {
+        'squeeze_breakouts': [],
+        'rsi_extremes': [],
+        'key_level_alerts': [],
+        'earnings_this_week': [],
+        'macro_alerts': []
+    }
+    
+    if not portfolio_data or not portfolio_data.get('stocks'):
+        logging.warning("No portfolio data to generate watchlist.")
+        return watchlist
+
+    for stock in portfolio_data['stocks']:
+        ticker = stock['ticker']
+        
+        # 1. Bollinger Squeeze
+        if stock.get('bollinger', {}).get('squeeze'):
+            bb = stock['bollinger']
+            watchlist['squeeze_breakouts'].append({
+                'ticker': ticker, 'name': stock.get('name', ticker),
+                'squeeze_width': bb['width'], 'bullish_break': bb['upper'],
+                'bearish_break': bb['lower'], 'current_price': stock['price']
+            })
+
+        # 2. RSI Extremes
+        rsi = stock.get('rsi', 50)
+        if rsi > 70 or rsi < 30:
+            watchlist['rsi_extremes'].append({
+                'ticker': ticker, 'name': stock.get('name', ticker),
+                'rsi': rsi, 'type': 'OVERBOUGHT' if rsi > 70 else 'OVERSOLD'
+            })
+            
+        # 3. Key Levels
+        try:
+            hist = await asyncio.to_thread(yf.Ticker(ticker).history, period="3mo")
+            levels = calculate_key_levels(ticker, hist)
+            if 'error' not in levels:
+                dist_to_support = ((levels['current'] - levels['support']) / levels['current']) * 100
+                dist_to_resistance = ((levels['resistance'] - levels['current']) / levels['current']) * 100
+                if dist_to_support < 2.0:
+                    watchlist['key_level_alerts'].append({'ticker': ticker, 'type': 'AT SUPPORT', 'level': levels['support']})
+                if dist_to_resistance < 2.0:
+                     watchlist['key_level_alerts'].append({'ticker': ticker, 'type': 'AT RESISTANCE', 'level': levels['resistance']})
+        except Exception as e:
+            logging.warning(f"Could not fetch history for {ticker} key levels: {e}")
+
+
+        # 4. Earnings this week
+        if stock.get('earnings') and stock['earnings'].get('days_until', 99) <= 7:
+            watchlist['earnings_this_week'].append({
+                'ticker': ticker, 'name': stock.get('name', ticker),
+                'days_until': stock['earnings']['days_until']
+            })
+
+    # 5. Macro Alerts
+    if macro_data:
+        if macro_data.get('overall_macro_score', 0) < -15:
+            watchlist['macro_alerts'].append({'severity': 'HIGH', 'message': f"Extreme caution advised: Macro Score is very low ({macro_data['overall_macro_score']:.1f})"})
+        if macro_data.get('geopolitical_risk', 0) > 70:
+            watchlist['macro_alerts'].append({'severity': 'HIGH', 'message': f"Elevated Geopolitical Risk ({macro_data['geopolitical_risk']:.0f}/100)"})
+
+    logging.info("✅ Watchlist data generated.")
+    return watchlist
 
 # ========================================
 # EMAIL GENERATION - Updated for v2.0.0
