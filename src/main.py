@@ -2326,7 +2326,7 @@ Respond ONLY with: ACTION: [BUY/SELL/HOLD] CONFIDENCE: [0-100] REASON: [One sent
         try:
             response = await asyncio.to_thread(
                 self.llm_clients['groq'].chat.completions.create,
-                model="llama3-8b-8192", messages=[{"role": "user", "content": prompt}],
+                model="llama-3.3-70b-versatile", messages=[{"role": "user", "content": prompt}],
                 temperature=0.3, max_tokens=100
             )
             return self._parse_llm_response(response.choices[0].message.content, 'groq')
