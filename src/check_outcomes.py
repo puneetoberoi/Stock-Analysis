@@ -19,10 +19,25 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 # ============================================
 TEST_MODE = False  # Set to False for production
 
-# --- Import Components ---
+# --- Import and Initialize Components ---
 try:
-    from main import prediction_tracker, candle_analyzer, learning_memory, yf
+    # This imports the classes and the global instances
+    from main import (
+        PredictionTracker, CandlePatternAnalyzer, LearningMemory, yf,
+        prediction_tracker, candle_analyzer, learning_memory
+    )
+    # This ensures that even if the script runs standalone, the objects exist
+    if 'prediction_tracker' not in globals():
+        prediction_tracker = PredictionTracker()
+    if 'candle_analyzer' not in globals():
+        candle_analyzer = CandlePatternAnalyzer()
+    if 'learning_memory' not in globals():
+        learning_memory = LearningMemory()
+    
+    logging.info("✅ Successfully imported and initialized components from main.py")
 except ImportError as e:
+    logging.critical(f"Failed to import components from main.py: {e}")
+    sys.exit(1)
     logging.critical(f"Failed to import components from main.py: {e}")
     sys.exit(1)
 
