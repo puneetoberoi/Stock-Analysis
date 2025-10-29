@@ -3782,5 +3782,243 @@
       "test_mode": false
     },
     "was_correct": false
+  },
+  "0547fbcf": {
+    "id": "0547fbcf",
+    "timestamp": "2025-10-29T15:40:53.150602",
+    "ticker": "AMD",
+    "action": "SELL",
+    "confidence": 35,
+    "reasoning": "Rule-based: No LLM response",
+    "candle_pattern": "swing_highs_lows",
+    "indicators": {
+      "rsi": 74.15736397932926,
+      "volume_ratio": 0.442309540702339,
+      "macro_score": -0.5210000000000008
+    },
+    "price_at_prediction": 259.69500732421875,
+    "outcome": null,
+    "was_correct": null
+  },
+  "53968a07": {
+    "id": "53968a07",
+    "timestamp": "2025-10-29T15:40:53.225440",
+    "ticker": "GOOGL",
+    "action": "SELL",
+    "confidence": 35,
+    "reasoning": "Rule-based: No LLM response",
+    "candle_pattern": "swing_highs_lows",
+    "indicators": {
+      "rsi": 72.60229134214661,
+      "volume_ratio": 0.29679930849368924,
+      "macro_score": -0.5210000000000008
+    },
+    "price_at_prediction": 271.02178955078125,
+    "outcome": null,
+    "was_correct": null
+  },
+  "f5930b3c": {
+    "id": "f5930b3c",
+    "timestamp": "2025-10-29T15:40:53.317608",
+    "ticker": "NVDA",
+    "action": "HOLD",
+    "confidence": 50,
+    "reasoning": "Rule-based: No LLM response",
+    "candle_pattern": "three_white_soldiers",
+    "indicators": {
+      "rsi": 73.96704994176619,
+      "volume_ratio": 0.7019623909590744,
+      "macro_score": -0.5210000000000008
+    },
+    "price_at_prediction": 208.56509399414062,
+    "outcome": null,
+    "was_correct": null
+  },
+  "0ddb224a": {
+    "id": "0ddb224a",
+    "timestamp": "2025-10-29T15:40:53.387030",
+    "ticker": "TSLA",
+    "action": "HOLD",
+    "confidence": 55,
+    "reasoning": "Rule-based: No LLM response",
+    "candle_pattern": "double_bottom",
+    "indicators": {
+      "rsi": 59.69900679946346,
+      "volume_ratio": 0.2889815185695981,
+      "macro_score": -0.5210000000000008
+    },
+    "price_at_prediction": 458.3800048828125,
+    "outcome": null,
+    "was_correct": null
+  },
+  "966fb50c": {
+    "id": "966fb50c",
+    "timestamp": "2025-10-29T15:40:53.433697",
+    "ticker": "MSFT",
+    "action": "HOLD",
+    "confidence": 55,
+    "reasoning": "Rule-based: No LLM response",
+    "candle_pattern": "double_bottom",
+    "indicators": {
+      "rsi": 66.5012014286345,
+      "volume_ratio": 0.43459445190823026,
+      "macro_score": -0.5210000000000008
+    },
+    "price_at_prediction": 537.0889892578125,
+    "outcome": null,
+    "was_correct": null
+  },
+  "bdb9c16c": {
+    "id": "bdb9c16c",
+    "timestamp": "2025-10-29T15:40:53.515780",
+    "ticker": "AAPL",
+    "action": "HOLD",
+    "confidence": 55,
+    "reasoning": "Rule-based: No LLM response",
+    "candle_pattern": "bearish_engulfing",
+    "indicators": {
+      "rsi": 66.97567976963066,
+      "volume_ratio": 0.3234832974541323,
+      "macro_score": -0.5210000000000008
+    },
+    "price_at_prediction": 267.75,
+    "outcome": null,
+    "was_correct": null
+  },
+  "76ba2a2b": {
+    "id": "76ba2a2b",
+    "timestamp": "2025-10-29T15:40:53.656457",
+    "ticker": "TD.TO",
+    "action": "HOLD",
+    "confidence": 55,
+    "reasoning": "Rule-based: No LLM response",
+    "candle_pattern": "double_bottom",
+    "indicators": {
+      "rsi": 67.28250914274813,
+      "volume_ratio": 0.14046647495742356,
+      "macro_score": -0.5210000000000008
+    },
+    "price_at_prediction": 114.5999984741211,
+    "outcome": null,
+    "was_correct": null
+  },
+  "01ed1b16": {
+    "id": "01ed1b16",
+    "timestamp": "2025-10-29T15:40:53.777068",
+    "ticker": "AMZN",
+    "action": "BUY",
+    "confidence": 65,
+    "reasoning": "Rule-based: No LLM response",
+    "candle_pattern": "spinning_top",
+    "indicators": {
+      "rsi": 60.70654101095802,
+      "volume_ratio": 0.5114321477231003,
+      "macro_score": -0.5210000000000008
+    },
+    "price_at_prediction": 230.93499755859375,
+    "outcome": null,
+    "was_correct": null
+  },
+  "2fdfba17": {
+    "id": "2fdfba17",
+    "timestamp": "2025-10-29T15:40:53.856788",
+    "ticker": "SVR-C.TO",
+    "action": "BUY",
+    "confidence": 65,
+    "reasoning": "Rule-based: No LLM response",
+    "candle_pattern": "bearish_marubozu",
+    "indicators": {
+      "rsi": 49.323311143244666,
+      "volume_ratio": 0.6875260931426179,
+      "macro_score": -0.5210000000000008
+    },
+    "price_at_prediction": 25.079999923706055,
+    "outcome": null,
+    "was_correct": null
+  },
+  "4bd59880": {
+    "id": "4bd59880",
+    "timestamp": "2025-10-29T15:40:53.915634",
+    "ticker": "CGL-C.TO",
+    "action": "HOLD",
+    "confidence": 55,
+    "reasoning": "Rule-based: No LLM response",
+    "candle_pattern": "bearish_marubozu",
+    "indicators": {
+      "rsi": 50.16831293298549,
+      "volume_ratio": 0.37264769718796953,
+      "macro_score": -0.5210000000000008
+    },
+    "price_at_prediction": 46.58000183105469,
+    "outcome": null,
+    "was_correct": null
+  },
+  "4cc5d584": {
+    "id": "4cc5d584",
+    "timestamp": "2025-10-29T15:40:53.966502",
+    "ticker": "UHS",
+    "action": "SELL",
+    "confidence": 40,
+    "reasoning": "Rule-based: No LLM response",
+    "candle_pattern": "bullish_engulfing",
+    "indicators": {
+      "rsi": 76.95911026892757,
+      "volume_ratio": 0.2785028488468694,
+      "macro_score": -0.5210000000000008
+    },
+    "price_at_prediction": 224.5399932861328,
+    "outcome": null,
+    "was_correct": null
+  },
+  "68d4d1ad": {
+    "id": "68d4d1ad",
+    "timestamp": "2025-10-29T15:40:54.101904",
+    "ticker": "ETH",
+    "action": "BUY",
+    "confidence": 60,
+    "reasoning": "Rule-based: No LLM response",
+    "candle_pattern": "swing_highs_lows",
+    "indicators": {
+      "rsi": 45.892373786979675,
+      "volume_ratio": 0.5708955831443363,
+      "macro_score": -0.5210000000000008
+    },
+    "price_at_prediction": 37.34000015258789,
+    "outcome": null,
+    "was_correct": null
+  },
+  "233d24e8": {
+    "id": "233d24e8",
+    "timestamp": "2025-10-29T15:40:54.163109",
+    "ticker": "TSM",
+    "action": "BUY",
+    "confidence": 65,
+    "reasoning": "Rule-based: No LLM response",
+    "candle_pattern": "spinning_top",
+    "indicators": {
+      "rsi": 62.235435045667785,
+      "volume_ratio": 0.5870814978382245,
+      "macro_score": -0.5210000000000008
+    },
+    "price_at_prediction": 306.82989501953125,
+    "outcome": null,
+    "was_correct": null
+  },
+  "d8f36f38": {
+    "id": "d8f36f38",
+    "timestamp": "2025-10-29T15:40:54.253029",
+    "ticker": "BTC",
+    "action": "BUY",
+    "confidence": 60,
+    "reasoning": "Rule-based: No LLM response",
+    "candle_pattern": "three_black_crows",
+    "indicators": {
+      "rsi": 47.417318521292735,
+      "volume_ratio": 0.707942904620849,
+      "macro_score": -0.5210000000000008
+    },
+    "price_at_prediction": 49.54999923706055,
+    "outcome": null,
+    "was_correct": null
   }
 }
