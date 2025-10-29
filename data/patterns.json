@@ -4,7 +4,7 @@
     "successful": 1
   },
   "morning_star": {
-    "total": 5,
+    "total": 13,
     "successful": 2
   },
   "MSFT_spinning_top": {
@@ -12,7 +12,7 @@
     "successful": 0
   },
   "spinning_top": {
-    "total": 5,
+    "total": 17,
     "successful": 1
   },
   "GOOGL_morning_star": {
@@ -24,28 +24,28 @@
     "successful": 1
   },
   "inverted_hammer": {
-    "total": 2,
-    "successful": 1
+    "total": 7,
+    "successful": 6
   },
   "TD.TO_doji": {
     "total": 2,
     "successful": 1
   },
   "doji": {
-    "total": 5,
-    "successful": 2
+    "total": 15,
+    "successful": 9
   },
   "UHS_doji": {
-    "total": 2,
-    "successful": 1
+    "total": 8,
+    "successful": 6
   },
   "NVDA_double_bottom": {
     "total": 1,
     "successful": 0
   },
   "double_bottom": {
-    "total": 5,
-    "successful": 0
+    "total": 20,
+    "successful": 5
   },
   "TSLA_double_top": {
     "total": 1,
@@ -60,11 +60,11 @@
     "successful": 1
   },
   "swing_highs_lows": {
-    "total": 4,
-    "successful": 1
+    "total": 26,
+    "successful": 6
   },
   "AMZN_double_bottom": {
-    "total": 2,
+    "total": 3,
     "successful": 0
   },
   "BTC_tweezer_top": {
@@ -76,7 +76,7 @@
     "successful": 1
   },
   "ETH_swing_highs_lows": {
-    "total": 2,
+    "total": 8,
     "successful": 0
   },
   "SOL_doji": {
@@ -84,43 +84,43 @@
     "successful": 0
   },
   "AAPL_swing_highs_lows": {
-    "total": 1,
+    "total": 3,
     "successful": 0
   },
   "MSFT_double_bottom": {
-    "total": 1,
-    "successful": 0
+    "total": 7,
+    "successful": 5
   },
   "NVDA_three_white_soldiers": {
-    "total": 1,
-    "successful": 0
+    "total": 9,
+    "successful": 3
   },
   "three_white_soldiers": {
-    "total": 2,
-    "successful": 0
+    "total": 24,
+    "successful": 10
   },
   "TSLA_double_bottom": {
-    "total": 1,
+    "total": 9,
     "successful": 0
   },
   "GOOGL_three_white_soldiers": {
-    "total": 1,
-    "successful": 0
+    "total": 3,
+    "successful": 2
   },
   "TSM_spinning_top": {
     "total": 1,
     "successful": 1
   },
   "AMD_hammer": {
-    "total": 1,
+    "total": 3,
     "successful": 1
   },
   "hammer": {
-    "total": 1,
+    "total": 3,
     "successful": 1
   },
   "TD.TO_morning_star": {
-    "total": 1,
+    "total": 3,
     "successful": 0
   },
   "UHS_spinning_top": {
@@ -128,11 +128,87 @@
     "successful": 0
   },
   "BTC_spinning_top": {
-    "total": 1,
+    "total": 3,
     "successful": 0
   },
   "SOL_spinning_top": {
     "total": 1,
     "successful": 0
+  },
+  "MSFT_doji": {
+    "total": 2,
+    "successful": 0
+  },
+  "TSM_doji": {
+    "total": 2,
+    "successful": 2
+  },
+  "UHS_vcp": {
+    "total": 2,
+    "successful": 0
+  },
+  "vcp": {
+    "total": 2,
+    "successful": 0
+  },
+  "AMZN_spinning_top": {
+    "total": 7,
+    "successful": 0
+  },
+  "ETH_spinning_top": {
+    "total": 2,
+    "successful": 0
+  },
+  "SOL_swing_highs_lows": {
+    "total": 2,
+    "successful": 0
+  },
+  "AAPL_spinning_top": {
+    "total": 1,
+    "successful": 0
+  },
+  "GOOGL_swing_highs_lows": {
+    "total": 6,
+    "successful": 5
+  },
+  "TSM_morning_star": {
+    "total": 6,
+    "successful": 0
+  },
+  "AMD_three_white_soldiers": {
+    "total": 1,
+    "successful": 0
+  },
+  "TD.TO_three_white_soldiers": {
+    "total": 6,
+    "successful": 5
+  },
+  "BTC_swing_highs_lows": {
+    "total": 6,
+    "successful": 0
+  },
+  "SOL_bullish_engulfing": {
+    "total": 1,
+    "successful": 1
+  },
+  "bullish_engulfing": {
+    "total": 1,
+    "successful": 1
+  },
+  "AAPL_three_white_soldiers": {
+    "total": 5,
+    "successful": 0
+  },
+  "AMD_inverted_hammer": {
+    "total": 5,
+    "successful": 5
+  },
+  "SOL_piercing_line": {
+    "total": 5,
+    "successful": 5
+  },
+  "piercing_line": {
+    "total": 5,
+    "successful": 5
   }
 }
