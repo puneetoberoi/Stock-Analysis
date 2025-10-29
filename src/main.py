@@ -2261,39 +2261,39 @@ class IntelligentPredictionEngine:
 
         async def _get_multi_llm_consensus(self, ticker, existing_analysis, candle_patterns, pattern_success_rates, market_context):
             logging.info(f"🔍[{ticker}] Getting LLM consensus with LEARNING CONTEXT...")
+        
+        pattern_text = "\n".join([f"- {p['name']} ({p['type']}, {pattern_success_rates.get(p['name'], 50):.0f}% success)" for p in candle_patterns[:3]]) if candle_patterns else "No clear patterns."
+        
+        base_prompt = f"""
+--- CURRENT DATA ---
+Analyze {ticker}.
+TECHNICALS: RSI: {existing_analysis.get('rsi', 50):.1f}, Volume: {existing_analysis.get('volume_ratio', 1.0):.1f}x avg.
+PATTERNS: {pattern_text}
+MACRO: Score {market_context.get('overall_macro_score', 0):.0f}.
+--- YOUR TASK ---
+Respond ONLY with: ACTION: [BUY/SELL/HOLD] CONFIDENCE: [0-100] REASON: [One sentence. Reference your past performance if it influences your decision.]"""
+
+        tasks, llm_names = [], []
+        
+        for name, client in self.llm_clients.items():
+            # 🆕 Generate specific learning context for each LLM
+            learning_context = generate_learning_context(name, ticker)
             
-            pattern_text = "\n".join([f"- {p['name']} ({p['type']}, {pattern_success_rates.get(p['name'], 50):.0f}% success)" for p in candle_patterns[:3]]) if candle_patterns else "No clear patterns."
+            # 🆕 Prepend learning context to the prompt
+            enhanced_prompt = learning_context + base_prompt
             
-            base_prompt = f"""
-    --- CURRENT DATA ---
-    Analyze {ticker}.
-    TECHNICALS: RSI: {existing_analysis.get('rsi', 50):.1f}, Volume: {existing_analysis.get('volume_ratio', 1.0):.1f}x avg.
-    PATTERNS: {pattern_text}
-    MACRO: Score {market_context.get('overall_macro_score', 0):.0f}.
-    --- YOUR TASK ---
-    Respond ONLY with: ACTION: [BUY/SELL/HOLD] CONFIDENCE: [0-100] REASON: [One sentence. Reference your past performance if it influences your decision.]"""
-    
-            tasks, llm_names = [], []
-            
-            for name, client in self.llm_clients.items():
-                # 🆕 Generate specific learning context for each LLM
-                learning_context = generate_learning_context(name, ticker)
-                
-                # 🆕 Prepend learning context to the prompt
-                enhanced_prompt = learning_context + base_prompt
-                
-                if name == 'groq': tasks.append(self._query_groq(enhanced_prompt, ticker))
-                elif name == 'gemini': tasks.append(self._query_gemini(enhanced_prompt, ticker))
-                elif name == 'cohere': tasks.append(self._query_cohere(enhanced_prompt, ticker))
-                llm_names.append(name)
-            
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-            
-            predictions = {}
-            for name, result in zip(llm_names, results):
-                if not isinstance(result, Exception) and result: predictions[name] = result
-            
-            logging.info(f"🔍[{ticker}] Received {len(predictions)} LLM predictions.")
+            if name == 'groq': tasks.append(self._query_groq(enhanced_prompt, ticker))
+            elif name == 'gemini': tasks.append(self._query_gemini(enhanced_prompt, ticker))
+            elif name == 'cohere': tasks.append(self._query_cohere(enhanced_prompt, ticker))
+            llm_names.append(name)
+        
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        predictions = {}
+        for name, result in zip(llm_names, results):
+            if not isinstance(result, Exception) and result: predictions[name] = result
+        
+        logging.info(f"🔍[{ticker}] Received {len(predictions)} LLM predictions.")
         return predictions
 
     async def _query_groq(self, prompt, ticker):
