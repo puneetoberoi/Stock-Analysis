@@ -2304,7 +2304,7 @@ Respond ONLY with: ACTION: [BUY/SELL/HOLD] CONFIDENCE: [0-100] REASON: [One sent
         logging.info(f"🔍[{ticker}] Received {len(predictions)} LLM predictions.")
         return predictions
 
-        async def _query_groq(self, prompt, ticker):
+    async def _query_groq(self, prompt, ticker):
         try:
             # ✅ FIX: Using the absolute latest model for high-volume, free use.
             response = await asyncio.to_thread(
