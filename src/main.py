@@ -2304,7 +2304,7 @@ Respond ONLY with: ACTION: [BUY/SELL/HOLD] CONFIDENCE: [0-100] REASON: [One sent
         logging.info(f"🔍[{ticker}] Received {len(predictions)} LLM predictions.")
         return predictions
 
-        async def _query_groq(self, prompt, ticker):
+    async def _query_groq(self, prompt, ticker):
         try:
             async with self.throttler: # ✅ USE THE THROTTLER
                 # ✅ FIX: Llama 3.1 8B is the most stable free model
