@@ -161,6 +161,46 @@
     {
       "timestamp": "2025-10-29T06:52:55.092104",
       "insight": "Pattern 'piercing_line': 100% accuracy (5/5)"
+    },
+    {
+      "timestamp": "2025-10-29T15:05:58.370515",
+      "insight": "[REAL] Checked 28 predictions: 21.4% accuracy (6/28 correct)"
+    },
+    {
+      "timestamp": "2025-10-29T15:05:58.370845",
+      "insight": "Pattern 'inverted_hammer': 0% accuracy (0/2)"
+    },
+    {
+      "timestamp": "2025-10-29T15:05:58.371223",
+      "insight": "Pattern 'three_white_soldiers': 0% accuracy (0/2)"
+    },
+    {
+      "timestamp": "2025-10-29T15:05:58.371734",
+      "insight": "Pattern 'swing_highs_lows': 14% accuracy (1/7)"
+    },
+    {
+      "timestamp": "2025-10-29T15:05:58.372145",
+      "insight": "Pattern 'spinning_top': 33% accuracy (1/3)"
+    },
+    {
+      "timestamp": "2025-10-29T15:05:58.372563",
+      "insight": "Pattern 'double_bottom': 0% accuracy (0/7)"
+    },
+    {
+      "timestamp": "2025-10-29T15:05:58.372981",
+      "insight": "Pattern 'three_black_crows': 100% accuracy (2/2)"
+    },
+    {
+      "timestamp": "2025-10-29T15:05:58.373388",
+      "insight": "Pattern 'doji': 0% accuracy (0/1)"
+    },
+    {
+      "timestamp": "2025-10-29T15:05:58.373863",
+      "insight": "Pattern 'bullish_engulfing': 0% accuracy (0/2)"
+    },
+    {
+      "timestamp": "2025-10-29T15:05:58.374234",
+      "insight": "Pattern 'bearish_marubozu': 100% accuracy (2/2)"
     }
   ]
 }
