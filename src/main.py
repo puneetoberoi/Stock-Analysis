@@ -2670,7 +2670,20 @@ def generate_watchlist_html(watchlist):
              html += f"""<div style="padding:10px;margin:5px 0;background:#faf5ff;"><b>{item['ticker']}</b> reports in <b>{item['days_until']} day(s)</b>. Expect volatility.</div>"""
         html += "</div>"
 
-    html += "</div>"
+        # Pro Tips Section
+    html += """
+        <div style="background:#dbeafe;padding:15px;border-radius:8px;margin-top:20px;border-left:4px solid #1e40af;">
+            <div style="font-weight:bold;color:#1e40af;margin-bottom:8px;">💡 PRO TIPS FOR TODAY:</div>
+            <ul style="margin:5px 0;padding-left:20px;color:#1e3a8a;font-size:0.9em;">
+                <li>Set price alerts for all squeeze breakout levels.</li>
+                <li>Don't chase breakouts without volume confirmation (>1.5x average).</li>
+                <li>Watch the first 30 minutes for fakeouts; true breakouts often hold.</li>
+                <li>RSI extremes are warnings, not sell/buy signals. Wait for price action to confirm.</li>
+            </ul>
+        </div>
+    """
+    
+    html += "</div>" # This is the closing div for the entire watchlist section
     return html
 
 # ========================================
