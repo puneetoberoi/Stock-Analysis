@@ -4020,5 +4020,243 @@
     "price_at_prediction": 49.54999923706055,
     "outcome": null,
     "was_correct": null
+  },
+  "f2674fbd": {
+    "id": "f2674fbd",
+    "timestamp": "2025-10-29T15:51:09.421522",
+    "ticker": "NVDA",
+    "action": "HOLD",
+    "confidence": 65,
+    "reasoning": "groq: The mixed technical signals and bearish macro score suggest caution, and the double bottom pattern's low success rate does not provide enough confidence for a buy.",
+    "candle_pattern": "inverted_hammer",
+    "indicators": {
+      "rsi": 72.82305186002182,
+      "volume_ratio": 0.7429294807331784,
+      "macro_score": -0.5210000000000008
+    },
+    "price_at_prediction": 206.41510009765625,
+    "outcome": null,
+    "was_correct": null
+  },
+  "b6488331": {
+    "id": "b6488331",
+    "timestamp": "2025-10-29T15:51:09.522940",
+    "ticker": "GOOGL",
+    "action": "BUY",
+    "confidence": 70,
+    "reasoning": "groq: The presence of two bullish_marubozu patterns and a swing_highs_lows uptrend suggests a potential continuation of the upward trend, despite the bearish MACRO score.",
+    "candle_pattern": "bullish_marubozu",
+    "indicators": {
+      "rsi": 72.95019285453635,
+      "volume_ratio": 0.31122460289807385,
+      "macro_score": -0.5210000000000008
+    },
+    "price_at_prediction": 271.69500732421875,
+    "outcome": null,
+    "was_correct": null
+  },
+  "7102372b": {
+    "id": "7102372b",
+    "timestamp": "2025-10-29T15:51:09.606907",
+    "ticker": "AMD",
+    "action": "HOLD",
+    "confidence": 65,
+    "reasoning": "groq: The stock is in a consolidation phase with a low success rate, and the negative macro score suggests caution.",
+    "candle_pattern": "swing_highs_lows",
+    "indicators": {
+      "rsi": 73.97457632955658,
+      "volume_ratio": 0.47627745677834477,
+      "macro_score": -0.5210000000000008
+    },
+    "price_at_prediction": 259.1099853515625,
+    "outcome": null,
+    "was_correct": null
+  },
+  "2949d517": {
+    "id": "2949d517",
+    "timestamp": "2025-10-29T15:51:09.683242",
+    "ticker": "TSLA",
+    "action": "HOLD",
+    "confidence": 85,
+    "reasoning": "groq: Neutral technicals and low macro score suggest caution, but no strong indication for a trade.",
+    "candle_pattern": "double_bottom",
+    "indicators": {
+      "rsi": 60.00445767618499,
+      "volume_ratio": 0.29833337283704164,
+      "macro_score": -0.5210000000000008
+    },
+    "price_at_prediction": 458.94000244140625,
+    "outcome": null,
+    "was_correct": null
+  },
+  "50ea68e9": {
+    "id": "50ea68e9",
+    "timestamp": "2025-10-29T15:52:09.134149",
+    "ticker": "UHS",
+    "action": "BUY",
+    "confidence": 80,
+    "reasoning": "groq: The combination of a bullish engulfing pattern and a piercing line pattern, both with high success rates, suggests a strong bullish reversal.",
+    "candle_pattern": "bullish_engulfing",
+    "indicators": {
+      "rsi": 76.89907414867986,
+      "volume_ratio": 0.304273008557099,
+      "macro_score": -0.5210000000000008
+    },
+    "price_at_prediction": 224.44000244140625,
+    "outcome": null,
+    "was_correct": null
+  },
+  "2fb4ec6a": {
+    "id": "2fb4ec6a",
+    "timestamp": "2025-10-29T15:52:09.547167",
+    "ticker": "CGL-C.TO",
+    "action": "SELL",
+    "confidence": 95,
+    "reasoning": "groq: The bearish_marubozu pattern has shown 100% success in the past, indicating a strong bearish signal.",
+    "candle_pattern": "bearish_marubozu",
+    "indicators": {
+      "rsi": 49.77185854120759,
+      "volume_ratio": 0.380779546442974,
+      "macro_score": -0.5210000000000008
+    },
+    "price_at_prediction": 46.5,
+    "outcome": null,
+    "was_correct": null
+  },
+  "8ff1f58d": {
+    "id": "8ff1f58d",
+    "timestamp": "2025-10-29T15:52:09.909980",
+    "ticker": "BTC",
+    "action": "SELL",
+    "confidence": 100,
+    "reasoning": "groq: The presence of three bearish patterns (three_black_crows and two bearish_marubozu) indicates a strong bearish trend, which aligns with the negative macro score.",
+    "candle_pattern": "three_black_crows",
+    "indicators": {
+      "rsi": 46.83486112790328,
+      "volume_ratio": 0.7415080296655772,
+      "macro_score": -0.5210000000000008
+    },
+    "price_at_prediction": 49.400001525878906,
+    "outcome": null,
+    "was_correct": null
+  },
+  "1ebffd9c": {
+    "id": "1ebffd9c",
+    "timestamp": "2025-10-29T15:52:10.069160",
+    "ticker": "ETH",
+    "action": "HOLD",
+    "confidence": 90,
+    "reasoning": "groq: Neutral RSI and moderate volume suggest a cautious approach, while the swing highs/lows pattern and negative macro score indicate potential risks.",
+    "candle_pattern": "swing_highs_lows",
+    "indicators": {
+      "rsi": 45.40834724954482,
+      "volume_ratio": 0.5883571621513866,
+      "macro_score": -0.5210000000000008
+    },
+    "price_at_prediction": 37.2400016784668,
+    "outcome": null,
+    "was_correct": null
+  },
+  "5d6e1763": {
+    "id": "5d6e1763",
+    "timestamp": "2025-10-29T15:53:08.824835",
+    "ticker": "SVR-C.TO",
+    "action": "SELL",
+    "confidence": 100,
+    "reasoning": "groq: The bearish_marubozu pattern has a 100% success rate and is repeated, indicating a strong bearish signal.",
+    "candle_pattern": "bearish_marubozu",
+    "indicators": {
+      "rsi": 49.323311143244666,
+      "volume_ratio": 0.6875260931426179,
+      "macro_score": -0.5210000000000008
+    },
+    "price_at_prediction": 25.079999923706055,
+    "outcome": null,
+    "was_correct": null
+  },
+  "0035301b": {
+    "id": "0035301b",
+    "timestamp": "2025-10-29T15:53:08.985405",
+    "ticker": "MSFT",
+    "action": "HOLD",
+    "confidence": 85,
+    "reasoning": "groq: The stock's RSI is above 50, indicating a potential overbought condition, but the double bottom pattern suggests a bullish reversal, warranting caution before making a decision.",
+    "candle_pattern": "double_bottom",
+    "indicators": {
+      "rsi": 67.76567454473047,
+      "volume_ratio": 0.45502967196172855,
+      "macro_score": -0.5210000000000008
+    },
+    "price_at_prediction": 538.17041015625,
+    "outcome": null,
+    "was_correct": null
+  },
+  "f185f1ef": {
+    "id": "f185f1ef",
+    "timestamp": "2025-10-29T15:53:09.401202",
+    "ticker": "AMZN",
+    "action": "HOLD",
+    "confidence": 95,
+    "reasoning": "groq: The double_bottom pattern has 0% success rate, and the RSI is not in an overbought position, but the macro score is negative, indicating overall market uncertainty.",
+    "candle_pattern": "doji",
+    "indicators": {
+      "rsi": 61.21598043805638,
+      "volume_ratio": 0.5388541015449388,
+      "macro_score": -0.5210000000000008
+    },
+    "price_at_prediction": 231.44000244140625,
+    "outcome": null,
+    "was_correct": null
+  },
+  "3fedb1d7": {
+    "id": "3fedb1d7",
+    "timestamp": "2025-10-29T15:53:09.487359",
+    "ticker": "TD.TO",
+    "action": "BUY",
+    "confidence": 85,
+    "reasoning": "groq: The double_bottom pattern has a 19% success rate, indicating a potential bullish reversal, and the RSI is above 50, suggesting a possible upward trend.",
+    "candle_pattern": "double_bottom",
+    "indicators": {
+      "rsi": 66.23977620483421,
+      "volume_ratio": 0.14995864178472165,
+      "macro_score": -0.5210000000000008
+    },
+    "price_at_prediction": 114.43000030517578,
+    "outcome": null,
+    "was_correct": null
+  },
+  "cd25c6ba": {
+    "id": "cd25c6ba",
+    "timestamp": "2025-10-29T15:53:09.661742",
+    "ticker": "TSM",
+    "action": "HOLD",
+    "confidence": 95,
+    "reasoning": "groq: The mixed technical signals and negative macro score suggest caution, and the past performance of the doji and double_bottom patterns is not strong enough to justify a trade.",
+    "candle_pattern": "doji",
+    "indicators": {
+      "rsi": 61.62418800193301,
+      "volume_ratio": 0.6114134318144226,
+      "macro_score": -0.5210000000000008
+    },
+    "price_at_prediction": 305.8699951171875,
+    "outcome": null,
+    "was_correct": null
+  },
+  "7f2b78fc": {
+    "id": "7f2b78fc",
+    "timestamp": "2025-10-29T15:53:09.773217",
+    "ticker": "AAPL",
+    "action": "SELL",
+    "confidence": 95,
+    "reasoning": "groq: The bearish engulfing pattern, combined with a negative macro score and high RSI, suggests a potential reversal in the uptrend indicated by the swing highs and lows pattern.",
+    "candle_pattern": "bearish_engulfing",
+    "indicators": {
+      "rsi": 67.46981296334341,
+      "volume_ratio": 0.33621288989677967,
+      "macro_score": -0.5210000000000008
+    },
+    "price_at_prediction": 268.1400146484375,
+    "outcome": null,
+    "was_correct": null
   }
 }
