@@ -2225,7 +2225,7 @@ class IntelligentPredictionEngine:
             try:
                 import google.generativeai as genai
                 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-                self.llm_clients['gemini'] = genai.GenerativeModel('gemini-1.5-flash-latest') 
+                self.llm_clients['gemini'] = genai.GenerativeModel('gemini-2.5-flash') 
                 logging.info("✅ SUCCESS: Gemini LLM client initialized.")
             except Exception as e: logging.error(f"❌ FAILED: Gemini initialization error: {e}")
 
@@ -2349,7 +2349,7 @@ Respond ONLY with: ACTION: [BUY/SELL/HOLD] CONFIDENCE: [0-100] REASON: [One sent
         try:
             response = await asyncio.to_thread(
                 self.llm_clients['cohere'].chat, message=prompt,
-                model='command-r-plus', temperature=0.3
+                model='command-a-03-2025', temperature=0.3
             )
             return self._parse_llm_response(response.text, 'cohere')
         except Exception as e:
