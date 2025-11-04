@@ -1,47 +1,36 @@
 name: Test Learning Brain
 
 on:
-  workflow_dispatch:  # Manual trigger only
+  workflow_dispatch:
   push:
-    paths:
-      - 'src/modules/**'
+    branches:
+      - main
+      - master
 
 jobs:
   test:
     runs-on: ubuntu-latest
     
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
         
-      - name: Set up Python
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
           
-      - name: Install dependencies
-        run: |
-          pip install yfinance pandas numpy
+      - name: Install deps
+        run: pip install yfinance pandas numpy
           
-      - name: Run Learning Brain Test
-        run: |
-          cd src/modules
-          python test_learning_manually.py
+      - name: Run test
+        run: python src/modules/test_learning_manually.py
           
-      - name: Check Database Created
-        run: |
-          echo "📊 Checking database..."
-          if [ -f src/modules/data/learning.db ]; then
-            echo "✅ Database created successfully!"
-            ls -lh src/modules/data/learning.db
-          else
-            echo "❌ Database not found!"
-            exit 1
-          fi
+      - name: Check database
+        run: ls -lh src/modules/data/learning.db
           
-      - name: Upload Database
+      - name: Upload database
         uses: actions/upload-artifact@v4
-        if: always()
         with:
           name: learning-database
           path: src/modules/data/learning.db
