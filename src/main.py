@@ -1840,176 +1840,75 @@ enhanced_pattern_detector = None
 class ConfidenceScorer:
     """Calculates conviction score (0-100) for predictions"""
     
-    @staticmethod
-    def calculate_confidence(
-        llm_predictions,
-        candle_patterns,
-        pattern_success_rates,
-        technical_indicators,
-        volume_data,
-        market_context=None
-    ):
-        """
-        Calculate comprehensive confidence score
-        Returns: dict with score, breakdown, and action threshold
-        """
-        confidence = 50  # Start neutral
+        @staticmethod
+    def calculate_confidence(llm_predictions, candle_patterns, pattern_success_rates, technical_indicators, volume_data, market_context=None):
+        """ ✅ IMPROVED: More robust version to handle pattern data correctly. """
+        confidence = 50
         breakdown = []
-        
-        # 1. LLM CONSENSUS (0-30 points)
-        llm_score = 0
+
+        # 1. LLM Consensus
         if llm_predictions:
             actions = [p['action'] for p in llm_predictions.values()]
-            confidences = [p['confidence'] for p in llm_predictions.values()]
-            
-            # Agreement boost
-            if len(set(actions)) == 1:  # All agree
+            if len(set(actions)) == 1:
                 llm_score = 30
                 breakdown.append(f"✅ All {len(actions)} LLMs agree ({actions[0]}): +30")
-            elif len(actions) >= 2:
+            else:
                 most_common = max(set(actions), key=actions.count)
                 agreement_pct = (actions.count(most_common) / len(actions)) * 100
-                llm_score = int(agreement_pct * 0.3)  # Up to 30 points
+                llm_score = int(agreement_pct * 0.3)
                 breakdown.append(f"✅ ⚖️ {agreement_pct:.0f}% LLM agreement: +{llm_score}")
-            
-            # Average LLM confidence
-            avg_llm_conf = sum(confidences) / len(confidences)
-            if avg_llm_conf > 70:
-                llm_score += 10
-                breakdown.append(f"✅ 🎯 High LLM confidence ({avg_llm_conf:.0f}%): +10")
-            elif avg_llm_conf < 40:
-                llm_score -= 10
-                breakdown.append(f"⚠️ Low LLM confidence ({avg_llm_conf:.0f}%): -10")
-        
-        confidence += llm_score
-        
-        # ========================================================================
-        # 2. CANDLESTICK PATTERN STRENGTH (0-35 points) - ENHANCED VERSION
-        # ========================================================================
+            confidence += llm_score
+
+        # 2. Candlestick Pattern Strength
         pattern_score = 0
-        
-        # Separate basic and enhanced patterns
-        basic_patterns = [p for p in candle_patterns if not p.get('enhanced', False)]
         enhanced_patterns = [p for p in candle_patterns if p.get('enhanced', False)]
         
-        # Score ENHANCED patterns first (they're more sophisticated)
         if enhanced_patterns:
-            # Get the strongest enhanced pattern
             best_enhanced = max(enhanced_patterns, key=lambda x: x.get('strength_score', 0))
             strength_score = best_enhanced.get('strength_score', 0)
+            pattern_name = best_enhanced.get('name', 'Unknown Pattern').replace('_', ' ').title()
             
             if strength_score >= 85:
                 pattern_score += 20
-                breakdown.append(f"✅ 🔥 {best_enhanced['name'].replace('_', ' ').title()} ({strength_score}% strength): +20")
+                breakdown.append(f"✅ 🔥 {pattern_name} ({strength_score}%): +20")
             elif strength_score >= 75:
                 pattern_score += 15
-                breakdown.append(f"✅ 📈 {best_enhanced['name'].replace('_', ' ').title()} ({strength_score}% strength): +15")
-            elif strength_score >= 65:
-                pattern_score += 10
-                breakdown.append(f"✅ ➡️ {best_enhanced['name'].replace('_', ' ').title()} ({strength_score}% strength): +10")
+                breakdown.append(f"✅ 📈 {pattern_name} ({strength_score}%): +15")
             
-            # Bonus for multiple enhanced patterns confirming
-            if len(enhanced_patterns) >= 2:
+            if len(enhanced_patterns) > 1:
                 pattern_score += 5
                 breakdown.append(f"✅ 🎯 Multiple patterns confirm ({len(enhanced_patterns)} found): +5")
         
-        # Score BASIC patterns (if no enhanced or as supplement)
-        elif basic_patterns:
-            strong_patterns = [p for p in basic_patterns if p.get('strength') in ['strong', 'very_strong']]
-            
-            if strong_patterns:
-                # Get best pattern success rate
-                best_success_rate = 0
-                best_pattern = None
-                for pattern in strong_patterns:
-                    rate = pattern_success_rates.get(pattern['name'], 50)
-                    if rate > best_success_rate:
-                        best_success_rate = rate
-                        best_pattern = pattern
-                
-                if best_success_rate > 70:
-                    pattern_score = 25
-                    breakdown.append(f"✅ 📈 Strong {best_pattern['name']} ({best_success_rate:.0f}% success): +25")
-                elif best_success_rate > 60:
-                    pattern_score = 15
-                    breakdown.append(f"✅ 📊 {best_pattern['name']} ({best_success_rate:.0f}% success): +15")
-                elif best_success_rate > 50:
-                    pattern_score = 10
-                    breakdown.append(f"✅ ➡️ {best_pattern['name']} ({best_success_rate:.0f}% success): +10")
-        
-        # Penalty for conflicting patterns (bullish vs bearish)
-        pattern_types = [p.get('type', '') for p in candle_patterns]
-        if 'bullish_reversal' in pattern_types and 'bearish_reversal' in pattern_types:
-            pattern_score -= 15
-            breakdown.append(f"⚠️ ⚠️ Conflicting patterns: -15")
-        elif 'bullish_continuation' in pattern_types and 'bearish_continuation' in pattern_types:
-            pattern_score -= 10
-            breakdown.append(f"⚠️ ⚠️ Mixed trend signals: -10")
-        
         confidence += pattern_score
-        # ========================================================================
-        
-        # 3. TECHNICAL INDICATORS (0-20 points)
+
+        # 3. Technical Indicators
         indicator_score = 0
         if technical_indicators:
             rsi = technical_indicators.get('rsi', 50)
-            macd = technical_indicators.get('macd', 0)
-            score = technical_indicators.get('score', 50)
-            
-            # RSI alignment
-            if 30 < rsi < 70:
-                indicator_score += 10
-                breakdown.append(f"✅ ✅ RSI balanced ({rsi:.0f}): +10")
-            elif rsi < 30:
-                indicator_score += 5
-                breakdown.append(f"✅ 🔵 RSI oversold ({rsi:.0f}): +5")
-            elif rsi > 70:
+            if rsi > 70 or rsi < 30:
                 indicator_score -= 5
-                breakdown.append(f"⚠️ 🔴 RSI overbought ({rsi:.0f}): -5")
-            
-            # System score
-            if score > 70:
+                breakdown.append(f"⚠️ RSI at extremes ({rsi:.0f}): -5")
+            else:
                 indicator_score += 10
-                breakdown.append(f"✅ ⭐ High system score ({score:.0f}): +10")
-            elif score < 40:
-                indicator_score -= 10
-                breakdown.append(f"⚠️ ⚠️ Low system score ({score:.0f}): -10")
-        
+                breakdown.append(f"✅ RSI balanced ({rsi:.0f}): +10")
         confidence += indicator_score
-        
-        # 4. VOLUME CONFIRMATION (0-15 points)
+
+        # 4. Volume Confirmation
         volume_score = 0
         if volume_data:
             volume_ratio = volume_data.get('volume_ratio', 1.0)
-            
-            if volume_ratio > 2.0:
-                volume_score = 15
-                breakdown.append(f"✅ 📊 High volume ({volume_ratio:.1f}x avg): +15")
-            elif volume_ratio > 1.5:
-                volume_score = 10
+            if volume_ratio > 1.5:
+                volume_score += 10
                 breakdown.append(f"✅ 📈 Above avg volume ({volume_ratio:.1f}x): +10")
             elif volume_ratio < 0.5:
-                volume_score = -10
-                breakdown.append(f"⚠️ 📉 Low volume ({volume_ratio:.1f}x avg): -10")
-        
+                volume_score -= 10
+                breakdown.append(f"⚠️ 📉 Low volume ({volume_ratio:.1f}x): -10")
         confidence += volume_score
         
-        # 5. MARKET CONTEXT (0-10 points)
-        context_score = 0
-        if market_context:
-            macro_score = market_context.get('overall_macro_score', 0)
-            
-            if macro_score > 10:
-                context_score = 10
-                breakdown.append(f"✅ 🌍 Positive market context (+{macro_score:.0f}): +10")
-            elif macro_score < -10:
-                context_score = -10
-                breakdown.append(f"⚠️ ⚠️ Negative market context ({macro_score:.0f}): -10")
-        
-        confidence += context_score
-        
-        # Cap confidence between 0-100
+        # Cap confidence
         confidence = max(0, min(100, confidence))
+        
+        return {'score': confidence, 'breakdown': breakdown}
 
                 # ========================================================================
         # 6. NEWS/EVENTS SCORING (NEW - DOESN'T TOUCH EXISTING CODE)
@@ -2303,44 +2202,47 @@ Respond ONLY with: ACTION: [BUY/SELL/HOLD] CONFIDENCE: [0-100] REASON: [One sent
         logging.info(f"🔍[{ticker}] Received {len(predictions)} LLM predictions.")
         return predictions
 
-    async def _query_groq(self, prompt, ticker):
+        async def _query_groq(self, prompt, ticker):
         try:
-            # ✅ FIX: Using the absolute latest model for high-volume, free use.
-            response = await asyncio.to_thread(
-                self.llm_clients['groq'].chat.completions.create,
-                model="llama-3.3-70b-versatile", 
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.2, max_tokens=100
-            )
-            return self._parse_llm_response(response.choices[0].message.content, 'groq')
+            async with self.throttler:
+                # ✅ FIX: Using the absolute latest model Groq recommends
+                response = await asyncio.to_thread(
+                    self.llm_clients['groq'].chat.completions.create,
+                    model="llama3-70b-8192", 
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=0.2, max_tokens=100
+                )
+                return self._parse_llm_response(response.choices[0].message.content, 'groq')
         except Exception as e:
             logging.warning(f"Groq query failed for {ticker}: {e}")
             return None
 
     async def _query_gemini(self, prompt, ticker):
         try:
-            # ✅ FIX: Using the "latest" stable version and robust safety settings.
-            model = genai.GenerativeModel('gemini-1.5-flash-latest')
-            response = await model.generate_content_async(
-                prompt, 
-                generation_config={'temperature': 0.3, 'max_output_tokens': 100},
-                safety_settings={'HARASSMENT': 'BLOCK_NONE', 'HATE_SPEECH': 'BLOCK_NONE', 'SEXUALLY_EXPLICIT': 'BLOCK_NONE', 'DANGEROUS_CONTENT': 'BLOCK_NONE'}
-            )
-            return self._parse_llm_response(response.text, 'gemini')
+            async with self.throttler:
+                # ✅ FIX: Using 'gemini-1.5-flash-latest' and safety settings
+                model = genai.GenerativeModel('gemini-1.5-flash-latest')
+                response = await model.generate_content_async(
+                    prompt, 
+                    generation_config={'temperature': 0.3, 'max_output_tokens': 100},
+                    safety_settings={'HARASSMENT': 'BLOCK_NONE', 'HATE_SPEECH': 'BLOCK_NONE', 'SEXUALLY_EXPLICIT': 'BLOCK_NONE', 'DANGEROUS_CONTENT': 'BLOCK_NONE'}
+                )
+                return self._parse_llm_response(response.text, 'gemini')
         except Exception as e:
             logging.warning(f"Gemini query failed for {ticker}: {e}")
             return None
 
     async def _query_cohere(self, prompt, ticker):
         try:
-            # ✅ FIX: Using the latest stable model name from Cohere's documentation.
-            response = await asyncio.to_thread(
-                self.llm_clients['cohere'].chat, 
-                message=prompt,
-                model='command-r-08-2024', 
-                temperature=0.3
-            )
-            return self._parse_llm_response(response.text, 'cohere')
+            async with self.throttler:
+                # ✅ FIX: Using the latest stable model from Cohere
+                response = await asyncio.to_thread(
+                    self.llm_clients['cohere'].chat, 
+                    message=prompt,
+                    model='command-r-plus', 
+                    temperature=0.3
+                )
+                return self._parse_llm_response(response.text, 'cohere')
         except Exception as e:
             logging.warning(f"Cohere query failed for {ticker}: {e}")
             return None
