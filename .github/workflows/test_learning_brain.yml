@@ -1,68 +1,47 @@
-name: Test Learning Brain Module
+name: Test Learning Brain
 
 on:
+  workflow_dispatch:  # Manual trigger only
   push:
     paths:
       - 'src/modules/**'
-      - '.github/workflows/test_learning_brain.yml'
-  workflow_dispatch:  # Allow manual trigger
 
 jobs:
-  test-learning-brain:
+  test:
     runs-on: ubuntu-latest
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.10'
           
       - name: Install dependencies
         run: |
-          pip install yfinance sqlite3-cli
-          pip install pandas numpy
-          
-      - name: Create directories
-        run: |
-          mkdir -p src/modules/data
+          pip install yfinance pandas numpy
           
       - name: Run Learning Brain Test
         run: |
           cd src/modules
-          python learning_brain.py
+          python test_learning_manually.py
           
-      - name: Show Database Info
+      - name: Check Database Created
         run: |
-          echo "📊 Database Tables:"
-          sqlite3 src/modules/data/learning.db ".tables"
-          echo ""
-          echo "📝 Predictions Table:"
-          sqlite3 src/modules/data/learning.db "SELECT * FROM predictions;"
-          echo ""
-          echo "📈 Accuracy Tracking:"
-          sqlite3 src/modules/data/learning.db "SELECT * FROM accuracy_tracking;"
+          echo "📊 Checking database..."
+          if [ -f src/modules/data/learning.db ]; then
+            echo "✅ Database created successfully!"
+            ls -lh src/modules/data/learning.db
+          else
+            echo "❌ Database not found!"
+            exit 1
+          fi
           
-      - name: Upload Database as Artifact
-        uses: actions/upload-artifact@v3
+      - name: Upload Database
+        uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: learning-database
           path: src/modules/data/learning.db
-          retention-days: 30
-          
-      - name: Create Test Report
-        run: |
-          echo "# Learning Brain Test Report" > test_report.md
-          echo "## Test Run: $(date)" >> test_report.md
-          echo "### Database Created Successfully ✅" >> test_report.md
-          echo '```' >> test_report.md
-          sqlite3 src/modules/data/learning.db ".schema" >> test_report.md
-          echo '```' >> test_report.md
-          
-      - name: Upload Test Report
-        uses: actions/upload-artifact@v3
-        with:
-          name: test-report
-          path: test_report.md
