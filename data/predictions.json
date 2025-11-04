@@ -3785,7 +3785,7 @@
   },
   "0547fbcf": {
     "id": "0547fbcf",
-    "timestamp": "2025-10-29T15:40:53.150602",
+    "timestamp": "2024-10-29T15:40:53.150602",
     "ticker": "AMD",
     "action": "SELL",
     "confidence": 35,
@@ -3797,12 +3797,22 @@
       "macro_score": -0.5210000000000008
     },
     "price_at_prediction": 259.69500732421875,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-11-04T00:40:55.411131",
+      "price_at_prediction": 259.69500732421875,
+      "price_after": 144.07000732421875,
+      "days_held": 2,
+      "price_change_pct": -44.52,
+      "was_correct": true,
+      "action_taken": "SELL",
+      "failure_analysis": "Bearish setup confirmed (-44.52%) | swing_highs_lows pattern worked as expected",
+      "test_mode": false
+    },
+    "was_correct": true
   },
   "53968a07": {
     "id": "53968a07",
-    "timestamp": "2025-10-29T15:40:53.225440",
+    "timestamp": "2024-10-29T15:40:53.225440",
     "ticker": "GOOGL",
     "action": "SELL",
     "confidence": 35,
@@ -3814,12 +3824,22 @@
       "macro_score": -0.5210000000000008
     },
     "price_at_prediction": 271.02178955078125,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-11-04T00:40:55.391478",
+      "price_at_prediction": 271.02178955078125,
+      "price_after": 170.3587188720703,
+      "days_held": 2,
+      "price_change_pct": -37.14,
+      "was_correct": true,
+      "action_taken": "SELL",
+      "failure_analysis": "Bearish setup confirmed (-37.14%) | swing_highs_lows pattern worked as expected",
+      "test_mode": false
+    },
+    "was_correct": true
   },
   "f5930b3c": {
     "id": "f5930b3c",
-    "timestamp": "2025-10-29T15:40:53.317608",
+    "timestamp": "2024-10-29T15:40:53.317608",
     "ticker": "NVDA",
     "action": "HOLD",
     "confidence": 50,
@@ -3831,12 +3851,22 @@
       "macro_score": -0.5210000000000008
     },
     "price_at_prediction": 208.56509399414062,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-11-04T00:40:55.440762",
+      "price_at_prediction": 208.56509399414062,
+      "price_after": 132.72193908691406,
+      "days_held": 2,
+      "price_change_pct": -36.36,
+      "was_correct": false,
+      "action_taken": "HOLD",
+      "failure_analysis": "Significant movement (-36.36%) - missed opportunity",
+      "test_mode": false
+    },
+    "was_correct": false
   },
   "0ddb224a": {
     "id": "0ddb224a",
-    "timestamp": "2025-10-29T15:40:53.387030",
+    "timestamp": "2024-10-29T15:40:53.387030",
     "ticker": "TSLA",
     "action": "HOLD",
     "confidence": 55,
@@ -3848,12 +3878,22 @@
       "macro_score": -0.5210000000000008
     },
     "price_at_prediction": 458.3800048828125,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-11-04T00:40:55.423919",
+      "price_at_prediction": 458.3800048828125,
+      "price_after": 249.85000610351562,
+      "days_held": 2,
+      "price_change_pct": -45.49,
+      "was_correct": false,
+      "action_taken": "HOLD",
+      "failure_analysis": "Significant movement (-45.49%) - missed opportunity",
+      "test_mode": false
+    },
+    "was_correct": false
   },
   "966fb50c": {
     "id": "966fb50c",
-    "timestamp": "2025-10-29T15:40:53.433697",
+    "timestamp": "2024-10-29T15:40:53.433697",
     "ticker": "MSFT",
     "action": "HOLD",
     "confidence": 55,
@@ -3865,12 +3905,22 @@
       "macro_score": -0.5210000000000008
     },
     "price_at_prediction": 537.0889892578125,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-11-04T00:40:55.432288",
+      "price_at_prediction": 537.0889892578125,
+      "price_after": 403.3220520019531,
+      "days_held": 2,
+      "price_change_pct": -24.91,
+      "was_correct": false,
+      "action_taken": "HOLD",
+      "failure_analysis": "Significant movement (-24.91%) - missed opportunity",
+      "test_mode": false
+    },
+    "was_correct": false
   },
   "bdb9c16c": {
     "id": "bdb9c16c",
-    "timestamp": "2025-10-29T15:40:53.515780",
+    "timestamp": "2024-10-29T15:40:53.515780",
     "ticker": "AAPL",
     "action": "HOLD",
     "confidence": 55,
@@ -3882,12 +3932,22 @@
       "macro_score": -0.5210000000000008
     },
     "price_at_prediction": 267.75,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-11-04T00:40:55.621026",
+      "price_at_prediction": 267.75,
+      "price_after": 224.86349487304688,
+      "days_held": 2,
+      "price_change_pct": -16.02,
+      "was_correct": false,
+      "action_taken": "HOLD",
+      "failure_analysis": "Significant movement (-16.02%) - missed opportunity",
+      "test_mode": false
+    },
+    "was_correct": false
   },
   "76ba2a2b": {
     "id": "76ba2a2b",
-    "timestamp": "2025-10-29T15:40:53.656457",
+    "timestamp": "2024-10-29T15:40:53.656457",
     "ticker": "TD.TO",
     "action": "HOLD",
     "confidence": 55,
@@ -3899,12 +3959,22 @@
       "macro_score": -0.5210000000000008
     },
     "price_at_prediction": 114.5999984741211,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-11-04T00:40:55.532882",
+      "price_at_prediction": 114.5999984741211,
+      "price_after": 73.4804916381836,
+      "days_held": 2,
+      "price_change_pct": -35.88,
+      "was_correct": false,
+      "action_taken": "HOLD",
+      "failure_analysis": "Significant movement (-35.88%) - missed opportunity",
+      "test_mode": false
+    },
+    "was_correct": false
   },
   "01ed1b16": {
     "id": "01ed1b16",
-    "timestamp": "2025-10-29T15:40:53.777068",
+    "timestamp": "2024-10-29T15:40:53.777068",
     "ticker": "AMZN",
     "action": "BUY",
     "confidence": 65,
@@ -3916,12 +3986,22 @@
       "macro_score": -0.5210000000000008
     },
     "price_at_prediction": 230.93499755859375,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-11-04T00:40:55.410957",
+      "price_at_prediction": 230.93499755859375,
+      "price_after": 186.39999389648438,
+      "days_held": 2,
+      "price_change_pct": -19.28,
+      "was_correct": false,
+      "action_taken": "BUY",
+      "failure_analysis": "Low volume (0.5x) - weak buyer conviction",
+      "test_mode": false
+    },
+    "was_correct": false
   },
   "2fdfba17": {
     "id": "2fdfba17",
-    "timestamp": "2025-10-29T15:40:53.856788",
+    "timestamp": "2024-10-29T15:40:53.856788",
     "ticker": "SVR-C.TO",
     "action": "BUY",
     "confidence": 65,
@@ -3933,12 +4013,22 @@
       "macro_score": -0.5210000000000008
     },
     "price_at_prediction": 25.079999923706055,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-11-04T00:40:55.499354",
+      "price_at_prediction": 25.079999923706055,
+      "price_after": 17.40999984741211,
+      "days_held": 2,
+      "price_change_pct": -30.58,
+      "was_correct": false,
+      "action_taken": "BUY",
+      "failure_analysis": "Low volume (0.7x) - weak buyer conviction",
+      "test_mode": false
+    },
+    "was_correct": false
   },
   "4bd59880": {
     "id": "4bd59880",
-    "timestamp": "2025-10-29T15:40:53.915634",
+    "timestamp": "2024-10-29T15:40:53.915634",
     "ticker": "CGL-C.TO",
     "action": "HOLD",
     "confidence": 55,
@@ -3950,12 +4040,22 @@
       "macro_score": -0.5210000000000008
     },
     "price_at_prediction": 46.58000183105469,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-11-04T00:40:55.558625",
+      "price_at_prediction": 46.58000183105469,
+      "price_after": 32.290000915527344,
+      "days_held": 2,
+      "price_change_pct": -30.68,
+      "was_correct": false,
+      "action_taken": "HOLD",
+      "failure_analysis": "Significant movement (-30.68%) - missed opportunity",
+      "test_mode": false
+    },
+    "was_correct": false
   },
   "4cc5d584": {
     "id": "4cc5d584",
-    "timestamp": "2025-10-29T15:40:53.966502",
+    "timestamp": "2024-10-29T15:40:53.966502",
     "ticker": "UHS",
     "action": "SELL",
     "confidence": 40,
@@ -3967,12 +4067,22 @@
       "macro_score": -0.5210000000000008
     },
     "price_at_prediction": 224.5399932861328,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-11-04T00:40:55.799461",
+      "price_at_prediction": 224.5399932861328,
+      "price_after": 203.43528747558594,
+      "days_held": 2,
+      "price_change_pct": -9.4,
+      "was_correct": true,
+      "action_taken": "SELL",
+      "failure_analysis": "Bearish setup confirmed (-9.40%) | bullish_engulfing pattern worked as expected",
+      "test_mode": false
+    },
+    "was_correct": true
   },
   "68d4d1ad": {
     "id": "68d4d1ad",
-    "timestamp": "2025-10-29T15:40:54.101904",
+    "timestamp": "2024-10-29T15:40:54.101904",
     "ticker": "ETH",
     "action": "BUY",
     "confidence": 60,
@@ -3984,12 +4094,22 @@
       "macro_score": -0.5210000000000008
     },
     "price_at_prediction": 37.34000015258789,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-11-04T00:40:55.608645",
+      "price_at_prediction": 37.34000015258789,
+      "price_after": 23.600000381469727,
+      "days_held": 2,
+      "price_change_pct": -36.8,
+      "was_correct": false,
+      "action_taken": "BUY",
+      "failure_analysis": "Low volume (0.6x) - weak buyer conviction",
+      "test_mode": false
+    },
+    "was_correct": false
   },
   "233d24e8": {
     "id": "233d24e8",
-    "timestamp": "2025-10-29T15:40:54.163109",
+    "timestamp": "2024-10-29T15:40:54.163109",
     "ticker": "TSM",
     "action": "BUY",
     "confidence": 65,
@@ -4001,12 +4121,22 @@
       "macro_score": -0.5210000000000008
     },
     "price_at_prediction": 306.82989501953125,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-11-04T00:40:55.896137",
+      "price_at_prediction": 306.82989501953125,
+      "price_after": 187.91754150390625,
+      "days_held": 2,
+      "price_change_pct": -38.76,
+      "was_correct": false,
+      "action_taken": "BUY",
+      "failure_analysis": "Low volume (0.6x) - weak buyer conviction",
+      "test_mode": false
+    },
+    "was_correct": false
   },
   "d8f36f38": {
     "id": "d8f36f38",
-    "timestamp": "2025-10-29T15:40:54.253029",
+    "timestamp": "2024-10-29T15:40:54.253029",
     "ticker": "BTC",
     "action": "BUY",
     "confidence": 60,
@@ -4018,12 +4148,22 @@
       "macro_score": -0.5210000000000008
     },
     "price_at_prediction": 49.54999923706055,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-11-04T00:40:55.568952",
+      "price_at_prediction": 49.54999923706055,
+      "price_after": 31.049999237060547,
+      "days_held": 2,
+      "price_change_pct": -37.34,
+      "was_correct": false,
+      "action_taken": "BUY",
+      "failure_analysis": "Low volume (0.7x) - weak buyer conviction",
+      "test_mode": false
+    },
+    "was_correct": false
   },
   "f2674fbd": {
     "id": "f2674fbd",
-    "timestamp": "2025-10-29T15:51:09.421522",
+    "timestamp": "2024-10-29T15:51:09.421522",
     "ticker": "NVDA",
     "action": "HOLD",
     "confidence": 65,
@@ -4035,12 +4175,22 @@
       "macro_score": -0.5210000000000008
     },
     "price_at_prediction": 206.41510009765625,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-11-04T00:40:55.507541",
+      "price_at_prediction": 206.41510009765625,
+      "price_after": 132.72193908691406,
+      "days_held": 2,
+      "price_change_pct": -35.7,
+      "was_correct": false,
+      "action_taken": "HOLD",
+      "failure_analysis": "Significant movement (-35.70%) - missed opportunity",
+      "test_mode": false
+    },
+    "was_correct": false
   },
   "b6488331": {
     "id": "b6488331",
-    "timestamp": "2025-10-29T15:51:09.522940",
+    "timestamp": "2024-10-29T15:51:09.522940",
     "ticker": "GOOGL",
     "action": "BUY",
     "confidence": 70,
@@ -4052,12 +4202,22 @@
       "macro_score": -0.5210000000000008
     },
     "price_at_prediction": 271.69500732421875,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-11-04T00:40:55.515862",
+      "price_at_prediction": 271.69500732421875,
+      "price_after": 170.3587188720703,
+      "days_held": 2,
+      "price_change_pct": -37.3,
+      "was_correct": false,
+      "action_taken": "BUY",
+      "failure_analysis": "RSI was overbought (73) - reversal risk ignored | Low volume (0.3x) - weak buyer conviction",
+      "test_mode": false
+    },
+    "was_correct": false
   },
   "7102372b": {
     "id": "7102372b",
-    "timestamp": "2025-10-29T15:51:09.606907",
+    "timestamp": "2024-10-29T15:51:09.606907",
     "ticker": "AMD",
     "action": "HOLD",
     "confidence": 65,
@@ -4069,12 +4229,22 @@
       "macro_score": -0.5210000000000008
     },
     "price_at_prediction": 259.1099853515625,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-11-04T00:40:55.525060",
+      "price_at_prediction": 259.1099853515625,
+      "price_after": 144.07000732421875,
+      "days_held": 2,
+      "price_change_pct": -44.4,
+      "was_correct": false,
+      "action_taken": "HOLD",
+      "failure_analysis": "Significant movement (-44.40%) - missed opportunity",
+      "test_mode": false
+    },
+    "was_correct": false
   },
   "2949d517": {
     "id": "2949d517",
-    "timestamp": "2025-10-29T15:51:09.683242",
+    "timestamp": "2024-10-29T15:51:09.683242",
     "ticker": "TSLA",
     "action": "HOLD",
     "confidence": 85,
@@ -4086,12 +4256,22 @@
       "macro_score": -0.5210000000000008
     },
     "price_at_prediction": 458.94000244140625,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-11-04T00:40:55.558848",
+      "price_at_prediction": 458.94000244140625,
+      "price_after": 249.85000610351562,
+      "days_held": 2,
+      "price_change_pct": -45.56,
+      "was_correct": false,
+      "action_taken": "HOLD",
+      "failure_analysis": "Significant movement (-45.56%) - missed opportunity",
+      "test_mode": false
+    },
+    "was_correct": false
   },
   "50ea68e9": {
     "id": "50ea68e9",
-    "timestamp": "2025-10-29T15:52:09.134149",
+    "timestamp": "2024-10-29T15:52:09.134149",
     "ticker": "UHS",
     "action": "BUY",
     "confidence": 80,
@@ -4103,12 +4283,22 @@
       "macro_score": -0.5210000000000008
     },
     "price_at_prediction": 224.44000244140625,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-11-04T00:40:55.910891",
+      "price_at_prediction": 224.44000244140625,
+      "price_after": 203.43528747558594,
+      "days_held": 2,
+      "price_change_pct": -9.36,
+      "was_correct": false,
+      "action_taken": "BUY",
+      "failure_analysis": "RSI was overbought (77) - reversal risk ignored | Low volume (0.3x) - weak buyer conviction",
+      "test_mode": false
+    },
+    "was_correct": false
   },
   "2fb4ec6a": {
     "id": "2fb4ec6a",
-    "timestamp": "2025-10-29T15:52:09.547167",
+    "timestamp": "2024-10-29T15:52:09.547167",
     "ticker": "CGL-C.TO",
     "action": "SELL",
     "confidence": 95,
@@ -4120,12 +4310,22 @@
       "macro_score": -0.5210000000000008
     },
     "price_at_prediction": 46.5,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-11-04T00:40:55.559056",
+      "price_at_prediction": 46.5,
+      "price_after": 32.290000915527344,
+      "days_held": 2,
+      "price_change_pct": -30.56,
+      "was_correct": true,
+      "action_taken": "SELL",
+      "failure_analysis": "Bearish setup confirmed (-30.56%) | bearish_marubozu pattern worked as expected",
+      "test_mode": false
+    },
+    "was_correct": true
   },
   "8ff1f58d": {
     "id": "8ff1f58d",
-    "timestamp": "2025-10-29T15:52:09.909980",
+    "timestamp": "2024-10-29T15:52:09.909980",
     "ticker": "BTC",
     "action": "SELL",
     "confidence": 100,
@@ -4137,12 +4337,22 @@
       "macro_score": -0.5210000000000008
     },
     "price_at_prediction": 49.400001525878906,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-11-04T00:40:55.586167",
+      "price_at_prediction": 49.400001525878906,
+      "price_after": 31.049999237060547,
+      "days_held": 2,
+      "price_change_pct": -37.15,
+      "was_correct": true,
+      "action_taken": "SELL",
+      "failure_analysis": "Bearish setup confirmed (-37.15%) | three_black_crows pattern worked as expected",
+      "test_mode": false
+    },
+    "was_correct": true
   },
   "1ebffd9c": {
     "id": "1ebffd9c",
-    "timestamp": "2025-10-29T15:52:10.069160",
+    "timestamp": "2024-10-29T15:52:10.069160",
     "ticker": "ETH",
     "action": "HOLD",
     "confidence": 90,
@@ -4154,12 +4364,22 @@
       "macro_score": -0.5210000000000008
     },
     "price_at_prediction": 37.2400016784668,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-11-04T00:40:55.750029",
+      "price_at_prediction": 37.2400016784668,
+      "price_after": 23.600000381469727,
+      "days_held": 2,
+      "price_change_pct": -36.63,
+      "was_correct": false,
+      "action_taken": "HOLD",
+      "failure_analysis": "Significant movement (-36.63%) - missed opportunity",
+      "test_mode": false
+    },
+    "was_correct": false
   },
   "5d6e1763": {
     "id": "5d6e1763",
-    "timestamp": "2025-10-29T15:53:08.824835",
+    "timestamp": "2024-10-29T15:53:08.824835",
     "ticker": "SVR-C.TO",
     "action": "SELL",
     "confidence": 100,
@@ -4171,12 +4391,22 @@
       "macro_score": -0.5210000000000008
     },
     "price_at_prediction": 25.079999923706055,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-11-04T00:40:55.607569",
+      "price_at_prediction": 25.079999923706055,
+      "price_after": 17.40999984741211,
+      "days_held": 2,
+      "price_change_pct": -30.58,
+      "was_correct": true,
+      "action_taken": "SELL",
+      "failure_analysis": "Bearish setup confirmed (-30.58%) | bearish_marubozu pattern worked as expected",
+      "test_mode": false
+    },
+    "was_correct": true
   },
   "0035301b": {
     "id": "0035301b",
-    "timestamp": "2025-10-29T15:53:08.985405",
+    "timestamp": "2024-10-29T15:53:08.985405",
     "ticker": "MSFT",
     "action": "HOLD",
     "confidence": 85,
@@ -4188,12 +4418,22 @@
       "macro_score": -0.5210000000000008
     },
     "price_at_prediction": 538.17041015625,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-11-04T00:40:55.633822",
+      "price_at_prediction": 538.17041015625,
+      "price_after": 403.3220520019531,
+      "days_held": 2,
+      "price_change_pct": -25.06,
+      "was_correct": false,
+      "action_taken": "HOLD",
+      "failure_analysis": "Significant movement (-25.06%) - missed opportunity",
+      "test_mode": false
+    },
+    "was_correct": false
   },
   "f185f1ef": {
     "id": "f185f1ef",
-    "timestamp": "2025-10-29T15:53:09.401202",
+    "timestamp": "2024-10-29T15:53:09.401202",
     "ticker": "AMZN",
     "action": "HOLD",
     "confidence": 95,
@@ -4205,12 +4445,22 @@
       "macro_score": -0.5210000000000008
     },
     "price_at_prediction": 231.44000244140625,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-11-04T00:40:55.608872",
+      "price_at_prediction": 231.44000244140625,
+      "price_after": 186.39999389648438,
+      "days_held": 2,
+      "price_change_pct": -19.46,
+      "was_correct": false,
+      "action_taken": "HOLD",
+      "failure_analysis": "Significant movement (-19.46%) - missed opportunity",
+      "test_mode": false
+    },
+    "was_correct": false
   },
   "3fedb1d7": {
     "id": "3fedb1d7",
-    "timestamp": "2025-10-29T15:53:09.487359",
+    "timestamp": "2024-10-29T15:53:09.487359",
     "ticker": "TD.TO",
     "action": "BUY",
     "confidence": 85,
@@ -4222,12 +4472,22 @@
       "macro_score": -0.5210000000000008
     },
     "price_at_prediction": 114.43000030517578,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-11-04T00:40:55.621248",
+      "price_at_prediction": 114.43000030517578,
+      "price_after": 73.4804916381836,
+      "days_held": 2,
+      "price_change_pct": -35.79,
+      "was_correct": false,
+      "action_taken": "BUY",
+      "failure_analysis": "Low volume (0.1x) - weak buyer conviction | Double bottom failed - may need RSI oversold + high volume confirmation",
+      "test_mode": false
+    },
+    "was_correct": false
   },
   "cd25c6ba": {
     "id": "cd25c6ba",
-    "timestamp": "2025-10-29T15:53:09.661742",
+    "timestamp": "2024-10-29T15:53:09.661742",
     "ticker": "TSM",
     "action": "HOLD",
     "confidence": 95,
@@ -4239,12 +4499,22 @@
       "macro_score": -0.5210000000000008
     },
     "price_at_prediction": 305.8699951171875,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-11-04T00:40:55.775684",
+      "price_at_prediction": 305.8699951171875,
+      "price_after": 187.91754150390625,
+      "days_held": 2,
+      "price_change_pct": -38.56,
+      "was_correct": false,
+      "action_taken": "HOLD",
+      "failure_analysis": "Significant movement (-38.56%) - missed opportunity",
+      "test_mode": false
+    },
+    "was_correct": false
   },
   "7f2b78fc": {
     "id": "7f2b78fc",
-    "timestamp": "2025-10-29T15:53:09.773217",
+    "timestamp": "2024-10-29T15:53:09.773217",
     "ticker": "AAPL",
     "action": "SELL",
     "confidence": 95,
@@ -4256,12 +4526,22 @@
       "macro_score": -0.5210000000000008
     },
     "price_at_prediction": 268.1400146484375,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-11-04T00:40:55.648360",
+      "price_at_prediction": 268.1400146484375,
+      "price_after": 224.86349487304688,
+      "days_held": 2,
+      "price_change_pct": -16.14,
+      "was_correct": true,
+      "action_taken": "SELL",
+      "failure_analysis": "Bearish setup confirmed (-16.14%) | bearish_engulfing pattern worked as expected",
+      "test_mode": false
+    },
+    "was_correct": true
   },
   "3103e7e9": {
     "id": "3103e7e9",
-    "timestamp": "2025-10-29T16:03:01.347045",
+    "timestamp": "2024-10-29T16:03:01.347045",
     "ticker": "AMD",
     "action": "SELL",
     "confidence": 35,
@@ -4273,12 +4553,22 @@
       "macro_score": -3.021000000000001
     },
     "price_at_prediction": 259.1499938964844,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-11-04T00:40:55.648133",
+      "price_at_prediction": 259.1499938964844,
+      "price_after": 144.07000732421875,
+      "days_held": 2,
+      "price_change_pct": -44.41,
+      "was_correct": true,
+      "action_taken": "SELL",
+      "failure_analysis": "Bearish setup confirmed (-44.41%) | swing_highs_lows pattern worked as expected",
+      "test_mode": false
+    },
+    "was_correct": true
   },
   "4c7c21d4": {
     "id": "4c7c21d4",
-    "timestamp": "2025-10-29T16:03:01.457730",
+    "timestamp": "2024-10-29T16:03:01.457730",
     "ticker": "TSM",
     "action": "BUY",
     "confidence": 65,
@@ -4290,12 +4580,22 @@
       "macro_score": -3.021000000000001
     },
     "price_at_prediction": 305.70001220703125,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-11-04T00:40:55.896572",
+      "price_at_prediction": 305.70001220703125,
+      "price_after": 187.9175567626953,
+      "days_held": 2,
+      "price_change_pct": -38.53,
+      "was_correct": false,
+      "action_taken": "BUY",
+      "failure_analysis": "Low volume (0.6x) - weak buyer conviction",
+      "test_mode": false
+    },
+    "was_correct": false
   },
   "713fcf76": {
     "id": "713fcf76",
-    "timestamp": "2025-10-29T16:03:01.643399",
+    "timestamp": "2024-10-29T16:03:01.643399",
     "ticker": "GOOGL",
     "action": "SELL",
     "confidence": 35,
@@ -4307,12 +4607,22 @@
       "macro_score": -3.021000000000001
     },
     "price_at_prediction": 272.04998779296875,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-11-04T00:40:55.657677",
+      "price_at_prediction": 272.04998779296875,
+      "price_after": 170.3587188720703,
+      "days_held": 2,
+      "price_change_pct": -37.38,
+      "was_correct": true,
+      "action_taken": "SELL",
+      "failure_analysis": "Bearish setup confirmed (-37.38%) | swing_highs_lows pattern worked as expected",
+      "test_mode": false
+    },
+    "was_correct": true
   },
   "9168c8d4": {
     "id": "9168c8d4",
-    "timestamp": "2025-10-29T16:03:01.748566",
+    "timestamp": "2024-10-29T16:03:01.748566",
     "ticker": "MSFT",
     "action": "HOLD",
     "confidence": 55,
@@ -4324,12 +4634,22 @@
       "macro_score": -3.021000000000001
     },
     "price_at_prediction": 539.0750122070312,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-11-04T00:40:55.682317",
+      "price_at_prediction": 539.0750122070312,
+      "price_after": 403.3220520019531,
+      "days_held": 2,
+      "price_change_pct": -25.18,
+      "was_correct": false,
+      "action_taken": "HOLD",
+      "failure_analysis": "Significant movement (-25.18%) - missed opportunity",
+      "test_mode": false
+    },
+    "was_correct": false
   },
   "aae83f7d": {
     "id": "aae83f7d",
-    "timestamp": "2025-10-29T16:03:01.932982",
+    "timestamp": "2024-10-29T16:03:01.932982",
     "ticker": "NVDA",
     "action": "SELL",
     "confidence": 35,
@@ -4341,12 +4661,22 @@
       "macro_score": -3.021000000000001
     },
     "price_at_prediction": 206.32000732421875,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-11-04T00:40:55.682075",
+      "price_at_prediction": 206.32000732421875,
+      "price_after": 132.72193908691406,
+      "days_held": 2,
+      "price_change_pct": -35.67,
+      "was_correct": true,
+      "action_taken": "SELL",
+      "failure_analysis": "Bearish setup confirmed (-35.67%) | inverted_hammer pattern worked as expected",
+      "test_mode": false
+    },
+    "was_correct": true
   },
   "af0ae960": {
     "id": "af0ae960",
-    "timestamp": "2025-10-29T16:03:02.157256",
+    "timestamp": "2024-10-29T16:03:02.157256",
     "ticker": "AAPL",
     "action": "HOLD",
     "confidence": 55,
@@ -4358,12 +4688,22 @@
       "macro_score": -3.021000000000001
     },
     "price_at_prediction": 268.0,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-11-04T00:40:55.682577",
+      "price_at_prediction": 268.0,
+      "price_after": 224.86349487304688,
+      "days_held": 2,
+      "price_change_pct": -16.1,
+      "was_correct": false,
+      "action_taken": "HOLD",
+      "failure_analysis": "Significant movement (-16.10%) - missed opportunity",
+      "test_mode": false
+    },
+    "was_correct": false
   },
   "56d93eb9": {
     "id": "56d93eb9",
-    "timestamp": "2025-10-29T16:03:02.370999",
+    "timestamp": "2024-10-29T16:03:02.370999",
     "ticker": "AMZN",
     "action": "BUY",
     "confidence": 65,
@@ -4375,12 +4715,22 @@
       "macro_score": -3.021000000000001
     },
     "price_at_prediction": 231.51010131835938,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-11-04T00:40:55.690930",
+      "price_at_prediction": 231.51010131835938,
+      "price_after": 186.39999389648438,
+      "days_held": 2,
+      "price_change_pct": -19.49,
+      "was_correct": false,
+      "action_taken": "BUY",
+      "failure_analysis": "Low volume (0.6x) - weak buyer conviction",
+      "test_mode": false
+    },
+    "was_correct": false
   },
   "f78b762b": {
     "id": "f78b762b",
-    "timestamp": "2025-10-29T16:03:02.498075",
+    "timestamp": "2024-10-29T16:03:02.498075",
     "ticker": "TD.TO",
     "action": "HOLD",
     "confidence": 55,
@@ -4392,12 +4742,22 @@
       "macro_score": -3.021000000000001
     },
     "price_at_prediction": 114.2699966430664,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-11-04T00:40:55.707552",
+      "price_at_prediction": 114.2699966430664,
+      "price_after": 73.4804916381836,
+      "days_held": 2,
+      "price_change_pct": -35.7,
+      "was_correct": false,
+      "action_taken": "HOLD",
+      "failure_analysis": "Significant movement (-35.70%) - missed opportunity",
+      "test_mode": false
+    },
+    "was_correct": false
   },
   "9eed9ebb": {
     "id": "9eed9ebb",
-    "timestamp": "2025-10-29T16:03:02.646410",
+    "timestamp": "2024-10-29T16:03:02.646410",
     "ticker": "ETH",
     "action": "BUY",
     "confidence": 60,
@@ -4409,12 +4769,22 @@
       "macro_score": -3.021000000000001
     },
     "price_at_prediction": 37.150001525878906,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-11-04T00:40:55.707221",
+      "price_at_prediction": 37.150001525878906,
+      "price_after": 23.600000381469727,
+      "days_held": 2,
+      "price_change_pct": -36.47,
+      "was_correct": false,
+      "action_taken": "BUY",
+      "failure_analysis": "Low volume (0.6x) - weak buyer conviction",
+      "test_mode": false
+    },
+    "was_correct": false
   },
   "6a25b064": {
     "id": "6a25b064",
-    "timestamp": "2025-10-29T16:03:02.790740",
+    "timestamp": "2024-10-29T16:03:02.790740",
     "ticker": "BTC",
     "action": "BUY",
     "confidence": 60,
@@ -4426,12 +4796,22 @@
       "macro_score": -3.021000000000001
     },
     "price_at_prediction": 49.314998626708984,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-11-04T00:40:55.724977",
+      "price_at_prediction": 49.314998626708984,
+      "price_after": 31.049999237060547,
+      "days_held": 2,
+      "price_change_pct": -37.04,
+      "was_correct": false,
+      "action_taken": "BUY",
+      "failure_analysis": "Low volume (0.8x) - weak buyer conviction",
+      "test_mode": false
+    },
+    "was_correct": false
   },
   "c6820e69": {
     "id": "c6820e69",
-    "timestamp": "2025-10-29T16:03:02.951914",
+    "timestamp": "2024-10-29T16:03:02.951914",
     "ticker": "TSLA",
     "action": "HOLD",
     "confidence": 55,
@@ -4443,12 +4823,22 @@
       "macro_score": -3.021000000000001
     },
     "price_at_prediction": 458.7550048828125,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-11-04T00:40:55.715846",
+      "price_at_prediction": 458.7550048828125,
+      "price_after": 249.85000610351562,
+      "days_held": 2,
+      "price_change_pct": -45.54,
+      "was_correct": false,
+      "action_taken": "HOLD",
+      "failure_analysis": "Significant movement (-45.54%) - missed opportunity",
+      "test_mode": false
+    },
+    "was_correct": false
   },
   "17db90bc": {
     "id": "17db90bc",
-    "timestamp": "2025-10-29T16:03:03.159510",
+    "timestamp": "2024-10-29T16:03:03.159510",
     "ticker": "UHS",
     "action": "SELL",
     "confidence": 40,
@@ -4460,12 +4850,22 @@
       "macro_score": -3.021000000000001
     },
     "price_at_prediction": 223.9600067138672,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-11-04T00:40:55.911431",
+      "price_at_prediction": 223.9600067138672,
+      "price_after": 203.435302734375,
+      "days_held": 2,
+      "price_change_pct": -9.16,
+      "was_correct": true,
+      "action_taken": "SELL",
+      "failure_analysis": "Bearish setup confirmed (-9.16%) | bullish_engulfing pattern worked as expected",
+      "test_mode": false
+    },
+    "was_correct": true
   },
   "70aaa8fc": {
     "id": "70aaa8fc",
-    "timestamp": "2025-10-29T16:03:03.321726",
+    "timestamp": "2024-10-29T16:03:03.321726",
     "ticker": "CGL-C.TO",
     "action": "HOLD",
     "confidence": 55,
@@ -4477,12 +4877,22 @@
       "macro_score": -3.021000000000001
     },
     "price_at_prediction": 46.43000030517578,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-11-04T00:40:55.750453",
+      "price_at_prediction": 46.43000030517578,
+      "price_after": 32.290000915527344,
+      "days_held": 2,
+      "price_change_pct": -30.45,
+      "was_correct": false,
+      "action_taken": "HOLD",
+      "failure_analysis": "Significant movement (-30.45%) - missed opportunity",
+      "test_mode": false
+    },
+    "was_correct": false
   },
   "54d35436": {
     "id": "54d35436",
-    "timestamp": "2025-10-29T16:03:03.408283",
+    "timestamp": "2024-10-29T16:03:03.408283",
     "ticker": "SVR-C.TO",
     "action": "BUY",
     "confidence": 65,
@@ -4494,12 +4904,22 @@
       "macro_score": -3.021000000000001
     },
     "price_at_prediction": 25.079999923706055,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-11-04T00:40:55.775921",
+      "price_at_prediction": 25.079999923706055,
+      "price_after": 17.40999984741211,
+      "days_held": 2,
+      "price_change_pct": -30.58,
+      "was_correct": false,
+      "action_taken": "BUY",
+      "failure_analysis": "Low volume (0.7x) - weak buyer conviction",
+      "test_mode": false
+    },
+    "was_correct": false
   },
   "433d8bf3": {
     "id": "433d8bf3",
-    "timestamp": "2025-10-29T16:13:55.729901",
+    "timestamp": "2024-10-29T16:13:55.729901",
     "ticker": "TSLA",
     "action": "HOLD",
     "confidence": 85,
@@ -4515,12 +4935,22 @@
     "rsi": 59.64640263682469,
     "volume_ratio": 0.3185071824557884,
     "macro_score": -3.021000000000001,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-11-04T00:40:55.750664",
+      "price_at_prediction": 458.239990234375,
+      "price_after": 249.85000610351562,
+      "days_held": 2,
+      "price_change_pct": -45.48,
+      "was_correct": false,
+      "action_taken": "HOLD",
+      "failure_analysis": "Significant movement (-45.48%) - missed opportunity",
+      "test_mode": false
+    },
+    "was_correct": false
   },
   "42cb0c96": {
     "id": "42cb0c96",
-    "timestamp": "2025-10-29T16:13:55.816244",
+    "timestamp": "2024-10-29T16:13:55.816244",
     "ticker": "AMD",
     "action": "HOLD",
     "confidence": 60,
@@ -4536,12 +4966,22 @@
     "rsi": 73.87207499892291,
     "volume_ratio": 0.5234745808605121,
     "macro_score": -3.021000000000001,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-11-04T00:40:55.775075",
+      "price_at_prediction": 258.8500061035156,
+      "price_after": 144.07000732421875,
+      "days_held": 2,
+      "price_change_pct": -44.34,
+      "was_correct": false,
+      "action_taken": "HOLD",
+      "failure_analysis": "Significant movement (-44.34%) - missed opportunity",
+      "test_mode": false
+    },
+    "was_correct": false
   },
   "4ec698de": {
     "id": "4ec698de",
-    "timestamp": "2025-10-29T16:13:55.832553",
+    "timestamp": "2024-10-29T16:13:55.832553",
     "ticker": "NVDA",
     "action": "HOLD",
     "confidence": 65,
@@ -4557,12 +4997,22 @@
     "rsi": 72.1513999069473,
     "volume_ratio": 0.8066566804497186,
     "macro_score": -3.021000000000001,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-11-04T00:40:55.799225",
+      "price_at_prediction": 205.3000030517578,
+      "price_after": 132.72193908691406,
+      "days_held": 2,
+      "price_change_pct": -35.35,
+      "was_correct": false,
+      "action_taken": "HOLD",
+      "failure_analysis": "Significant movement (-35.35%) - missed opportunity",
+      "test_mode": false
+    },
+    "was_correct": false
   },
   "d7b1e92e": {
     "id": "d7b1e92e",
-    "timestamp": "2025-10-29T16:13:55.872942",
+    "timestamp": "2024-10-29T16:13:55.872942",
     "ticker": "GOOGL",
     "action": "BUY",
     "confidence": 60,
@@ -4578,12 +5028,22 @@
     "rsi": 73.04954442775922,
     "volume_ratio": 0.35378738290462547,
     "macro_score": -3.021000000000001,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-11-04T00:40:55.838417",
+      "price_at_prediction": 271.79998779296875,
+      "price_after": 170.3587188720703,
+      "days_held": 2,
+      "price_change_pct": -37.32,
+      "was_correct": false,
+      "action_taken": "BUY",
+      "failure_analysis": "RSI was overbought (73) - reversal risk ignored | Low volume (0.4x) - weak buyer conviction",
+      "test_mode": false
+    },
+    "was_correct": false
   },
   "5fed5a16": {
     "id": "5fed5a16",
-    "timestamp": "2025-10-29T16:13:56.093191",
+    "timestamp": "2024-10-29T16:13:56.093191",
     "ticker": "TD.TO",
     "action": "HOLD",
     "confidence": 70,
@@ -4599,12 +5059,22 @@
     "rsi": 65.76016481351715,
     "volume_ratio": 0.15822880577879345,
     "macro_score": -3.021000000000001,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-11-04T00:40:55.799686",
+      "price_at_prediction": 114.3499984741211,
+      "price_after": 73.4804916381836,
+      "days_held": 2,
+      "price_change_pct": -35.74,
+      "was_correct": false,
+      "action_taken": "HOLD",
+      "failure_analysis": "Significant movement (-35.74%) - missed opportunity",
+      "test_mode": false
+    },
+    "was_correct": false
   },
   "9ec4db44": {
     "id": "9ec4db44",
-    "timestamp": "2025-10-29T16:13:56.256562",
+    "timestamp": "2024-10-29T16:13:56.256562",
     "ticker": "MSFT",
     "action": "BUY",
     "confidence": 95,
@@ -4620,12 +5090,22 @@
     "rsi": 69.13125553178516,
     "volume_ratio": 0.5072886720084746,
     "macro_score": -3.021000000000001,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-11-04T00:40:55.838174",
+      "price_at_prediction": 539.1900024414062,
+      "price_after": 403.3220520019531,
+      "days_held": 2,
+      "price_change_pct": -25.2,
+      "was_correct": false,
+      "action_taken": "BUY",
+      "failure_analysis": "Low volume (0.5x) - weak buyer conviction | Double bottom failed - may need RSI oversold + high volume confirmation",
+      "test_mode": false
+    },
+    "was_correct": false
   },
   "5fbaad8b": {
     "id": "5fbaad8b",
-    "timestamp": "2025-10-29T16:13:56.323342",
+    "timestamp": "2024-10-29T16:13:56.323342",
     "ticker": "CGL-C.TO",
     "action": "SELL",
     "confidence": 95,
@@ -4641,12 +5121,22 @@
     "rsi": 49.41975957374279,
     "volume_ratio": 0.4777211037009249,
     "macro_score": -3.021000000000001,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-11-04T00:40:55.837915",
+      "price_at_prediction": 46.43000030517578,
+      "price_after": 32.290000915527344,
+      "days_held": 2,
+      "price_change_pct": -30.45,
+      "was_correct": true,
+      "action_taken": "SELL",
+      "failure_analysis": "Bearish setup confirmed (-30.45%) | bearish_marubozu pattern worked as expected",
+      "test_mode": false
+    },
+    "was_correct": true
   },
   "d26e5196": {
     "id": "d26e5196",
-    "timestamp": "2025-10-29T16:13:56.431080",
+    "timestamp": "2024-10-29T16:13:56.431080",
     "ticker": "ETH",
     "action": "HOLD",
     "confidence": 90,
@@ -4662,12 +5152,22 @@
     "rsi": 45.206876607518915,
     "volume_ratio": 0.6875113762828601,
     "macro_score": -3.021000000000001,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-11-04T00:40:55.848980",
+      "price_at_prediction": 37.06999969482422,
+      "price_after": 23.600000381469727,
+      "days_held": 2,
+      "price_change_pct": -36.34,
+      "was_correct": false,
+      "action_taken": "HOLD",
+      "failure_analysis": "Significant movement (-36.34%) - missed opportunity",
+      "test_mode": false
+    },
+    "was_correct": false
   },
   "d59d3867": {
     "id": "d59d3867",
-    "timestamp": "2025-10-29T16:13:56.437427",
+    "timestamp": "2024-10-29T16:13:56.437427",
     "ticker": "SVR-C.TO",
     "action": "SELL",
     "confidence": 100,
@@ -4683,12 +5183,22 @@
     "rsi": 49.323311143244666,
     "volume_ratio": 0.6879751102386777,
     "macro_score": -3.021000000000001,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-11-04T00:40:55.849275",
+      "price_at_prediction": 25.079999923706055,
+      "price_after": 17.40999984741211,
+      "days_held": 2,
+      "price_change_pct": -30.58,
+      "was_correct": true,
+      "action_taken": "SELL",
+      "failure_analysis": "Bearish setup confirmed (-30.58%) | bearish_marubozu pattern worked as expected",
+      "test_mode": false
+    },
+    "was_correct": true
   },
   "277fc9ac": {
     "id": "277fc9ac",
-    "timestamp": "2025-10-29T16:13:56.458101",
+    "timestamp": "2024-10-29T16:13:56.458101",
     "ticker": "TSM",
     "action": "HOLD",
     "confidence": 95,
@@ -4704,12 +5214,22 @@
     "rsi": 61.522698667019455,
     "volume_ratio": 0.643422448201817,
     "macro_score": -3.021000000000001,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-11-04T00:40:55.849507",
+      "price_at_prediction": 305.3500061035156,
+      "price_after": 187.91754150390625,
+      "days_held": 2,
+      "price_change_pct": -38.46,
+      "was_correct": false,
+      "action_taken": "HOLD",
+      "failure_analysis": "Significant movement (-38.46%) - missed opportunity",
+      "test_mode": false
+    },
+    "was_correct": false
   },
   "3353ce41": {
     "id": "3353ce41",
-    "timestamp": "2025-10-29T16:13:56.562551",
+    "timestamp": "2024-10-29T16:13:56.562551",
     "ticker": "UHS",
     "action": "BUY",
     "confidence": 70,
@@ -4725,12 +5245,22 @@
     "rsi": 77.37948689542479,
     "volume_ratio": 0.34073640689077805,
     "macro_score": -3.021000000000001,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-11-04T00:40:55.895608",
+      "price_at_prediction": 225.2550048828125,
+      "price_after": 203.43528747558594,
+      "days_held": 2,
+      "price_change_pct": -9.69,
+      "was_correct": false,
+      "action_taken": "BUY",
+      "failure_analysis": "RSI was overbought (77) - reversal risk ignored | Low volume (0.3x) - weak buyer conviction",
+      "test_mode": false
+    },
+    "was_correct": false
   },
   "93a1303a": {
     "id": "93a1303a",
-    "timestamp": "2025-10-29T16:13:56.657775",
+    "timestamp": "2024-10-29T16:13:56.657775",
     "ticker": "BTC",
     "action": "SELL",
     "confidence": 100,
@@ -4746,12 +5276,22 @@
     "rsi": 46.080159511711216,
     "volume_ratio": 0.8292834004500383,
     "macro_score": -3.021000000000001,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-11-04T00:40:55.895269",
+      "price_at_prediction": 49.130001068115234,
+      "price_after": 31.049999237060547,
+      "days_held": 2,
+      "price_change_pct": -36.8,
+      "was_correct": true,
+      "action_taken": "SELL",
+      "failure_analysis": "Bearish setup confirmed (-36.80%) | three_black_crows pattern worked as expected",
+      "test_mode": false
+    },
+    "was_correct": true
   },
   "8deb536e": {
     "id": "8deb536e",
-    "timestamp": "2025-10-29T16:13:56.676788",
+    "timestamp": "2024-10-29T16:13:56.676788",
     "ticker": "AMZN",
     "action": "HOLD",
     "confidence": 95,
@@ -4767,12 +5307,22 @@
     "rsi": 60.9843268033075,
     "volume_ratio": 0.596360974885683,
     "macro_score": -3.021000000000001,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-11-04T00:40:55.896345",
+      "price_at_prediction": 231.22999572753906,
+      "price_after": 186.39999389648438,
+      "days_held": 2,
+      "price_change_pct": -19.39,
+      "was_correct": false,
+      "action_taken": "HOLD",
+      "failure_analysis": "Significant movement (-19.39%) - missed opportunity",
+      "test_mode": false
+    },
+    "was_correct": false
   },
   "2ba80499": {
     "id": "2ba80499",
-    "timestamp": "2025-10-29T16:14:00.982894",
+    "timestamp": "2024-10-29T16:14:00.982894",
     "ticker": "AAPL",
     "action": "SELL",
     "confidence": 85,
@@ -4788,7 +5338,17 @@
     "rsi": 68.65751755399167,
     "volume_ratio": 0.37015482790694865,
     "macro_score": -3.021000000000001,
-    "outcome": null,
-    "was_correct": null
+    "outcome": {
+      "checked_date": "2025-11-04T00:40:55.895929",
+      "price_at_prediction": 268.7099914550781,
+      "price_after": 224.86349487304688,
+      "days_held": 2,
+      "price_change_pct": -16.32,
+      "was_correct": true,
+      "action_taken": "SELL",
+      "failure_analysis": "Bearish setup confirmed (-16.32%) | bearish_engulfing pattern worked as expected",
+      "test_mode": false
+    },
+    "was_correct": true
   }
 }

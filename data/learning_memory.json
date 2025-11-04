@@ -201,6 +201,54 @@
     {
       "timestamp": "2025-10-29T15:05:58.374234",
       "insight": "Pattern 'bearish_marubozu': 100% accuracy (2/2)"
+    },
+    {
+      "timestamp": "2025-11-04T00:40:55.957331",
+      "insight": "[REAL] Checked 56 predictions: 26.8% accuracy (15/56 correct)"
+    },
+    {
+      "timestamp": "2025-11-04T00:40:55.957683",
+      "insight": "Pattern 'swing_highs_lows': 36% accuracy (4/11)"
+    },
+    {
+      "timestamp": "2025-11-04T00:40:55.958155",
+      "insight": "Pattern 'three_white_soldiers': 0% accuracy (0/1)"
+    },
+    {
+      "timestamp": "2025-11-04T00:40:55.958612",
+      "insight": "Pattern 'double_bottom': 0% accuracy (0/13)"
+    },
+    {
+      "timestamp": "2025-11-04T00:40:55.959524",
+      "insight": "Pattern 'bearish_engulfing': 50% accuracy (2/4)"
+    },
+    {
+      "timestamp": "2025-11-04T00:40:55.959997",
+      "insight": "Pattern 'spinning_top': 0% accuracy (0/2)"
+    },
+    {
+      "timestamp": "2025-11-04T00:40:55.960505",
+      "insight": "Pattern 'bearish_marubozu': 50% accuracy (4/8)"
+    },
+    {
+      "timestamp": "2025-11-04T00:40:55.960992",
+      "insight": "Pattern 'bullish_engulfing': 50% accuracy (2/4)"
+    },
+    {
+      "timestamp": "2025-11-04T00:40:55.961497",
+      "insight": "Pattern 'three_black_crows': 50% accuracy (2/4)"
+    },
+    {
+      "timestamp": "2025-11-04T00:40:55.961970",
+      "insight": "Pattern 'inverted_hammer': 50% accuracy (1/2)"
+    },
+    {
+      "timestamp": "2025-11-04T00:40:55.962490",
+      "insight": "Pattern 'bullish_marubozu': 0% accuracy (0/1)"
+    },
+    {
+      "timestamp": "2025-11-04T00:40:55.962935",
+      "insight": "Pattern 'doji': 0% accuracy (0/6)"
     }
   ]
 }
