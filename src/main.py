@@ -15,7 +15,7 @@ from ta.trend import MACD
 from ta.volume import OnBalanceVolumeIndicator
 from ta.volatility import BollingerBands, AverageTrueRange
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
-from io import StringIO
+from io import StringIOasync def analyze_portfolio_with_predictions
 import google.generativeai as genai
 import smtplib
 from email.mime.multipart import MIMEMultipart
@@ -2319,13 +2319,14 @@ REASON: [One sentence]"""
 # Wraps your existing portfolio analysis with predictions
 # ========================================
 
-async def analyze_portfolio_with_predictions(session, portfolio_file='portfolio.json', market_context=None):
+async def analyze_portfolio_with_predictions(session, portfolio_file='portfolio.json', market_context=None, learning_brain=None):
     """
     Enhanced portfolio analysis with predictions and market context
     """
     
     logging.info("=" * 60)
     logging.info("🧠 ANALYZE WITH PREDICTIONS - START")
+    logging.info(f"Learning brain provided: {learning_brain is not None}")
     logging.info(f"Market context provided: {market_context is not None}")
     
     # Call v2.0 portfolio analysis (has Bollinger, ATR, etc.)
