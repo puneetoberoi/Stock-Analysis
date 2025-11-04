@@ -4,8 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - main
-      - master
+      - Stable-till-LLMs-agree-but-not-intelligent-till-this-point
 
 jobs:
   test:
