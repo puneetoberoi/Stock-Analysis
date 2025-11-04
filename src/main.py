@@ -1837,8 +1837,10 @@ enhanced_pattern_detector = None
 # This READS from your existing functions without changing them
 # ========================================
 
-    @staticmethod
-    def calculate_confidence(
+class ConfidenceScorer:
+    """Calculates conviction score (0-100) for predictions"""
+    
+    @staticmethoddef calculate_confidence(
         llm_predictions,
         candle_patterns,
         pattern_success_rates,
@@ -2251,7 +2253,7 @@ Respond ONLY with: ACTION: [BUY/SELL/HOLD] CONFIDENCE: [0-100] REASON: [One sent
         logging.info(f"🔍[{ticker}] Received {len(predictions)} LLM predictions.")
         return predictions
 
-        async def _query_groq(self, prompt, ticker):
+    async def _query_groq(self, prompt, ticker):
         try:
             async with self.throttler:
                 # ✅ FIX: Using the absolute latest model Groq recommends
