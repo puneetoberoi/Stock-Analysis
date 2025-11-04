@@ -2484,7 +2484,7 @@ async def main(output="print"):
         # Step 2: Create portfolio task with macro context
         if ENABLE_V2_FEATURES:
             logging.info("🔍 Step 2: Calling analyze_portfolio_with_predictions (v3.0)")
-            portfolio_data = await analyze_portfolio_with_predictions(session, market_context=macro_data)
+            portfolio_data = await analyze_portfolio_with_predictions(session, market_context=macro_data, learning_brain=learning_brain)
         else:
             logging.info("🔍 Step 2: Calling analyze_portfolio_watchlist (v1.0)")
             portfolio_data = await analyze_portfolio_watchlist(session)
