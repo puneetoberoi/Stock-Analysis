@@ -2153,6 +2153,13 @@ async def analyze_portfolio_and_generate_watchlist(session, portfolio_file='port
 async def main(output="print"):
     logging.info("📊 FULL ANALYSIS MODE: Running market intelligence scan...")
     previous_day_memory = load_memory()
+
+    sp500 = get_cached_tickers('sp500_cache.json', fetch_sp500_tickers_sync)
+    tsx = get_cached_tickers('tsx_cache.json', fetch_tsx_tickers_sync)
+    universe = (sp500 or [])[:75] + (tsx or [])[:25]
+    
+    throttler = Throttler(2)
+    semaphore = asyncio.Semaphore(10)
     
     # ... (Your existing code for sp500, tsx, universe, throttler, semaphore) ...
 
