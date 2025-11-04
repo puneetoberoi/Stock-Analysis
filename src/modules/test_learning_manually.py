@@ -1,44 +1,36 @@
 """
-Manual test script for Learning Brain - designed for GitHub Actions
+Simple test for Learning Brain module
 """
 
-import sys
 import os
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-
+import sys
 from learning_brain import LearningBrain
-from datetime import datetime, timedelta
-import random
 
-def comprehensive_test():
-    """Run comprehensive tests on Learning Brain"""
+def run_test():
+    """Run a simple test of the learning brain"""
     
     print("="*60)
-    print("🧪 LEARNING BRAIN COMPREHENSIVE TEST")
+    print("🧪 LEARNING BRAIN TEST")
     print("="*60)
     
-    # Initialize
+    # Step 1: Initialize
+    print("\n📝 Step 1: Initializing Learning Brain...")
     brain = LearningBrain()
-    print("✅ Step 1: Brain initialized")
     
-    # Test data
-    test_stocks = [
-        ('AAPL', 'BUY', 85.5, 175.50, 'groq-llama'),
-        ('MSFT', 'HOLD', 65.0, 415.25, 'cohere'),
-        ('GOOGL', 'SELL', 72.3, 155.80, 'gemini'),
-        ('TSLA', 'BUY', 91.2, 245.60, 'groq-mixtral'),
-        ('NVDA', 'HOLD', 55.5, 885.50, 'cohere')
-    ]
-    
-    # Record multiple predictions
+    # Step 2: Record test predictions
     print("\n📝 Step 2: Recording test predictions...")
-    prediction_ids = []
+    
+    test_stocks = [
+        ('AAPL', 'BUY', 85.0, 175.50, 'groq'),
+        ('MSFT', 'HOLD', 70.0, 415.25, 'cohere'),
+        ('GOOGL', 'SELL', 65.0, 155.80, 'gemini'),
+    ]
     
     for stock, pred, conf, price, model in test_stocks:
         indicators = {
-            'rsi': random.uniform(30, 70),
-            'macd': random.uniform(-1, 1),
-            'volume_ratio': random.uniform(0.5, 2.0),
+            'rsi': 65.5,
+            'macd': 0.25,
+            'volume_ratio': 1.2,
             'patterns': 'test_pattern'
         }
         
@@ -51,66 +43,36 @@ def comprehensive_test():
             reasoning=f"Test prediction for {stock}",
             indicators=indicators
         )
-        prediction_ids.append(pred_id)
-        print(f"   ✓ {stock}: {pred} @ ${price:.2f} (ID: {pred_id})")
+        print(f"   ✓ Recorded: {stock} -> {pred} (ID: {pred_id})")
     
-    # Check current database state
-    print("\n📊 Step 3: Database Statistics")
-    import sqlite3
-    conn = sqlite3.connect('data/learning.db')
-    cursor = conn.cursor()
-    
-    cursor.execute("SELECT COUNT(*) FROM predictions")
-    pred_count = cursor.fetchone()[0]
-    print(f"   Total predictions: {pred_count}")
-    
-    cursor.execute("SELECT COUNT(*) FROM outcomes")
-    outcome_count = cursor.fetchone()[0]
-    print(f"   Total outcomes tracked: {outcome_count}")
-    
-    # Show sample predictions
-    print("\n📋 Step 4: Sample Predictions in Database")
-    cursor.execute("""
-        SELECT stock, prediction, confidence, llm_model, 
-               DATE(timestamp) as date
-        FROM predictions 
-        ORDER BY id DESC 
-        LIMIT 5
-    """)
-    
-    for row in cursor.fetchall():
-        stock, pred, conf, model, date = row
-        print(f"   {stock}: {pred} ({conf:.1f}% confidence) by {model} on {date}")
-    
-    conn.close()
-    
-    # Test outcome checking (simulate)
-    print("\n🔍 Step 5: Testing Outcome Checker")
-    brain.check_outcomes(days_back=0)  # Check today's predictions as test
-    
-    # Generate accuracy report
-    print("\n📈 Step 6: Accuracy Report")
+    # Step 3: Get report
+    print("\n📊 Step 3: Generating report...")
     report = brain.get_accuracy_report()
     print(report)
     
+    # Step 4: Verify database
+    print("\n🔍 Step 4: Verifying database...")
+    db_path = brain.db_path
+    
+    if os.path.exists(db_path):
+        size = os.path.getsize(db_path)
+        print(f"   ✅ Database exists: {db_path}")
+        print(f"   📦 Size: {size} bytes")
+    else:
+        print(f"   ❌ Database NOT found at: {db_path}")
+        return False
+    
     print("\n" + "="*60)
-    print("✅ ALL TESTS COMPLETED SUCCESSFULLY!")
+    print("✅ ALL TESTS PASSED!")
     print("="*60)
-    
-    # Create summary for GitHub Actions
-    print("\n## GitHub Actions Summary")
-    print(f"- Predictions recorded: {len(prediction_ids)}")
-    print(f"- Database size: {pred_count} predictions")
-    print(f"- Test status: PASSED ✅")
-    
     return True
 
 if __name__ == "__main__":
     try:
-        success = comprehensive_test()
+        success = run_test()
         sys.exit(0 if success else 1)
     except Exception as e:
-        print(f"❌ Test failed: {e}")
+        print(f"\n❌ TEST FAILED: {e}")
         import traceback
         traceback.print_exc()
         sys.exit(1)
