@@ -2145,12 +2145,30 @@ class IntelligentPredictionEngine:
         self.llm_clients = {}
         self._setup_llm_clients()
 
-    def _setup_llm_clients(self):
-        if os.getenv("GROQ_API_KEY"): self.llm_clients['groq'] = Groq(api_key=os.getenv("GROQ_API_KEY"))
-        if os.getenv("GEMINI_API_KEY"):
-            genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-            self.llm_clients['gemini'] = genai.GenerativeModel('gemini-1.5-flash-latest')
-        if os.getenv("COHERE_API_KEY"): self.llm_clients['cohere'] = cohere.Client(os.getenv("COHERE_API_KEY"))
+        def _setup_llm_clients(self):
+        """Initializes all available LLM clients."""
+        if os.getenv("GROQ_API_KEY") and GROQ_AVAILABLE:
+            try:
+                from groq import Groq
+                self.llm_clients['groq'] = Groq(api_key=os.getenv("GROQ_API_KEY")) # ✅ FIX: Capital 'G'
+                logging.info("✅ SUCCESS: Groq LLM client initialized.")
+            except Exception as e: logging.error(f"❌ FAILED: Groq init: {e}")
+        
+        if os.getenv("GEMINI_API_KEY") and GEMINI_API_KEY:
+            try:
+                import google.generativeai as genai
+                genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+                self.llm_clients['gemini'] = genai.GenerativeModel('gemini-1.5-flash-latest')
+                logging.info("✅ SUCCESS: Gemini LLM client initialized.")
+            except Exception as e: logging.error(f"❌ FAILED: Gemini init: {e}")
+
+        if os.getenv("COHERE_API_KEY") and COHERE_AVAILABLE:
+            try:
+                import cohere
+                self.llm_clients['cohere'] = cohere.Client(os.getenv("COHERE_API_KEY"))
+                logging.info("✅ SUCCESS: Cohere LLM client initialized.")
+            except Exception as e: logging.error(f"❌ FAILED: Cohere init: {e}")
+        
         logging.info(f"✅ LLM clients loaded: {list(self.llm_clients.keys())}")
 
     async def _query_llm(self, llm_name, prompt):
