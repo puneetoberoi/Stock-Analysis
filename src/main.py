@@ -2034,290 +2034,142 @@ class ConfidenceScorer:
             'action_advice': action_advice
         }
 
-# ============================================================================
-# 🆕 MODULE 2C: LEARNING CONTEXT GENERATOR
-# ============================================================================
+# ============================================================
+# 🎯 REBUILT & VERIFIED - Prediction Engine with Learning
+# ============================================================
 def generate_learning_context(llm_name, ticker):
-    """
-    Generates a concise learning summary for an LLM prompt based on past performance.
-    """
+    """Generates a concise learning summary for an LLM prompt."""
     try:
         performance_file = Path('data/llm_performance.json')
         predictions_file = Path('data/predictions.json')
-        
-        if not performance_file.exists() or not predictions_file.exists():
-            return ""
-
-        with open(performance_file, 'r') as f:
-            performance_data = json.load(f)
-        with open(predictions_file, 'r') as f:
-            prediction_history = json.load(f)
-
-        llm_stats = performance_data.get(llm_name)
-        if not llm_stats or llm_stats.get('total', 0) < 2:
-            return "" # Not enough data to generate meaningful context
-
-        context_lines = ["\n--- YOUR PAST PERFORMANCE & LESSONS ---"]
-
-        # 1. Overall and Ticker-Specific Accuracy
-        overall_acc = llm_stats.get('accuracy', 0)
-        ticker_stats = llm_stats.get('by_ticker', {}).get(ticker, {})
-        ticker_acc = ticker_stats.get('accuracy', -1) if ticker_stats else -1
-
-        context_lines.append(f"Your overall accuracy is {overall_acc:.1f}%.")
-        if ticker_acc != -1:
-            context_lines.append(f"On {ticker}, your accuracy is {ticker_acc:.1f}%.")
-            if ticker_acc < 50:
-                context_lines.append(f"CAUTION: You are historically not good at predicting {ticker}.")
-
-        # 2. Find recent mistakes on this specific ticker
-        recent_mistakes = []
-        for pred_id, pred in reversed(list(prediction_history.items())):
-            if len(recent_mistakes) >= 2: break
-            if (pred.get('llm_name') == llm_name and 
-                pred.get('ticker') == ticker and 
-                pred.get('was_correct') is False):
-                outcome_pct = pred.get('outcome', {}).get('price_change_pct', 0)
-                reason = (f"On {pred['timestamp'][:10]}, you predicted {pred['action']} "
-                          f"but the price moved {outcome_pct:+.1f}%. Context was RSI {pred.get('rsi', 0):.0f}, "
-                          f"Volume {pred.get('volume_ratio', 0):.1f}x.")
-                recent_mistakes.append(reason)
-        
-        if recent_mistakes:
-            context_lines.append("\nRecent Mistakes on this stock to learn from:")
-            for i, mistake in enumerate(recent_mistakes, 1):
-                context_lines.append(f"{i}. {mistake}")
-
-        context_lines.append("\nApply these lessons. Explain how you are avoiding past mistakes.")
-        context_lines.append("-------------------------------------------\n")
-        
-        return "\n".join(context_lines)
-
-    except Exception as e:
-        logging.warning(f"Could not generate learning context for {llm_name} on {ticker}: {e}")
-        return ""
-
-# ============================================================================
-# 🆕 MODULE 2C: LEARNING CONTEXT GENERATOR
-# ============================================================================
-def generate_learning_context(llm_name, ticker):
-    """Generates a concise learning summary for an LLM prompt based on past performance."""
-    try:
-        performance_file = Path('data/llm_performance.json')
-        predictions_file = Path('data/predictions.json')
-        
         if not performance_file.exists() or not predictions_file.exists(): return ""
-
         with open(performance_file, 'r') as f: performance_data = json.load(f)
         with open(predictions_file, 'r') as f: prediction_history = json.load(f)
-
         llm_stats = performance_data.get(llm_name)
         if not llm_stats or llm_stats.get('total', 0) < 1: return ""
-
         context_lines = ["\n--- YOUR PAST PERFORMANCE & LESSONS ---"]
         context_lines.append(f"Your overall accuracy is {llm_stats.get('accuracy', 0):.1f}%.")
-
         recent_mistakes = []
         for pred in reversed(list(prediction_history.values())):
             if len(recent_mistakes) >= 2: break
             if pred.get('llm_name') == llm_name and pred.get('ticker') == ticker and pred.get('was_correct') is False:
                 outcome_pct = pred.get('outcome', {}).get('price_change_pct', 0)
-                reason = (f"On {pred['timestamp'][:10]}, you predicted {pred['action']} but price moved {outcome_pct:+.1f}%. "
-                          f"Context: RSI {pred.get('rsi', 0):.0f}, Vol {pred.get('volume_ratio', 0):.1f}x.")
+                reason = (f"On {pred['timestamp'][:10]}, you predicted {pred['action']} but price moved {outcome_pct:+.1f}%.")
                 recent_mistakes.append(reason)
-        
         if recent_mistakes:
-            context_lines.append("\nRecent Mistakes on this stock to learn from:")
+            context_lines.append("\nRecent Mistakes on this stock:")
             for mistake in recent_mistakes: context_lines.append(f"- {mistake}")
-
-        context_lines.append("\nApply these lessons. Explain how you are avoiding past mistakes.")
+        context_lines.append("\nApply these lessons to your new prediction.")
         context_lines.append("-------------------------------------------\n")
-        
         return "\n".join(context_lines)
     except Exception as e:
-        logging.warning(f"Could not generate learning context for {llm_name} on {ticker}: {e}")
+        logging.warning(f"Could not generate learning context: {e}")
         return ""
 
-# ============================================================================
-# 🎯 REBUILT & VERIFIED - IntelligentPredictionEngine (FINAL VERSION)
-# ============================================================================
 class IntelligentPredictionEngine:
-    """Multi-LLM consensus with confidence scoring"""
-    
+    """Multi-LLM consensus with confidence scoring and learning."""
     def __init__(self):
-        self.candle_analyzer = candle_analyzer
-        self.learning_memory = learning_memory
-        self.confidence_scorer = ConfidenceScorer()
+        self.throttler = Throttler(rate_limit=10, period=60.0)
         self.llm_clients = {}
-        self.throttler = Throttler(rate_limit=14, period=60.0) # ✅ ADD THIS LINE
         self._setup_llm_clients()
-    
+
     def _setup_llm_clients(self):
-        if os.getenv("GROQ_API_KEY") and GROQ_AVAILABLE:
-            try:
-                from groq import Groq
-                self.llm_clients['groq'] = Groq(api_key=os.getenv("GROQ_API_KEY"))
-                logging.info("✅ SUCCESS: Groq LLM client initialized.")
-            except Exception as e: logging.error(f"❌ FAILED: Groq initialization error: {e}")
-        
-        if os.getenv("GEMINI_API_KEY") and GEMINI_API_KEY:
-            try:
-                import google.generativeai as genai
-                genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-                self.llm_clients['gemini'] = genai.GenerativeModel('gemini-1.5-flash-latest') 
-                logging.info("✅ SUCCESS: Gemini LLM client initialized.")
-            except Exception as e: logging.error(f"❌ FAILED: Gemini initialization error: {e}")
+        if os.getenv("GROQ_API_KEY") and GROQ_AVAILABLE: self.llm_clients['groq'] = Groq(api_key=os.getenv("GROQ_API_KEY"))
+        if os.getenv("GEMINI_API_KEY") and GEMINI_API_KEY: 
+            genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+            self.llm_clients['gemini'] = genai.GenerativeModel('gemini-1.5-flash-latest')
+        if os.getenv("COHERE_API_KEY") and COHERE_AVAILABLE: self.llm_clients['cohere'] = cohere.Client(os.getenv("COHERE_API_KEY"))
+        logging.info(f"✅ LLM clients loaded: {list(self.llm_clients.keys())}")
 
-        if os.getenv("COHERE_API_KEY") and COHERE_AVAILABLE:
+    async def _query_llm(self, llm_name, prompt, ticker):
+        async with self.throttler:
             try:
-                import cohere
-                self.llm_clients['cohere'] = cohere.Client(os.getenv("COHERE_API_KEY"))
-                logging.info("✅ SUCCESS: Cohere LLM client initialized.")
-            except Exception as e: logging.error(f"❌ FAILED: Cohere initialization error: {e}")
-        
-        if not self.llm_clients: logging.error("❌ CRITICAL: No LLM clients available.")
-        else: logging.info(f"✅ LLM clients loaded: {list(self.llm_clients.keys())}")
-            
-    async def analyze_with_learning(self, ticker, existing_analysis, hist_data, market_context=None):
-        """Analyzes a stock and stores a prediction for learning."""
-        candle_patterns = self.candle_analyzer.identify_pattern(hist_data)
-        
-        if ENHANCED_PATTERNS_ENABLED and enhanced_pattern_detector:
-            try:
-                enhanced_patterns = enhanced_pattern_detector.detect_all_patterns(hist_data)
-                for ep in enhanced_patterns:
-                    candle_patterns.append({'name': ep['name'], 'type': ep['type'], 'strength': 'strong', 'description': ep['description'], 'enhanced': True})
-                if enhanced_patterns:
-                    strongest = enhanced_patterns[0]
-                    emoji = "🟢" if strongest['signal'] == 'BUY' else "🔴" if strongest['signal'] == 'SELL' else "⚪"
-                    logging.info(f"   🕯️ Enhanced: {strongest['name']} {emoji} ({strongest['signal']}, {strongest['strength']}%)")
+                if llm_name == 'groq':
+                    response = await asyncio.to_thread(self.llm_clients['groq'].chat.completions.create, model="llama3-8b-8192", messages=[{"role": "user", "content": prompt}], temperature=0.2, max_tokens=100)
+                    return self._parse_llm_response(response.choices[0].message.content, 'groq')
+                elif llm_name == 'gemini':
+                    response = await self.llm_clients['gemini'].generate_content_async(prompt, generation_config={'temperature': 0.3, 'max_output_tokens': 100}, safety_settings={'HARASSMENT': 'BLOCK_NONE', 'HATE_SPEECH': 'BLOCK_NONE', 'SEXUALLY_EXPLICIT': 'BLOCK_NONE', 'DANGEROUS_CONTENT': 'BLOCK_NONE'})
+                    return self._parse_llm_response(response.text, 'gemini')
+                elif llm_name == 'cohere':
+                    response = await asyncio.to_thread(self.llm_clients['cohere'].chat, message=prompt, model='command-r', temperature=0.3)
+                    return self._parse_llm_response(response.text, 'cohere')
             except Exception as e:
-                logging.debug(f"Enhanced pattern detection error for {ticker}: {e}")
-    
-        pattern_success_rates = {p['name']: self.candle_analyzer.get_pattern_success_rate(p['name'], ticker) for p in candle_patterns}
-        
-        # ✅ FIX: This logic is now correctly inside the async function
-        llm_predictions = await self._get_multi_llm_consensus(ticker, existing_analysis, candle_patterns, pattern_success_rates, market_context)
-        
-        confidence_result = self.confidence_scorer.calculate_confidence(
-            llm_predictions, candle_patterns, pattern_success_rates, 
-            {'rsi': existing_analysis.get('rsi', 50)}, {'volume_ratio': existing_analysis.get('volume_ratio', 1.0)}, market_context
-        )
-        final_prediction = self._determine_final_action(llm_predictions, confidence_result, candle_patterns)
-        
-        if final_prediction:
-            llm_reasoning = " | ".join([f"{name}: {pred.get('reasoning', 'N/A')}" for name, pred in llm_predictions.items()]) if llm_predictions else final_prediction.get('reasoning', 'Rule-based')
-            
-            prediction_tracker.store_prediction(
-                ticker=ticker,
-                action=final_prediction['action'],
-                confidence=confidence_result.get('score', 50),
-                reasoning=llm_reasoning,
-                current_price=existing_analysis.get('price'),
-                llm_name=next(iter(llm_predictions)) if llm_predictions else 'rule-based',
-                candle_pattern=candle_patterns[0]['name'] if candle_patterns else None,
-                indicators={
-                    'rsi': existing_analysis.get('rsi', 50),
-                    'volume_ratio': existing_analysis.get('volume_ratio', 1.0),
-                    'macro_score': market_context.get('overall_macro_score', 0) if market_context else 0
-                }
-            )
-            final_prediction['prediction_id'] = list(prediction_tracker.predictions.keys())[-1]
-        
-        return {**existing_analysis, 'candle_patterns': candle_patterns, 'llm_predictions': llm_predictions, 'confidence': confidence_result, 'ai_prediction': final_prediction}
-
-    async def _get_multi_llm_consensus(self, ticker, existing_analysis, candle_patterns, pattern_success_rates, market_context):
-        logging.info(f"🔍[{ticker}] Getting LLM consensus with LEARNING CONTEXT...")
-        pattern_text = "\n".join([f"- {p['name']} ({p['type']}, {pattern_success_rates.get(p['name'], 50):.0f}% success)" for p in candle_patterns[:3]]) if candle_patterns else "No clear patterns."
-        
-        base_prompt = f"""
---- CURRENT DATA ---
-Analyze {ticker}.
-TECHNICALS: RSI: {existing_analysis.get('rsi', 50):.1f}, Volume: {existing_analysis.get('volume_ratio', 1.0):.1f}x avg.
-PATTERNS: {pattern_text}
-MACRO: Score {market_context.get('overall_macro_score', 0):.0f}.
---- YOUR TASK ---
-Respond ONLY with: ACTION: [BUY/SELL/HOLD] CONFIDENCE: [0-100] REASON: [One sentence. Reference past performance if applicable.]"""
-
-        tasks, llm_names = [], []
-        for name in self.llm_clients.keys():
-            learning_context = generate_learning_context(name, ticker)
-            enhanced_prompt = learning_context + base_prompt
-            if name == 'groq': tasks.append(self._query_groq(enhanced_prompt, ticker))
-            elif name == 'gemini': tasks.append(self._query_gemini(enhanced_prompt, ticker))
-            elif name == 'cohere': tasks.append(self._query_cohere(enhanced_prompt, ticker))
-            llm_names.append(name)
-        
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-        predictions = {name: res for name, res in zip(llm_names, results) if not isinstance(res, Exception) and res}
-        
-        logging.info(f"🔍[{ticker}] Received {len(predictions)} LLM predictions.")
-        return predictions
-
-    async def _query_groq(self, prompt, ticker):
-        try:
-            async with self.throttler:
-                # ✅ FIX: Using the absolute latest model Groq recommends
-                response = await asyncio.to_thread(
-                    self.llm_clients['groq'].chat.completions.create,
-                    model="llama3-70b-8192", 
-                    messages=[{"role": "user", "content": prompt}],
-                    temperature=0.2, max_tokens=100
-                )
-                return self._parse_llm_response(response.choices[0].message.content, 'groq')
-        except Exception as e:
-            logging.warning(f"Groq query failed for {ticker}: {e}")
-            return None
-
-    async def _query_gemini(self, prompt, ticker):
-        try:
-            async with self.throttler:
-                # ✅ FIX: Using 'gemini-1.5-flash-latest' and safety settings
-                model = genai.GenerativeModel('gemini-1.5-flash-latest')
-                response = await model.generate_content_async(
-                    prompt, 
-                    generation_config={'temperature': 0.3, 'max_output_tokens': 100},
-                    safety_settings={'HARASSMENT': 'BLOCK_NONE', 'HATE_SPEECH': 'BLOCK_NONE', 'SEXUALLY_EXPLICIT': 'BLOCK_NONE', 'DANGEROUS_CONTENT': 'BLOCK_NONE'}
-                )
-                return self._parse_llm_response(response.text, 'gemini')
-        except Exception as e:
-            logging.warning(f"Gemini query failed for {ticker}: {e}")
-            return None
-
-    async def _query_cohere(self, prompt, ticker):
-        try:
-            async with self.throttler:
-                # ✅ FIX: Using the latest stable model from Cohere
-                response = await asyncio.to_thread(
-                    self.llm_clients['cohere'].chat, 
-                    message=prompt,
-                    model='command-r-plus', 
-                    temperature=0.3
-                )
-                return self._parse_llm_response(response.text, 'cohere')
-        except Exception as e:
-            logging.warning(f"Cohere query failed for {ticker}: {e}")
-            return None
+                logging.warning(f"{llm_name.upper()} query failed for {ticker}: {e}")
+                return None
 
     def _parse_llm_response(self, text, name):
-        action_match = re.search(r'ACTION:\s*(BUY|SELL|HOLD)', text, re.I)
-        conf_match = re.search(r'CONFIDENCE:\s*(\d+)', text, re.I)
-        reason_match = re.search(r'REASON:\s*(.+?)(?:\n|$)', text, re.I)
-        return {'action': action_match.group(1).upper() if action_match else "HOLD", 'confidence': int(conf_match.group(1)) if conf_match else 50, 'reasoning': reason_match.group(1).strip() if reason_match else "No reason provided."}
+        action = re.search(r'ACTION:\s*(BUY|SELL|HOLD)', text, re.I)
+        conf = re.search(r'CONFIDENCE:\s*(\d+)', text, re.I)
+        reason = re.search(r'REASON:\s*(.+?)(?:\n|$)', text, re.I)
+        return {'action': action.group(1).upper() if action else "HOLD", 'confidence': int(conf.group(1)) if conf else 50, 'reasoning': reason.group(1).strip() if reason else "No reason."}
 
-    def _determine_final_action(self, llm_predictions, confidence_result, candle_patterns):
-        if not llm_predictions:
-            action = "BUY" if confidence_result.get('score', 50) >= 60 else "SELL" if confidence_result.get('score', 50) <= 40 else "HOLD"
-            return {'action': action, 'confidence': confidence_result.get('score', 50), 'reasoning': "Rule-based: No LLM response", 'llm_count': 0}
-        
-        actions = [p['action'] for p in llm_predictions.values()]
-        final_action = max(set(actions), key=actions.count)
-        reasonings = " | ".join([f"{name}: {p['reasoning']}" for name, p in llm_predictions.items()])
-        
-        if confidence_result.get('score', 50) < 45:
-            final_action = "HOLD"
-        
-        return {'action': final_action, 'confidence': confidence_result.get('score', 50), 'reasoning': reasonings, 'llm_count': len(llm_predictions)}
+async def analyze_portfolio_with_predictions(session, portfolio_file='portfolio.json', market_context=None):
+    logging.info("=" * 60)
+    logging.info("🧠 ANALYZE WITH PREDICTIONS (REBUILT & STABLE) - START")
+    
+    original_portfolio_data = await analyze_portfolio_with_v2_features(session, portfolio_file)
+    if not original_portfolio_data or not original_portfolio_data.get('stocks'):
+        return {'stocks': [], 'predictions_made': 0, 'learning_active': False}
+    
+    logging.info(f"Original portfolio has {len(original_portfolio_data['stocks'])} stocks")
+    
+    prediction_engine = IntelligentPredictionEngine()
+    confidence_scorer = ConfidenceScorer()
+
+    async def process_stock(stock):
+        try:
+            ticker = stock['ticker']
+            logging.info(f"🔍 Processing {ticker} for prediction...")
+            
+            hist = await asyncio.to_thread(yf.Ticker(ticker).history, period="3mo")
+            if hist.empty: return stock
+
+            candle_patterns = candle_analyzer.identify_pattern(hist)
+            if ENHANCED_PATTERNS_ENABLED and enhanced_pattern_detector:
+                candle_patterns.extend(enhanced_pattern_detector.detect_all_patterns(hist))
+            
+            pattern_success_rates = {p['name']: candle_analyzer.get_pattern_success_rate(p['name'], ticker) for p in candle_patterns}
+            
+            # Get LLM predictions
+            pattern_text = "\n".join([f"- {p['name']}" for p in candle_patterns[:3]])
+            base_prompt = f"\n--- CURRENT DATA ---\nAnalyze {ticker}.\nRSI: {stock.get('rsi', 50):.1f}, Vol: {stock.get('volume_ratio', 1.0):.1f}x avg.\nPatterns: {pattern_text}\nMacro: {market_context.get('overall_macro_score', 0):.0f}.\n--- YOUR TASK ---\nRespond ONLY: ACTION: [BUY/SELL/HOLD] CONFIDENCE: [0-100] REASON: [One sentence]"
+            
+            tasks, llm_names = [], list(prediction_engine.llm_clients.keys())
+            for name in llm_names:
+                learning_context = generate_learning_context(name, ticker)
+                tasks.append(prediction_engine._query_llm(name, learning_context + base_prompt, ticker))
+            
+            results = await asyncio.gather(*tasks)
+            llm_predictions = {name: res for name, res in zip(llm_names, results) if res}
+            logging.info(f"🔍[{ticker}] Received {len(llm_predictions)} LLM predictions.")
+            
+            # Get final action
+            confidence_result = confidence_scorer.calculate_confidence(llm_predictions, candle_patterns, {}, stock, stock, market_context)
+            final_prediction = prediction_engine._determine_final_action(llm_predictions, confidence_result)
+            
+            # Store prediction
+            if final_prediction:
+                prediction_tracker.store_prediction(
+                    ticker=ticker, action=final_prediction['action'], confidence=final_prediction['confidence'],
+                    reasoning=final_prediction['reasoning'], current_price=stock.get('price'),
+                    llm_name=next(iter(llm_predictions)) if llm_predictions else 'rule-based',
+                    candle_pattern=candle_patterns[0]['name'] if candle_patterns else None,
+                    indicators={'rsi': stock.get('rsi'), 'volume_ratio': stock.get('volume_ratio'), 'macro_score': market_context.get('overall_macro_score', 0)}
+                )
+                stock.update({'ai_prediction': final_prediction, 'confidence': confidence_result})
+            return stock
+        except Exception as e:
+            logging.error(f"Error processing {stock.get('ticker')}: {e}", exc_info=True)
+            return stock
+
+    tasks = [process_stock(stock) for stock in original_portfolio_data['stocks']]
+    enhanced_stocks = await asyncio.gather(*tasks)
+    
+    successful_predictions = sum(1 for s in enhanced_stocks if s.get('ai_prediction'))
+    original_portfolio_data.update({'stocks': enhanced_stocks, 'predictions_made': successful_predictions, 'learning_active': True})
+    
+    logging.info(f"✅ PREDICTIONS COMPLETE: {successful_predictions}/{len(enhanced_stocks)} stocks")
+    return original_portfolio_data
 
 
 # ========================================
@@ -2476,12 +2328,7 @@ async def main(output="print"):
             'bottom_stock': stock_results[-1] if stock_results else {}
         }
         ai_analysis = await generate_ai_oracle_analysis(market_summary, portfolio_data, pattern_data)
-
-        # 🆕 Step 8: Generate Today's Watchlist Data
-        watchlist_data = await generate_today_watchlist(portfolio_data, macro_data)
     
-        # 🆕 Step 9: Generate Watchlist HTML
-        watchlist_html = generate_watchlist_html(watchlist_data)
     
     # Outside session context - generate email
     if output == "email":
@@ -2489,7 +2336,7 @@ async def main(output="print"):
         html_email = generate_enhanced_html_email(
             df_stocks, context_data, market_news, macro_data, 
             previous_day_memory, portfolio_data, pattern_data, 
-            ai_analysis, portfolio_recommendations, watchlist_html
+            ai_analysis, portfolio_recommendations
         )
         send_email(html_email)
     
@@ -2504,165 +2351,12 @@ async def main(output="print"):
     
     logging.info("✅ Analysis complete with v2.0.0 features.")
 
-# ============================================================================
-# 🆕 MODULE 1: TODAY'S TRADING WATCHLIST (NEW FUNCTIONS)
-# ============================================================================
-
-def calculate_key_levels(ticker, hist_data):
-    """Calculates support & resistance for a given history DataFrame."""
-    try:
-        if hist_data.empty or len(hist_data) < 20:
-            return {'support': 0, 'resistance': 0, 'error': 'Insufficient data'}
-        
-        current_price = hist_data['Close'].iloc[-1]
-        support_20d = hist_data['Low'].tail(20).min()
-        resistance_20d = hist_data['High'].tail(20).max()
-        
-        return {
-            'current': float(current_price),
-            'support': float(support_20d),
-            'resistance': float(resistance_20d)
-        }
-    except Exception as e:
-        logging.error(f"Error calculating levels for {ticker}: {e}")
-        return {'support': 0, 'resistance': 0, 'error': str(e)}
-
-async def generate_today_watchlist(portfolio_data, macro_data):
-    """Generates a comprehensive watchlist for the upcoming trading day."""
-    logging.info("📋 Generating Today's Watchlist...")
-    watchlist = {
-        'squeeze_breakouts': [],
-        'rsi_extremes': [],
-        'key_level_alerts': [],
-        'earnings_this_week': [],
-        'macro_alerts': []
-    }
-    
-    if not portfolio_data or not portfolio_data.get('stocks'):
-        logging.warning("No portfolio data to generate watchlist.")
-        return watchlist
-
-    for stock in portfolio_data['stocks']:
-        ticker = stock['ticker']
-        
-        # 1. Bollinger Squeeze
-        if stock.get('bollinger', {}).get('squeeze'):
-            bb = stock['bollinger']
-            watchlist['squeeze_breakouts'].append({
-                'ticker': ticker, 'name': stock.get('name', ticker),
-                'squeeze_width': bb['width'], 'bullish_break': bb['upper'],
-                'bearish_break': bb['lower'], 'current_price': stock['price']
-            })
-
-        # 2. RSI Extremes
-        rsi = stock.get('rsi', 50)
-        if rsi > 70 or rsi < 30:
-            watchlist['rsi_extremes'].append({
-                'ticker': ticker, 'name': stock.get('name', ticker),
-                'rsi': rsi, 'type': 'OVERBOUGHT' if rsi > 70 else 'OVERSOLD'
-            })
-            
-        # 3. Key Levels
-        try:
-            hist = await asyncio.to_thread(yf.Ticker(ticker).history, period="3mo")
-            levels = calculate_key_levels(ticker, hist)
-            if 'error' not in levels:
-                dist_to_support = ((levels['current'] - levels['support']) / levels['current']) * 100
-                dist_to_resistance = ((levels['resistance'] - levels['current']) / levels['current']) * 100
-                if dist_to_support < 2.0:
-                    watchlist['key_level_alerts'].append({'ticker': ticker, 'type': 'AT SUPPORT', 'level': levels['support']})
-                if dist_to_resistance < 2.0:
-                     watchlist['key_level_alerts'].append({'ticker': ticker, 'type': 'AT RESISTANCE', 'level': levels['resistance']})
-        except Exception as e:
-            logging.warning(f"Could not fetch history for {ticker} key levels: {e}")
-
-
-        # 4. Earnings this week
-        if stock.get('earnings') and stock['earnings'].get('days_until', 99) <= 7:
-            watchlist['earnings_this_week'].append({
-                'ticker': ticker, 'name': stock.get('name', ticker),
-                'days_until': stock['earnings']['days_until']
-            })
-
-    # 5. Macro Alerts
-    if macro_data:
-        if macro_data.get('overall_macro_score', 0) < -15:
-            watchlist['macro_alerts'].append({'severity': 'HIGH', 'message': f"Extreme caution advised: Macro Score is very low ({macro_data['overall_macro_score']:.1f})"})
-        if macro_data.get('geopolitical_risk', 0) > 70:
-            watchlist['macro_alerts'].append({'severity': 'HIGH', 'message': f"Elevated Geopolitical Risk ({macro_data['geopolitical_risk']:.0f}/100)"})
-
-    logging.info("✅ Watchlist data generated.")
-    return watchlist
-
-# ============================================================================
-# 🆕 MODULE 1C (FINAL): TODAY'S WATCHLIST HTML GENERATOR (Full Version)
-# ============================================================================
-def generate_watchlist_html(watchlist):
-    """Generates the full, detailed HTML for the watchlist section."""
-    if not watchlist or not any(watchlist.values()):
-        return ""
-
-    today = datetime.now().strftime('%A, %B %d')
-    html = f"""<div class="section" style="background-color:#fff7ed;border-left:4px solid #ea580c;">
-        <h2>🔍 TODAY'S TRADING WATCHLIST</h2>
-        <p style="font-size:1.1em;color:#666;margin-bottom:20px;"><b>{today}</b> - Your action plan for today's session</p>"""
-
-    # 1. Bollinger Squeezes
-    if watchlist.get('squeeze_breakouts'):
-        html += """<div style="margin-bottom:25px;"><h3 style="color:#ea580c;border-bottom:2px solid #fed7aa;padding-bottom:8px;">💥 BOLLINGER SQUEEZE BREAKOUTS - URGENT</h3>"""
-        for item in watchlist['squeeze_breakouts'][:5]:
-            prob = 100 # Default if not present
-            prob_color = '#16a34a' if prob >= 80 else '#f59e0b'
-            vol_needed = item.get('volume_needed', 1.5)
-            html += f"""<div style="background:#fff;border:1px solid #fed7aa;border-radius:8px;padding:15px;margin:12px 0;box-shadow:0 2px 4px rgba(0,0,0,0.05);"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;"><div><span style="font-size:1.3em;font-weight:bold;">{item['ticker']}</span><span style="color:#6b7280;margin-left:8px;">- {item['name']}</span></div><div style="text-align:right;"><div style="font-size:1.4em;font-weight:bold;color:{prob_color};">{prob}%</div><div style="font-size:0.75em;color:#6b7280;">BREAKOUT ODDS</div></div></div><div style="background:#fefce8;padding:10px;border-radius:5px;font-size:0.9em;"><b>Current:</b> ${item['current_price']:.2f} | <b>Squeeze:</b> {item['squeeze_width']:.1f}%</div><table style="width:100%;margin-top:10px;"><tr><td style="padding:8px;background:#ecfdf5;border-radius:4px;width:48%;text-align:center;"><div style="font-weight:bold;color:#065f46;">🟢 Bullish Break</div><div style="font-size:1.2em;color:#047857;">${item['bullish_break']:.2f}</div></td><td style="width:4%;"></td><td style="padding:8px;background:#fee2e2;border-radius:4px;width:48%;text-align:center;"><div style="font-weight:bold;color:#991b1b;">🔴 Bearish Break</div><div style="font-size:1.2em;color:#b91c1c;">${item['bearish_break']:.2f}</div></td></tr></table></div>"""
-        html += "</div>"
-
-    # 2. RSI Extremes
-    if watchlist.get('rsi_extremes'):
-        html += """<div style="margin-bottom:25px;"><h3 style="color:#be123c;border-bottom:2px solid #fecaca;padding-bottom:8px;">📊 RSI EXTREMES - REVERSAL WATCH</h3>"""
-        for item in watchlist['rsi_extremes']:
-            color = '#991b1b' if item['type'] == 'OVERBOUGHT' else '#166534'
-            emoji = '🔴' if item['type'] == 'OVERBOUGHT' else '🟢'
-            html += f"""<div style="padding:10px;border-left:4px solid {color};margin:5px 0;background:#fef2f2" if item['type'] == 'OVERBOUGHT' else '#f0fdf4';"><b style="color:{color};">{emoji} {item['ticker']}</b> is <b>{item['type']}</b> (RSI: {item['rsi']:.1f}). Watch for reversal.</div>"""
-        html += "</div>"
-    
-    # 3. Key Level Alerts
-    if watchlist.get('key_level_alerts'):
-        html += """<div style="margin-bottom:25px;"><h3 style="color:#0369a1;border-bottom:2px solid #bae6fd;padding-bottom:8px;">🎯 KEY LEVEL ALERTS</h3>"""
-        for item in watchlist['key_level_alerts']:
-            color = '#be123c' if item['type'] == 'AT RESISTANCE' else '#166534'
-            emoji = '🔺' if item['type'] == 'AT RESISTANCE' else '🔻'
-            html += f"""<div style="padding:10px;border-left:4px solid {color};margin:5px 0;background:#f0f9ff" if item['type'] == 'AT RESISTANCE' else '#f0fdf4';"><b>{emoji} {item['ticker']}</b> is <b>{item['type']}</b> at <b>${item['level']:.2f}</b>.</div>"""
-        html += "</div>"
-        
-    # 4. Earnings
-    if watchlist.get('earnings_this_week'):
-        html += """<div style="margin-bottom:25px;"><h3 style="color:#7c3aed;border-bottom:2px solid #e9d5ff;padding-bottom:8px;">📅 EARNINGS THIS WEEK</h3>"""
-        for item in watchlist['earnings_this_week']:
-             html += f"""<div style="padding:10px;margin:5px 0;background:#faf5ff;"><b>{item['ticker']}</b> reports in <b>{item['days_until']} day(s)</b>. Expect volatility.</div>"""
-        html += "</div>"
-
-        # Pro Tips Section
-    html += """
-        <div style="background:#dbeafe;padding:15px;border-radius:8px;margin-top:20px;border-left:4px solid #1e40af;">
-            <div style="font-weight:bold;color:#1e40af;margin-bottom:8px;">💡 PRO TIPS FOR TODAY:</div>
-            <ul style="margin:5px 0;padding-left:20px;color:#1e3a8a;font-size:0.9em;">
-                <li>Set price alerts for all squeeze breakout levels.</li>
-                <li>Don't chase breakouts without volume confirmation (>1.5x average).</li>
-                <li>Watch the first 30 minutes for fakeouts; true breakouts often hold.</li>
-                <li>RSI extremes are warnings, not sell/buy signals. Wait for price action to confirm.</li>
-            </ul>
-        </div>
-    """
-    
-    html += "</div>" # This is the closing div for the entire watchlist section
-    return html
 
 # ========================================
 # EMAIL GENERATION - Updated for v2.0.0
 # ========================================
 
-def generate_enhanced_html_email(df_stocks, context, market_news, macro_data, memory, portfolio_data, pattern_data, ai_analysis, portfolio_recommendations=None, watchlist_html=None):
+def generate_enhanced_html_email(df_stocks, context, market_news, macro_data, memory, portfolio_data, pattern_data, ai_analysis, portfolio_recommendations=None):
     """FIXED v2.0.0: Clear, non-conflicting email display"""
     
     def format_articles(articles):
@@ -2984,7 +2678,6 @@ def generate_enhanced_html_email(df_stocks, context, market_news, macro_data, me
         {ai_oracle_html}
         {portfolio_html}
         {ai_predictions_html}
-        {watchlist_html}
         {pattern_html}
         
         <div class="section">
