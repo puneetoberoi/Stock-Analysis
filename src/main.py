@@ -1840,7 +1840,8 @@ enhanced_pattern_detector = None
 class ConfidenceScorer:
     """Calculates conviction score (0-100) for predictions"""
     
-    @staticmethoddef calculate_confidence(
+    @staticmethod
+    def calculate_confidence(
         llm_predictions,
         candle_patterns,
         pattern_success_rates,
