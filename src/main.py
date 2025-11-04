@@ -2145,7 +2145,7 @@ class IntelligentPredictionEngine:
         self.llm_clients = {}
         self._setup_llm_clients()
 
-        def _setup_llm_clients(self):
+    def _setup_llm_clients(self):
         """Initializes all available LLM clients."""
         if os.getenv("GROQ_API_KEY") and GROQ_AVAILABLE:
             try:
