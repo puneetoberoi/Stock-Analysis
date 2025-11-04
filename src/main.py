@@ -740,7 +740,7 @@ async def generate_ai_oracle_analysis(market_data, portfolio_data, pattern_data)
     # ... (the rest of the function is the same, just ensure this part is correct)
     try:
         genai.configure(api_key=GEMINI_API_KEY)
-        models_to_try = ['gemini-1.5-flash-latest'] # ✅ Use 'gemini-pro' as primary
+        models_to_try = ['gemini-2.5-flash'] # ✅ Use 'gemini-pro' as primary
         model = None
         for model_name in models_to_try:
             try:
@@ -1251,33 +1251,34 @@ class PredictionTracker:
         with open(self.predictions_file, 'w') as f:
             json.dump(self.predictions, f, indent=2, default=str)
     
-    def store_prediction(self, ticker, action, confidence, reasoning, candle_pattern=None, indicators=None, llm_name=None, current_price=None):
-        """
-        ✅ FINAL FIX: Correctly accepts all arguments and stores all context.
-        """
+    def store_prediction(self, ticker, action, confidence, reasoning, candle_pattern=None, indicators=None):
+        """Store a new prediction with all context"""
         prediction_id = hashlib.md5(f"{ticker}{datetime.now().isoformat()}".encode()).hexdigest()[:8]
-
+        
         prediction = {
             'id': prediction_id,
             'timestamp': datetime.now().isoformat(),
             'ticker': ticker,
-            'action': action,
-            'confidence': confidence,
+            'action': action,  # BUY, SELL, HOLD
+            'confidence': confidence,  # 0-100
             'reasoning': reasoning,
-            'llm_name': llm_name,
             'candle_pattern': candle_pattern,
             'indicators': indicators or {},
-            'price_at_prediction': float(current_price) if current_price is not None else None,
-            'rsi': indicators.get('rsi', 50) if indicators else 50,
-            'volume_ratio': indicators.get('volume_ratio', 1.0) if indicators else 1.0,
-            'macro_score': indicators.get('macro_score', 0) if indicators else 0,
-            'outcome': None,
-            'was_correct': None
+            'price_at_prediction': None,  # Will be filled
+            'outcome': None,  # Will be updated later
+            'was_correct': None  # Will be calculated
         }
-
+        
+        # Get current price
+        try:
+            import yfinance as yf
+            current_price = yf.Ticker(ticker).history(period='1d')['Close'].iloc[-1]
+            prediction['price_at_prediction'] = float(current_price)
+        except:
+            pass
+        
         self.predictions[prediction_id] = prediction
         self._save_predictions()
-        
         logging.info(f"📝 Stored prediction {prediction_id}: {ticker} - {action} (confidence: {confidence}%)")
         return prediction_id
     
@@ -1850,8 +1851,8 @@ class ConfidenceScorer:
         market_context=None
     ):
         """
-        ✅ FIXED: This is the complete, correct version of the function.
-        Calculates comprehensive confidence score (0-100) for predictions.
+        Calculate comprehensive confidence score
+        Returns: dict with score, breakdown, and action threshold
         """
         confidence = 50  # Start neutral
         breakdown = []
@@ -1860,107 +1861,156 @@ class ConfidenceScorer:
         llm_score = 0
         if llm_predictions:
             actions = [p['action'] for p in llm_predictions.values()]
-            if len(set(actions)) == 1:
+            confidences = [p['confidence'] for p in llm_predictions.values()]
+            
+            # Agreement boost
+            if len(set(actions)) == 1:  # All agree
                 llm_score = 30
                 breakdown.append(f"✅ All {len(actions)} LLMs agree ({actions[0]}): +30")
-            elif len(actions) > 1:
+            elif len(actions) >= 2:
                 most_common = max(set(actions), key=actions.count)
                 agreement_pct = (actions.count(most_common) / len(actions)) * 100
-                llm_score = int(agreement_pct * 0.3)
+                llm_score = int(agreement_pct * 0.3)  # Up to 30 points
                 breakdown.append(f"✅ ⚖️ {agreement_pct:.0f}% LLM agreement: +{llm_score}")
+            
+            # Average LLM confidence
+            avg_llm_conf = sum(confidences) / len(confidences)
+            if avg_llm_conf > 70:
+                llm_score += 10
+                breakdown.append(f"✅ 🎯 High LLM confidence ({avg_llm_conf:.0f}%): +10")
+            elif avg_llm_conf < 40:
+                llm_score -= 10
+                breakdown.append(f"⚠️ Low LLM confidence ({avg_llm_conf:.0f}%): -10")
+        
         confidence += llm_score
         
-        # 2. CANDLESTICK PATTERN STRENGTH (0-25 points)
+        # ========================================================================
+        # 2. CANDLESTICK PATTERN STRENGTH (0-35 points) - ENHANCED VERSION
+        # ========================================================================
         pattern_score = 0
-        # ✅ FIX: Define basic_patterns and enhanced_patterns correctly
-        enhanced_patterns = [p for p in candle_patterns if p.get('enhanced')]
-        basic_patterns = [p for p in candle_patterns if not p.get('enhanced')]
-
+        
+        # Separate basic and enhanced patterns
+        basic_patterns = [p for p in candle_patterns if not p.get('enhanced', False)]
+        enhanced_patterns = [p for p in candle_patterns if p.get('enhanced', False)]
+        
+        # Score ENHANCED patterns first (they're more sophisticated)
         if enhanced_patterns:
+            # Get the strongest enhanced pattern
             best_enhanced = max(enhanced_patterns, key=lambda x: x.get('strength_score', 0))
             strength_score = best_enhanced.get('strength_score', 0)
-            name = best_enhanced.get('name', 'Pattern').replace('_', ' ').title()
+            
             if strength_score >= 85:
                 pattern_score += 20
-                breakdown.append(f"✅ 🔥 {name} ({strength_score}%): +20")
+                breakdown.append(f"✅ 🔥 {best_enhanced['name'].replace('_', ' ').title()} ({strength_score}% strength): +20")
             elif strength_score >= 75:
                 pattern_score += 15
-                breakdown.append(f"✅ 📈 {name} ({strength_score}%): +15")
+                breakdown.append(f"✅ 📈 {best_enhanced['name'].replace('_', ' ').title()} ({strength_score}% strength): +15")
+            elif strength_score >= 65:
+                pattern_score += 10
+                breakdown.append(f"✅ ➡️ {best_enhanced['name'].replace('_', ' ').title()} ({strength_score}% strength): +10")
+            
+            # Bonus for multiple enhanced patterns confirming
+            if len(enhanced_patterns) >= 2:
+                pattern_score += 5
+                breakdown.append(f"✅ 🎯 Multiple patterns confirm ({len(enhanced_patterns)} found): +5")
+        
+        # Score BASIC patterns (if no enhanced or as supplement)
         elif basic_patterns:
             strong_patterns = [p for p in basic_patterns if p.get('strength') in ['strong', 'very_strong']]
+            
             if strong_patterns:
-                best_basic = strong_patterns[0]
-                rate = pattern_success_rates.get(best_basic['name'], 50)
-                if rate > 70:
-                    pattern_score += 15
-                    breakdown.append(f"✅ 📈 Strong {best_basic['name']} ({rate:.0f}% success): +15")
-                else:
-                    pattern_score += 10
-                    breakdown.append(f"✅ 📊 {best_basic['name']} ({rate:.0f}% success): +10")
+                # Get best pattern success rate
+                best_success_rate = 0
+                best_pattern = None
+                for pattern in strong_patterns:
+                    rate = pattern_success_rates.get(pattern['name'], 50)
+                    if rate > best_success_rate:
+                        best_success_rate = rate
+                        best_pattern = pattern
+                
+                if best_success_rate > 70:
+                    pattern_score = 25
+                    breakdown.append(f"✅ 📈 Strong {best_pattern['name']} ({best_success_rate:.0f}% success): +25")
+                elif best_success_rate > 60:
+                    pattern_score = 15
+                    breakdown.append(f"✅ 📊 {best_pattern['name']} ({best_success_rate:.0f}% success): +15")
+                elif best_success_rate > 50:
+                    pattern_score = 10
+                    breakdown.append(f"✅ ➡️ {best_pattern['name']} ({best_success_rate:.0f}% success): +10")
         
-        # Penalty for conflicting patterns
-        pattern_types = {p.get('type', '') for p in candle_patterns}
+        # Penalty for conflicting patterns (bullish vs bearish)
+        pattern_types = [p.get('type', '') for p in candle_patterns]
         if 'bullish_reversal' in pattern_types and 'bearish_reversal' in pattern_types:
             pattern_score -= 15
-            breakdown.append("⚠️ Conflicting patterns: -15")
-            
+            breakdown.append(f"⚠️ ⚠️ Conflicting patterns: -15")
+        elif 'bullish_continuation' in pattern_types and 'bearish_continuation' in pattern_types:
+            pattern_score -= 10
+            breakdown.append(f"⚠️ ⚠️ Mixed trend signals: -10")
+        
         confidence += pattern_score
-
+        # ========================================================================
+        
         # 3. TECHNICAL INDICATORS (0-20 points)
         indicator_score = 0
         if technical_indicators:
             rsi = technical_indicators.get('rsi', 50)
-            if rsi > 70 or rsi < 30:
-                indicator_score -= 5
-                breakdown.append(f"⚠️ RSI at extremes ({rsi:.0f}): -5")
-            else:
+            macd = technical_indicators.get('macd', 0)
+            score = technical_indicators.get('score', 50)
+            
+            # RSI alignment
+            if 30 < rsi < 70:
                 indicator_score += 10
-                breakdown.append(f"✅ RSI balanced ({rsi:.0f}): +10")
+                breakdown.append(f"✅ ✅ RSI balanced ({rsi:.0f}): +10")
+            elif rsi < 30:
+                indicator_score += 5
+                breakdown.append(f"✅ 🔵 RSI oversold ({rsi:.0f}): +5")
+            elif rsi > 70:
+                indicator_score -= 5
+                breakdown.append(f"⚠️ 🔴 RSI overbought ({rsi:.0f}): -5")
+            
+            # System score
+            if score > 70:
+                indicator_score += 10
+                breakdown.append(f"✅ ⭐ High system score ({score:.0f}): +10")
+            elif score < 40:
+                indicator_score -= 10
+                breakdown.append(f"⚠️ ⚠️ Low system score ({score:.0f}): -10")
+        
         confidence += indicator_score
         
         # 4. VOLUME CONFIRMATION (0-15 points)
         volume_score = 0
         if volume_data:
             volume_ratio = volume_data.get('volume_ratio', 1.0)
-            if volume_ratio > 1.5:
-                volume_score += 10
+            
+            if volume_ratio > 2.0:
+                volume_score = 15
+                breakdown.append(f"✅ 📊 High volume ({volume_ratio:.1f}x avg): +15")
+            elif volume_ratio > 1.5:
+                volume_score = 10
                 breakdown.append(f"✅ 📈 Above avg volume ({volume_ratio:.1f}x): +10")
             elif volume_ratio < 0.5:
-                volume_score -= 10
-                breakdown.append(f"⚠️ 📉 Low volume ({volume_ratio:.1f}x): -10")
+                volume_score = -10
+                breakdown.append(f"⚠️ 📉 Low volume ({volume_ratio:.1f}x avg): -10")
+        
         confidence += volume_score
         
-        # 5. MARKET CONTEXT (-10 to +10 points)
+        # 5. MARKET CONTEXT (0-10 points)
         context_score = 0
         if market_context:
             macro_score = market_context.get('overall_macro_score', 0)
+            
             if macro_score > 10:
-                context_score = 5
-                breakdown.append(f"✅ 🌍 Positive market context: +5")
+                context_score = 10
+                breakdown.append(f"✅ 🌍 Positive market context (+{macro_score:.0f}): +10")
             elif macro_score < -10:
                 context_score = -10
-                breakdown.append(f"⚠️ Negative market context: -10")
+                breakdown.append(f"⚠️ ⚠️ Negative market context ({macro_score:.0f}): -10")
+        
         confidence += context_score
-
-        # ✅ FIX: Final capping and return logic is now present at the end
-        confidence = max(0, min(100, int(confidence)))
         
-        if confidence >= 75:
-            action_strength = "STRONG"
-            action_advice = "High conviction - consider full position"
-        elif confidence >= 60:
-            action_strength = "MODERATE"
-            action_advice = "Medium conviction - consider starter position"
-        else:
-            action_strength = "WEAK"
-            action_advice = "Low conviction - wait for better setup or avoid"
-        
-        return {
-            'score': confidence,
-            'breakdown': breakdown,
-            'action_strength': action_strength,
-            'action_advice': action_advice
-        }
+        # Cap confidence between 0-100
+        confidence = max(0, min(100, confidence))
 
                 # ========================================================================
         # 6. NEWS/EVENTS SCORING (NEW - DOESN'T TOUCH EXISTING CODE)
@@ -2034,37 +2084,355 @@ class ConfidenceScorer:
             'action_advice': action_advice
         }
 
-# ============================================================
-# 🎯 REBUILT & VERIFIED - Prediction Engine with Learning
-# ============================================================
-def generate_learning_context(llm_name, ticker):
-    """Generates a concise learning summary for an LLM prompt."""
+
+# ✅ COMPLETE FIXED CLASS - REPLACE YOUR EXISTING ONE
+# ✅ COMPLETE FINAL CLASS - REPLACE YOUR EXISTING ONE
+class IntelligentPredictionEngine:
+    """Multi-LLM consensus with confidence scoring"""
+    
+    def __init__(self):
+        self.prediction_tracker = prediction_tracker
+        self.candle_analyzer = candle_analyzer
+        self.learning_memory = learning_memory
+        self.confidence_scorer = ConfidenceScorer()
+        self.llm_clients = {}
+        self._setup_llm_clients()
+    
+    def _setup_llm_clients(self):
+        """Setup all available LLM clients with explicit logging"""
+        if os.getenv("GROQ_API_KEY"):
+            try:
+                from groq import Groq
+                self.llm_clients['groq'] = Groq(api_key=os.getenv("GROQ_API_KEY"))
+                logging.info("✅ SUCCESS: Groq LLM client initialized.")
+            except Exception as e:
+                logging.error(f"❌ FAILED: Groq initialization error: {e}")
+        else:
+            logging.warning("⚠️ SKIPPED: GROQ_API_KEY not found in secrets.")
+        
+        if os.getenv("GEMINI_API_KEY"):
+            try:
+                import google.generativeai as genai
+                genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+                self.llm_clients['gemini'] = genai.GenerativeModel('gemini-2.5-flash') 
+                logging.info("✅ SUCCESS: Gemini LLM client initialized.")
+            except Exception as e:
+                logging.error(f"❌ FAILED: Gemini initialization error: {e}")
+        else:
+            logging.warning("⚠️ SKIPPED: GEMINI_API_KEY not found in secrets.")
+        
+        if os.getenv("COHERE_API_KEY"):
+            try:
+                import cohere
+                self.llm_clients['cohere'] = cohere.Client(os.getenv("COHERE_API_KEY"))
+                logging.info("✅ SUCCESS: Cohere LLM client initialized.")
+            except Exception as e:
+                logging.error(f"❌ FAILED: Cohere initialization error: {e}")
+        else:
+            logging.warning("⚠️ SKIPPED: COHERE_API_KEY not found in secrets.")
+        
+        if not self.llm_clients:
+            logging.error("❌ CRITICAL: No LLM clients available. System is operating in rule-based mode only.")
+        else:
+            logging.info(f"✅ LLM clients loaded: {list(self.llm_clients.keys())}")
+            
+            
+    async def analyze_with_learning(self, ticker, existing_analysis, hist_data, market_context=None):
+    # Get patterns from BOTH analyzers
+        candle_patterns = self.candle_analyzer.identify_pattern(hist_data)  # Basic patterns (18)
+        
+        # 🆕 Add enhanced patterns (30+ advanced patterns)
+        if ENHANCED_PATTERNS_ENABLED and enhanced_pattern_detector:
+            try:
+                enhanced_patterns = enhanced_pattern_detector.detect_all_patterns(hist_data)
+                
+                # Convert enhanced pattern format to match existing format
+                for ep in enhanced_patterns:
+                    candle_patterns.append({
+                        'name': ep['name'],
+                        'type': ep['type'],
+                        'strength': 'very_strong' if ep['strength'] >= 90 else 'strong' if ep['strength'] >= 80 else 'medium',
+                        'description': ep['description'],
+                        'enhanced': True,  # Mark as enhanced pattern
+                        'strength_score': ep['strength']  # Keep original score
+                    })
+                
+                # Log the strongest pattern from enhanced detector
+                if enhanced_patterns:
+                    strongest = enhanced_patterns[0]  # Already sorted by strength
+                    emoji = "🟢" if strongest['signal'] == 'BUY' else "🔴" if strongest['signal'] == 'SELL' else "⚪"
+                    logging.info(f"   🕯️ Enhanced: {strongest['name']} {emoji} ({strongest['signal']}, {strongest['strength']}%)")
+            
+            except Exception as e:
+                logging.debug(f"Enhanced pattern detection error for {ticker}: {e}")
+    
+        # Rest of your existing code stays the same
+        pattern_success_rates = {p['name']: self.candle_analyzer.get_pattern_success_rate(p['name'], ticker) for p in candle_patterns}
+        llm_predictions = await self._get_multi_llm_consensus(ticker, existing_analysis, candle_patterns, pattern_success_rates, market_context)
+        confidence_result = self.confidence_scorer.calculate_confidence(llm_predictions, candle_patterns, pattern_success_rates, {'rsi': existing_analysis.get('rsi', 50), 'score': existing_analysis.get('score', 50)}, {'volume_ratio': existing_analysis.get('volume_ratio', 1.0)}, market_context)
+        final_prediction = self._determine_final_action(llm_predictions, confidence_result, candle_patterns)
+        
+        if final_prediction:
+            # ============================================================
+            # Build comprehensive reasoning from LLM predictions
+            # ============================================================
+            if llm_predictions:
+                # Format: "groq: reasoning | gemini: reasoning | cohere: reasoning"
+                llm_reasoning = " | ".join([
+                    f"{llm_name}: {pred.get('reasoning', pred.get('action', 'No reasoning'))}" 
+                    for llm_name, pred in llm_predictions.items()
+                ])
+            else:
+                llm_reasoning = final_prediction.get('reasoning', 'No LLM reasoning available')
+            
+            # Store prediction with detailed LLM reasoning
+            pred_id = self.prediction_tracker.store_prediction(
+                ticker=ticker,
+                action=final_prediction['action'],
+                confidence=confidence_result['score'],
+                reasoning=llm_reasoning,  # ← Use LLM reasoning, not final_prediction['reasoning']
+                candle_pattern=candle_patterns[0]['name'] if candle_patterns else None,
+                indicators={'rsi': existing_analysis.get('rsi', 50)}
+            )
+            final_prediction['prediction_id'] = pred_id
+        
+        return {**existing_analysis, 'candle_patterns': candle_patterns, 'pattern_success_rates': pattern_success_rates, 'llm_predictions': llm_predictions, 'confidence': confidence_result, 'ai_prediction': final_prediction, 'learning_insights': self.learning_memory.get_recent_insights(3)}
+
+    async def _get_multi_llm_consensus(self, ticker, existing_analysis, candle_patterns, pattern_success_rates, market_context):
+        logging.info(f"🔍[{ticker}] Getting LLM consensus. Available models: {list(self.llm_clients.keys())}")
+        pattern_text = "\n".join([f"{p['name']} ({p['type']}, {pattern_success_rates.get(p['name'], 50):.0f}% historical success)" for p in candle_patterns[:3]]) if candle_patterns else "No clear patterns identified"
+        context = f"""Analyze {ticker} and provide BUY/HOLD/SELL recommendation.
+TECHNICAL DATA:
+- Score: {existing_analysis.get('score', 'N/A')}/100
+- RSI: {existing_analysis.get('rsi', 'N/A')}
+- Volume: {existing_analysis.get('volume_ratio', 1.0):.1f}x average
+CANDLESTICK PATTERNS (Today):
+{pattern_text}
+MARKET CONTEXT:
+{f"Macro Score: {market_context.get('overall_macro_score', 0):.0f}" if market_context else "Not available"}
+Respond with ONLY:
+ACTION: [BUY/HOLD/SELL]
+CONFIDENCE: [0-100]
+REASON: [One sentence]"""
+        
+        tasks, llm_names = [], []
+        if 'groq' in self.llm_clients:
+            tasks.append(self._query_groq(context, ticker))
+            llm_names.append('groq')
+        if 'gemini' in self.llm_clients:
+            tasks.append(self._query_gemini(context, ticker))
+            llm_names.append('gemini')
+        if 'cohere' in self.llm_clients:
+            tasks.append(self._query_cohere(context, ticker))
+            llm_names.append('cohere')
+        
+        predictions = {}
+        if tasks:
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            for llm_name, result in zip(llm_names, results):
+                if not isinstance(result, Exception) and result:
+                    predictions[llm_name] = result
+        
+        logging.info(f"🔍[{ticker}] Received {len(predictions)} LLM predictions.")
+        return predictions
+
+    async def _query_groq(self, prompt, ticker):
+        try:
+            client = self.llm_clients['groq']
+            response = await asyncio.to_thread(
+                client.chat.completions.create,
+                model="llama-3.3-70b-versatile",  # ✅ FIXED: Use the smaller, stable model
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.3, max_tokens=150
+            )
+            return self._parse_llm_response(response.choices[0].message.content, 'groq')
+        except Exception as e:
+            logging.warning(f"Groq query failed for {ticker}: {e}")
+            return None
+
+    async def _query_gemini(self, prompt, ticker):
+        try:
+            model = self.llm_clients['gemini']
+            # ✅ FIXED: Switched to async call for better performance
+            response = await model.generate_content_async(
+                prompt,
+                generation_config={'temperature': 0.3, 'max_output_tokens': 150}
+            )
+            return self._parse_llm_response(response.text, 'gemini')
+        except Exception as e:
+            logging.warning(f"Gemini query failed for {ticker}: {e}")
+            return None
+
+    async def _query_cohere(self, prompt, ticker):
+        try:
+            client = self.llm_clients['cohere']
+            response = await asyncio.to_thread(
+                client.chat,
+                message=prompt,
+                model='command-a-03-2025',  # ✅ FIXED: Use the 'plus' version
+                temperature=0.3
+            )
+            return self._parse_llm_response(response.text, 'cohere')
+        except Exception as e:
+            logging.warning(f"Cohere query failed for {ticker}: {e}")
+            return None
+
+    def _parse_llm_response(self, response_text, llm_name):
+        import re
+        action, confidence, reasoning = "HOLD", 50, response_text[:200]
+        action_match = re.search(r'ACTION:\s*(BUY|SELL|HOLD)', response_text, re.IGNORECASE)
+        if action_match: action = action_match.group(1).upper()
+        conf_match = re.search(r'CONFIDENCE:\s*(\d+)', response_text, re.IGNORECASE)
+        if conf_match: confidence = int(conf_match.group(1))
+        reason_match = re.search(r'REASON:\s*(.+?)(?:\n|$)', response_text, re.IGNORECASE)
+        if reason_match: reasoning = reason_match.group(1).strip()
+        return {'action': action, 'confidence': max(0, min(100, confidence)), 'reasoning': reasoning, 'llm': llm_name}
+
+    def _determine_final_action(self, llm_predictions, confidence_result, candle_patterns):
+        if not llm_predictions:
+            action = "BUY" if confidence_result['score'] >= 60 and candle_patterns and 'bullish' in candle_patterns[0].get('type', '') else "SELL" if confidence_result['score'] <= 40 else "HOLD"
+            return {'action': action, 'confidence': confidence_result['score'], 'reasoning': f"Rule-based: {confidence_result['action_advice']}", 'llm_count': 0}
+        
+        actions = [p['action'] for p in llm_predictions.values()]
+        weights = self.learning_memory.get_llm_weights()
+        weighted_actions = {"BUY": 0, "HOLD": 0, "SELL": 0}
+        for llm_name, prediction in llm_predictions.items():
+            weighted_actions[prediction['action']] += weights.get(llm_name, 0.33)
+        
+        final_action = max(weighted_actions, key=weighted_actions.get)
+        reasonings = [f"{p['llm']}: {p['reasoning']}" for p in llm_predictions.values()]
+        combined_reasoning = " | ".join(reasonings)
+        
+        if confidence_result['score'] < 45:
+            final_action = "HOLD"
+            combined_reasoning = f"Low confidence ({confidence_result['score']}%) - holding. " + combined_reasoning
+            
+        return {'action': final_action, 'confidence': confidence_result['score'], 'reasoning': combined_reasoning[:500], 'llm_count': len(llm_predictions), 'llm_agreement': (actions.count(final_action) / len(actions)) * 100, 'confidence_breakdown': confidence_result['breakdown'], 'action_strength': confidence_result['action_strength'], 'action_advice': confidence_result['action_advice']}
+
+
+# ========================================
+# 🎯 ENHANCED PORTFOLIO ANALYZER
+# Wraps your existing portfolio analysis with predictions
+# ========================================
+
+async def analyze_portfolio_with_predictions(session, portfolio_file='portfolio.json', market_context=None):
+    """
+    Enhanced portfolio analysis with predictions and market context
+    """
+    
+    logging.info("=" * 60)
+    logging.info("🧠 ANALYZE WITH PREDICTIONS - START")
+    logging.info(f"Market context provided: {market_context is not None}")
+    
+    # Call v2.0 portfolio analysis (has Bollinger, ATR, etc.)
+    original_portfolio_data = await analyze_portfolio_with_v2_features(session, portfolio_file)
+    
+    if not original_portfolio_data:
+        logging.warning("No portfolio data from v2 features")
+        return original_portfolio_data
+    
+    logging.info(f"Original portfolio has {len(original_portfolio_data.get('stocks', []))} stocks")
+    
+    # Initialize prediction engine
     try:
-        performance_file = Path('data/llm_performance.json')
-        predictions_file = Path('data/predictions.json')
-        if not performance_file.exists() or not predictions_file.exists(): return ""
-        with open(performance_file, 'r') as f: performance_data = json.load(f)
-        with open(predictions_file, 'r') as f: prediction_history = json.load(f)
-        llm_stats = performance_data.get(llm_name)
-        if not llm_stats or llm_stats.get('total', 0) < 1: return ""
-        context_lines = ["\n--- YOUR PAST PERFORMANCE & LESSONS ---"]
-        context_lines.append(f"Your overall accuracy is {llm_stats.get('accuracy', 0):.1f}%.")
-        recent_mistakes = []
-        for pred in reversed(list(prediction_history.values())):
-            if len(recent_mistakes) >= 2: break
-            if pred.get('llm_name') == llm_name and pred.get('ticker') == ticker and pred.get('was_correct') is False:
-                outcome_pct = pred.get('outcome', {}).get('price_change_pct', 0)
-                reason = (f"On {pred['timestamp'][:10]}, you predicted {pred['action']} but price moved {outcome_pct:+.1f}%.")
-                recent_mistakes.append(reason)
-        if recent_mistakes:
-            context_lines.append("\nRecent Mistakes on this stock:")
-            for mistake in recent_mistakes: context_lines.append(f"- {mistake}")
-        context_lines.append("\nApply these lessons to your new prediction.")
-        context_lines.append("-------------------------------------------\n")
-        return "\n".join(context_lines)
+        prediction_engine = IntelligentPredictionEngine()
+        logging.info(f"Prediction engine initialized. LLMs available: {list(prediction_engine.llm_clients.keys())}")
     except Exception as e:
-        logging.warning(f"Could not generate learning context: {e}")
-        return ""
+        logging.error(f"Failed to initialize prediction engine: {e}")
+        # Return original data without predictions
+        return {
+            **original_portfolio_data,
+            'learning_active': False,
+            'predictions_made': 0
+        }
+    
+    # Add predictions to each stock
+    enhanced_stocks = []
+    successful_predictions = 0
+    
+    for stock in original_portfolio_data['stocks']:
+        try:
+            ticker = stock['ticker']
+            logging.info(f"🔍 Processing {ticker}...")
+            
+            yf_ticker = yf.Ticker(ticker)
+            hist = await asyncio.to_thread(yf_ticker.history, period="3mo", interval="1d")
+            
+            if hist.empty:
+                logging.warning(f"No history for {ticker}, skipping predictions")
+                enhanced_stocks.append(stock)
+                continue
+            
+            # Get enhanced analysis with market context
+            enhanced = await prediction_engine.analyze_with_learning(
+                ticker=ticker,
+                existing_analysis=stock,
+                hist_data=hist,
+                market_context=market_context
+            )
+            
+            # Verify prediction was added
+            if 'ai_prediction' in enhanced:
+                successful_predictions += 1
+                logging.info(f"✅ {ticker}: Prediction added - {enhanced['ai_prediction']['action']}")
+            else:
+                logging.warning(f"⚠️ {ticker}: No prediction generated")
+            
+            enhanced_stocks.append(enhanced)
+            
+        except Exception as e:
+            logging.error(f"Error enhancing {ticker}: {e}")
+            enhanced_stocks.append(stock)  # Keep original
+    
+    result = {
+        **original_portfolio_data,
+        'stocks': enhanced_stocks,
+        'predictions_made': successful_predictions,
+        'learning_active': True
+    }
+    
+    logging.info("=" * 60)
+    logging.info(f"✅ PREDICTIONS COMPLETE: {successful_predictions}/{len(enhanced_stocks)} stocks")
+    logging.info("=" * 60)
+    
+    return result
+
+
+# ========================================
+# 🔄 OUTCOME CHECKER - Runs in evening
+# ========================================
+
+async def check_prediction_outcomes():
+    """
+    This runs in the evening to check how our predictions did
+    Standalone function - doesn't modify existing code
+    """
+    logging.info("🔍 Checking prediction outcomes...")
+    
+    # Check outcomes from yesterday
+    results = prediction_tracker.check_outcomes(days_to_check=1)
+    
+    # Update pattern success rates based on outcomes
+    for pred_id, pred in prediction_tracker.predictions.items():
+        if pred.get('was_correct') is not None and pred.get('candle_pattern'):
+            candle_analyzer.update_pattern_outcome(
+                pattern=pred['candle_pattern'],
+                ticker=pred['ticker'],
+                was_successful=pred['was_correct']
+            )
+    
+    # Generate learning insights
+    if results['checked'] > 0:
+        accuracy = (results['correct'] / results['checked']) * 100
+        insight = f"Today's accuracy: {accuracy:.1f}% ({results['correct']}/{results['checked']} correct)"
+        learning_memory.add_insight(insight)
+        
+        # Update LLM accuracy if we tracked which LLM made predictions
+        # This will be implemented in next iteration
+    
+    logging.info(f"✅ Checked {results['checked']} predictions: {results['correct']} correct, {results['wrong']} wrong")
+    
+    return results
 
 # ========================================
 # MAIN FUNCTION - Updated for v2.0.0
@@ -2073,7 +2441,7 @@ def generate_learning_context(llm_name, ticker):
 async def main(output="print"):
     logging.info("📊 FULL ANALYSIS MODE: Running market intelligence scan...")
     previous_day_memory = load_memory()
-
+    
     sp500 = get_cached_tickers('sp500_cache.json', fetch_sp500_tickers_sync)
     tsx = get_cached_tickers('tsx_cache.json', fetch_tsx_tickers_sync)
     universe = (sp500 or [])[:75] + (tsx or [])[:25]
@@ -2081,172 +2449,83 @@ async def main(output="print"):
     throttler = Throttler(2)
     semaphore = asyncio.Semaphore(10)
     
-    # ... (Your existing code for sp500, tsx, universe, throttler, semaphore) ...
-
     async with aiohttp.ClientSession() as session:
-        logging.info("🔍 Step 1: Fetching all market data...")
-        tasks = {
-            'stocks': asyncio.gather(*[analyze_stock(semaphore, throttler, session, ticker) for ticker in universe]),
-            'context': fetch_context_data(session),
-            'news': fetch_market_headlines(session),
-            'macro': fetch_macro_sentiment(session)
-        }
-        results = await asyncio.gather(*tasks.values())
-        data = dict(zip(tasks.keys(), results))
+        # Prepare all tasks
+        stock_tasks = [analyze_stock(semaphore, throttler, session, ticker) for ticker in universe]
+        context_task = fetch_context_data(session)
+        news_task = fetch_market_headlines(session)
+        macro_task = fetch_macro_sentiment(session)
         
-        stock_results = sorted([r for r in data['stocks'] if r], key=lambda x: x['score'], reverse=True)
+        # Step 1: Get macro data FIRST (needed for portfolio predictions)
+        logging.info("🔍 Step 1: Fetching macro data...")
+        macro_data = await macro_task
+        logging.info(f"✅ Macro data received. Score: {macro_data.get('overall_macro_score', 0):.1f}")
+        
+        # Step 2: Create portfolio task with macro context
+        if ENABLE_V2_FEATURES:
+            logging.info("🔍 Step 2: Calling analyze_portfolio_with_predictions (v3.0)")
+            portfolio_data = await analyze_portfolio_with_predictions(session, market_context=macro_data)
+        else:
+            logging.info("🔍 Step 2: Calling analyze_portfolio_watchlist (v1.0)")
+            portfolio_data = await analyze_portfolio_watchlist(session)
+        
+        logging.info(f"✅ Portfolio analysis complete. Predictions: {portfolio_data.get('predictions_made', 0) if portfolio_data else 0}")
+        
+        # Step 3: Run everything else in parallel
+        logging.info("🔍 Step 3: Fetching stocks, context, news...")
+        stock_results_raw, context_data, market_news = await asyncio.gather(
+            asyncio.gather(*stock_tasks), 
+            context_task, 
+            news_task
+        )
+        
+        # Step 4: Process stock results
+        stock_results = sorted([r for r in stock_results_raw if r], key=lambda x: x['score'], reverse=True)
         df_stocks = pd.DataFrame(stock_results) if stock_results else pd.DataFrame()
-        logging.info(f"✅ Analyzed {len(stock_results)} market stocks")
+        logging.info(f"✅ Analyzed {len(stock_results)} stocks")
         
-        # Step 2: Analyze Portfolio & Generate Watchlist
-        portfolio_data = await analyze_portfolio_with_predictions(session, market_context=data['macro'])
+        # Step 5: Find historical patterns
+        logging.info("🔍 Step 5: Finding historical patterns...")
+        pattern_data = await find_historical_patterns(session, macro_data)
         
-        # Step 3: Find Historical Patterns & Recommendations
-        pattern_data = await find_historical_patterns(session, data['macro'])
-        portfolio_recommendations = await generate_portfolio_recommendations_from_pattern(portfolio_data, pattern_data, data['macro']) if pattern_data and portfolio_data else None
+        # Step 6: Generate portfolio recommendations
+        portfolio_recommendations = None
+        if pattern_data and portfolio_data:
+            logging.info("🔍 Step 6: Generating portfolio recommendations...")
+            portfolio_recommendations = await generate_portfolio_recommendations_from_pattern(
+                portfolio_data, pattern_data, macro_data
+            )
         
-        # Step 4: Generate AI Oracle Analysis
-        market_summary = {'macro': data['macro'], 'top_stock': stock_results[0] if stock_results else {}}
+        # Step 7: Generate AI analysis
+        logging.info("🔍 Step 7: Generating AI analysis...")
+        market_summary = {
+            'macro': macro_data,
+            'top_stock': stock_results[0] if stock_results else {},
+            'bottom_stock': stock_results[-1] if stock_results else {}
+        }
         ai_analysis = await generate_ai_oracle_analysis(market_summary, portfolio_data, pattern_data)
-
-    # Step 5: Generate and Send Email
+    
+    # Outside session context - generate email
     if output == "email":
-        logging.info("📧 Generating final email report...")
-        # ... (Your existing email generation and sending logic) ...
-        # This will be fixed in the next step
+        logging.info("📧 Generating email report...")
+        html_email = generate_enhanced_html_email(
+            df_stocks, context_data, market_news, macro_data, 
+            previous_day_memory, portfolio_data, pattern_data, 
+            ai_analysis, portfolio_recommendations
+        )
+        send_email(html_email)
     
-    # Step 6: Save Memory
-    if not df_stocks.empty: save_memory({"previous_top_stock_name": df_stocks.iloc[0]['name'], "previous_top_stock_ticker": df_stocks.iloc[0]['ticker'], "previous_macro_score": data['macro'].get('overall_macro_score', 0), "date": datetime.now().strftime('%Y-%m-%d')})
+    # Save memory
+    if not df_stocks.empty:
+        save_memory({
+            "previous_top_stock_name": str(df_stocks.iloc[0]['name']),
+            "previous_top_stock_ticker": str(df_stocks.iloc[0]['ticker']),
+            "previous_macro_score": float(macro_data.get('overall_macro_score', 0)),
+            "date": datetime.now().strftime('%Y-%m-%d')
+        })
     
-    logging.info("✅ Analysis complete.")
+    logging.info("✅ Analysis complete with v2.0.0 features.")
 
-
-# ============================================================================
-# 🎯 FINAL REBUILT & VERIFIED SECTION
-# This block contains the corrected Prediction Engine, Portfolio Analysis,
-# and Watchlist generation logic, all in one place to prevent errors.
-# ============================================================================
-
-def generate_learning_context(llm_name, ticker):
-    # ... (This function is correct, keeping it here for completeness)
-    try:
-        performance_file = Path('data/llm_performance.json')
-        if not performance_file.exists(): return ""
-        with open(performance_file, 'r') as f: performance_data = json.load(f)
-        llm_stats = performance_data.get(llm_name)
-        if not llm_stats or llm_stats.get('total', 0) < 1: return ""
-        # ... (rest of the function is correct) ...
-        return "\n--- YOUR PAST PERFORMANCE ---\n..."
-    except Exception: return ""
-
-class IntelligentPredictionEngine:
-    def __init__(self):
-        self.throttler = Throttler(rate_limit=10, period=60.0)
-        self.llm_clients = {}
-        self._setup_llm_clients()
-
-    def _setup_llm_clients(self):
-        """Initializes all available LLM clients."""
-        if os.getenv("GROQ_API_KEY") and GROQ_AVAILABLE:
-            try:
-                from groq import Groq
-                self.llm_clients['groq'] = Groq(api_key=os.getenv("GROQ_API_KEY")) # ✅ FIX: Capital 'G'
-                logging.info("✅ SUCCESS: Groq LLM client initialized.")
-            except Exception as e: logging.error(f"❌ FAILED: Groq init: {e}")
-        
-        if os.getenv("GEMINI_API_KEY") and GEMINI_API_KEY:
-            try:
-                import google.generativeai as genai
-                genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-                self.llm_clients['gemini'] = genai.GenerativeModel('gemini-1.5-flash-latest')
-                logging.info("✅ SUCCESS: Gemini LLM client initialized.")
-            except Exception as e: logging.error(f"❌ FAILED: Gemini init: {e}")
-
-        if os.getenv("COHERE_API_KEY") and COHERE_AVAILABLE:
-            try:
-                import cohere
-                self.llm_clients['cohere'] = cohere.Client(os.getenv("COHERE_API_KEY"))
-                logging.info("✅ SUCCESS: Cohere LLM client initialized.")
-            except Exception as e: logging.error(f"❌ FAILED: Cohere init: {e}")
-        
-        logging.info(f"✅ LLM clients loaded: {list(self.llm_clients.keys())}")
-
-    async def _query_llm(self, llm_name, prompt):
-        async with self.throttler:
-            try:
-                if llm_name == 'groq':
-                    response = await asyncio.to_thread(self.llm_clients['groq'].chat.completions.create, model="llama3-8b-8192", messages=[{"role": "user", "content": prompt}], temperature=0.2)
-                    return self._parse_llm_response(response.choices[0].message.content)
-                elif llm_name == 'gemini':
-                    response = await self.llm_clients['gemini'].generate_content_async(prompt, safety_settings={'HARASSMENT': 'BLOCK_NONE', 'HATE_SPEECH': 'BLOCK_NONE'})
-                    return self._parse_llm_response(response.text)
-                elif llm_name == 'cohere':
-                    response = await asyncio.to_thread(self.llm_clients['cohere'].chat, message=prompt, model='command-r')
-                    return self._parse_llm_response(response.text)
-            except Exception as e:
-                logging.warning(f"{llm_name.upper()} query failed: {str(e)[:150]}")
-                return None
-
-    def _parse_llm_response(self, text):
-        action = re.search(r'ACTION:\s*(BUY|SELL|HOLD)', text, re.I)
-        conf = re.search(r'CONFIDENCE:\s*(\d+)', text, re.I)
-        reason = re.search(r'REASON:\s*(.+?)(?:\n|$)', text, re.I)
-        return {'action': action.group(1).upper() if action else "HOLD", 'confidence': int(conf.group(1)) if conf else 50, 'reasoning': reason.group(1).strip() if reason else "No reason."}
-
-def determine_final_action(llm_predictions, confidence_score):
-    if not llm_predictions: return {'action': "HOLD", 'reasoning': "Rule-based: No LLM response"}
-    actions = [p['action'] for p in llm_predictions.values()]
-    final_action = max(set(actions), key=actions.count)
-    if confidence_score < 45: final_action = "HOLD"
-    return {'action': final_action, 'reasoning': " | ".join([f"{n}: {p['reasoning']}" for n, p in llm_predictions.items()]), 'llm_count': len(llm_predictions)}
-
-async def analyze_portfolio_with_predictions(session, portfolio_file='portfolio.json', market_context=None):
-    logging.info("🧠 ANALYZE WITH PREDICTIONS (FINAL VERSION) - START")
-    portfolio_data = await analyze_portfolio_with_v2_features(session, portfolio_file)
-    if not portfolio_data or not portfolio_data.get('stocks'): return {'stocks': [], 'predictions_made': 0}
-
-    prediction_engine = IntelligentPredictionEngine()
-    confidence_scorer = ConfidenceScorer()
-
-    async def process_stock(stock):
-        try:
-            ticker = stock['ticker']
-            hist = await asyncio.to_thread(yf.Ticker(ticker).history, period="3mo")
-            if hist.empty: return stock
-
-            candle_patterns = candle_analyzer.identify_pattern(hist)
-            if ENHANCED_PATTERNS_ENABLED: candle_patterns.extend(enhanced_pattern_detector.detect_all_patterns(hist))
-            
-            pattern_text = "\n".join([f"- {p['name']}" for p in candle_patterns[:3]])
-            base_prompt = f"\n--- DATA ---\nAnalyze {ticker}. RSI: {stock.get('rsi', 50):.1f}\nPatterns: {pattern_text}\nMacro: {market_context.get('overall_macro_score', 0):.0f}.\n--- TASK ---\nRespond ONLY: ACTION: [BUY/SELL/HOLD] CONFIDENCE: [0-100] REASON: [One sentence]"
-            
-            tasks = [prediction_engine._query_llm(name, generate_learning_context(name, ticker) + base_prompt) for name in prediction_engine.llm_clients.keys()]
-            results = await asyncio.gather(*tasks)
-            llm_predictions = {name: res for name, res in zip(prediction_engine.llm_clients.keys(), results) if res}
-
-            confidence_result = confidence_scorer.calculate_confidence(llm_predictions, candle_patterns, {}, stock, stock, market_context)
-            final_prediction = determine_final_action(llm_predictions, confidence_result.get('score', 50))
-
-            if final_prediction:
-                prediction_tracker.store_prediction(
-                    ticker=ticker, action=final_prediction['action'], confidence=confidence_result.get('score'),
-                    reasoning=final_prediction['reasoning'], current_price=stock.get('price'),
-                    llm_name=next(iter(llm_predictions)) if llm_predictions else 'rule-based'
-                )
-                stock.update({'ai_prediction': final_prediction, 'confidence': confidence_result})
-            return stock
-        except Exception as e:
-            logging.error(f"Error processing {stock.get('ticker')}: {e}", exc_info=True)
-            return stock
-
-    tasks = [process_stock(stock) for stock in portfolio_data['stocks']]
-    enhanced_stocks = await asyncio.gather(*tasks)
-    
-    successful_predictions = sum(1 for s in enhanced_stocks if s.get('ai_prediction'))
-    portfolio_data.update({'stocks': enhanced_stocks, 'predictions_made': successful_predictions, 'learning_active': True})
-    
-    logging.info(f"✅ PREDICTIONS COMPLETE: {successful_predictions}/{len(enhanced_stocks)} stocks")
-    return portfolio_data
 
 
 # ========================================
