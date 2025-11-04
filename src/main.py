@@ -1841,74 +1841,74 @@ class ConfidenceScorer:
     """Calculates conviction score (0-100) for predictions"""
     
         @staticmethod
-    def calculate_confidence(llm_predictions, candle_patterns, pattern_success_rates, technical_indicators, volume_data, market_context=None):
-        """ ✅ IMPROVED: More robust version to handle pattern data correctly. """
-        confidence = 50
-        breakdown = []
-
-        # 1. LLM Consensus
-        if llm_predictions:
-            actions = [p['action'] for p in llm_predictions.values()]
-            if len(set(actions)) == 1:
-                llm_score = 30
-                breakdown.append(f"✅ All {len(actions)} LLMs agree ({actions[0]}): +30")
-            else:
-                most_common = max(set(actions), key=actions.count)
-                agreement_pct = (actions.count(most_common) / len(actions)) * 100
-                llm_score = int(agreement_pct * 0.3)
-                breakdown.append(f"✅ ⚖️ {agreement_pct:.0f}% LLM agreement: +{llm_score}")
-            confidence += llm_score
-
-        # 2. Candlestick Pattern Strength
-        pattern_score = 0
-        enhanced_patterns = [p for p in candle_patterns if p.get('enhanced', False)]
-        
-        if enhanced_patterns:
-            best_enhanced = max(enhanced_patterns, key=lambda x: x.get('strength_score', 0))
-            strength_score = best_enhanced.get('strength_score', 0)
-            pattern_name = best_enhanced.get('name', 'Unknown Pattern').replace('_', ' ').title()
+        def calculate_confidence(llm_predictions, candle_patterns, pattern_success_rates, technical_indicators, volume_data, market_context=None):
+            """ ✅ IMPROVED: More robust version to handle pattern data correctly. """
+            confidence = 50
+            breakdown = []
+    
+            # 1. LLM Consensus
+            if llm_predictions:
+                actions = [p['action'] for p in llm_predictions.values()]
+                if len(set(actions)) == 1:
+                    llm_score = 30
+                    breakdown.append(f"✅ All {len(actions)} LLMs agree ({actions[0]}): +30")
+                else:
+                    most_common = max(set(actions), key=actions.count)
+                    agreement_pct = (actions.count(most_common) / len(actions)) * 100
+                    llm_score = int(agreement_pct * 0.3)
+                    breakdown.append(f"✅ ⚖️ {agreement_pct:.0f}% LLM agreement: +{llm_score}")
+                confidence += llm_score
+    
+            # 2. Candlestick Pattern Strength
+            pattern_score = 0
+            enhanced_patterns = [p for p in candle_patterns if p.get('enhanced', False)]
             
-            if strength_score >= 85:
-                pattern_score += 20
-                breakdown.append(f"✅ 🔥 {pattern_name} ({strength_score}%): +20")
-            elif strength_score >= 75:
-                pattern_score += 15
-                breakdown.append(f"✅ 📈 {pattern_name} ({strength_score}%): +15")
+            if enhanced_patterns:
+                best_enhanced = max(enhanced_patterns, key=lambda x: x.get('strength_score', 0))
+                strength_score = best_enhanced.get('strength_score', 0)
+                pattern_name = best_enhanced.get('name', 'Unknown Pattern').replace('_', ' ').title()
+                
+                if strength_score >= 85:
+                    pattern_score += 20
+                    breakdown.append(f"✅ 🔥 {pattern_name} ({strength_score}%): +20")
+                elif strength_score >= 75:
+                    pattern_score += 15
+                    breakdown.append(f"✅ 📈 {pattern_name} ({strength_score}%): +15")
+                
+                if len(enhanced_patterns) > 1:
+                    pattern_score += 5
+                    breakdown.append(f"✅ 🎯 Multiple patterns confirm ({len(enhanced_patterns)} found): +5")
             
-            if len(enhanced_patterns) > 1:
-                pattern_score += 5
-                breakdown.append(f"✅ 🎯 Multiple patterns confirm ({len(enhanced_patterns)} found): +5")
-        
-        confidence += pattern_score
-
-        # 3. Technical Indicators
-        indicator_score = 0
-        if technical_indicators:
-            rsi = technical_indicators.get('rsi', 50)
-            if rsi > 70 or rsi < 30:
-                indicator_score -= 5
-                breakdown.append(f"⚠️ RSI at extremes ({rsi:.0f}): -5")
-            else:
-                indicator_score += 10
-                breakdown.append(f"✅ RSI balanced ({rsi:.0f}): +10")
-        confidence += indicator_score
-
-        # 4. Volume Confirmation
-        volume_score = 0
-        if volume_data:
-            volume_ratio = volume_data.get('volume_ratio', 1.0)
-            if volume_ratio > 1.5:
-                volume_score += 10
-                breakdown.append(f"✅ 📈 Above avg volume ({volume_ratio:.1f}x): +10")
-            elif volume_ratio < 0.5:
-                volume_score -= 10
-                breakdown.append(f"⚠️ 📉 Low volume ({volume_ratio:.1f}x): -10")
-        confidence += volume_score
-        
-        # Cap confidence
-        confidence = max(0, min(100, confidence))
-        
-        return {'score': confidence, 'breakdown': breakdown}
+            confidence += pattern_score
+    
+            # 3. Technical Indicators
+            indicator_score = 0
+            if technical_indicators:
+                rsi = technical_indicators.get('rsi', 50)
+                if rsi > 70 or rsi < 30:
+                    indicator_score -= 5
+                    breakdown.append(f"⚠️ RSI at extremes ({rsi:.0f}): -5")
+                else:
+                    indicator_score += 10
+                    breakdown.append(f"✅ RSI balanced ({rsi:.0f}): +10")
+            confidence += indicator_score
+    
+            # 4. Volume Confirmation
+            volume_score = 0
+            if volume_data:
+                volume_ratio = volume_data.get('volume_ratio', 1.0)
+                if volume_ratio > 1.5:
+                    volume_score += 10
+                    breakdown.append(f"✅ 📈 Above avg volume ({volume_ratio:.1f}x): +10")
+                elif volume_ratio < 0.5:
+                    volume_score -= 10
+                    breakdown.append(f"⚠️ 📉 Low volume ({volume_ratio:.1f}x): -10")
+            confidence += volume_score
+            
+            # Cap confidence
+            confidence = max(0, min(100, confidence))
+            
+            return {'score': confidence, 'breakdown': breakdown}
 
                 # ========================================================================
         # 6. NEWS/EVENTS SCORING (NEW - DOESN'T TOUCH EXISTING CODE)
