@@ -5350,5 +5350,299 @@
       "test_mode": false
     },
     "was_correct": true
+  },
+  "24b8c304": {
+    "id": "24b8c304",
+    "timestamp": "2025-11-04T01:08:43.789872",
+    "ticker": "AAPL",
+    "action": "HOLD",
+    "confidence": 50,
+    "reasoning": "Rule-based: No LLM response",
+    "llm_name": "rule-based",
+    "candle_pattern": "hammer",
+    "indicators": {
+      "rsi": 66.46187953092371,
+      "volume_ratio": 0.885509641303806,
+      "macro_score": -19.2965
+    },
+    "price_at_prediction": 269.04998779296875,
+    "rsi": 66.46187953092371,
+    "volume_ratio": 0.885509641303806,
+    "macro_score": -19.2965,
+    "outcome": null,
+    "was_correct": null
+  },
+  "bfda433b": {
+    "id": "bfda433b",
+    "timestamp": "2025-11-04T01:08:43.802345",
+    "ticker": "NVDA",
+    "action": "SELL",
+    "confidence": 35,
+    "reasoning": "Rule-based: No LLM response",
+    "llm_name": "rule-based",
+    "candle_pattern": "inverted_hammer",
+    "indicators": {
+      "rsi": 69.567488029514,
+      "volume_ratio": 0.7923261800406114,
+      "macro_score": -19.2965
+    },
+    "price_at_prediction": 206.8800048828125,
+    "rsi": 69.567488029514,
+    "volume_ratio": 0.7923261800406114,
+    "macro_score": -19.2965,
+    "outcome": null,
+    "was_correct": null
+  },
+  "7ed9be48": {
+    "id": "7ed9be48",
+    "timestamp": "2025-11-04T01:08:43.813266",
+    "ticker": "AMD",
+    "action": "HOLD",
+    "confidence": 50,
+    "reasoning": "Rule-based: No LLM response",
+    "llm_name": "rule-based",
+    "candle_pattern": "doji",
+    "indicators": {
+      "rsi": 69.77439398993751,
+      "volume_ratio": 0.7076083985103448,
+      "macro_score": -19.2965
+    },
+    "price_at_prediction": 259.6499938964844,
+    "rsi": 69.77439398993751,
+    "volume_ratio": 0.7076083985103448,
+    "macro_score": -19.2965,
+    "outcome": null,
+    "was_correct": null
+  },
+  "479b4093": {
+    "id": "479b4093",
+    "timestamp": "2025-11-04T01:08:43.820485",
+    "ticker": "TSM",
+    "action": "SELL",
+    "confidence": 35,
+    "reasoning": "Rule-based: No LLM response",
+    "llm_name": "rule-based",
+    "candle_pattern": "inverted_hammer",
+    "indicators": {
+      "rsi": 60.13539062614211,
+      "volume_ratio": 0.8771424058946686,
+      "macro_score": -19.2965
+    },
+    "price_at_prediction": 304.8599853515625,
+    "rsi": 60.13539062614211,
+    "volume_ratio": 0.8771424058946686,
+    "macro_score": -19.2965,
+    "outcome": null,
+    "was_correct": null
+  },
+  "2029a6f0": {
+    "id": "2029a6f0",
+    "timestamp": "2025-11-04T01:09:43.541395",
+    "ticker": "SVR-C.TO",
+    "action": "BUY",
+    "confidence": 60,
+    "reasoning": "Rule-based: No LLM response",
+    "llm_name": "rule-based",
+    "candle_pattern": "swing_highs_lows",
+    "indicators": {
+      "rsi": 52.69555930283616,
+      "volume_ratio": 2.1382488776321655,
+      "macro_score": -19.2965
+    },
+    "price_at_prediction": 25.6200008392334,
+    "rsi": 52.69555930283616,
+    "volume_ratio": 2.1382488776321655,
+    "macro_score": -19.2965,
+    "outcome": null,
+    "was_correct": null
+  },
+  "3187af6a": {
+    "id": "3187af6a",
+    "timestamp": "2025-11-04T01:09:43.660229",
+    "ticker": "AMZN",
+    "action": "HOLD",
+    "confidence": 45,
+    "reasoning": "Rule-based: No LLM response",
+    "llm_name": "rule-based",
+    "candle_pattern": "swing_highs_lows",
+    "indicators": {
+      "rsi": 71.77505137219495,
+      "volume_ratio": 2.0759513740508897,
+      "macro_score": -19.2965
+    },
+    "price_at_prediction": 254.0,
+    "rsi": 71.77505137219495,
+    "volume_ratio": 2.0759513740508897,
+    "macro_score": -19.2965,
+    "outcome": null,
+    "was_correct": null
+  },
+  "fb453447": {
+    "id": "fb453447",
+    "timestamp": "2025-11-04T01:09:43.667387",
+    "ticker": "ETH",
+    "action": "BUY",
+    "confidence": 60,
+    "reasoning": "Rule-based: No LLM response",
+    "llm_name": "rule-based",
+    "candle_pattern": "swing_highs_lows",
+    "indicators": {
+      "rsi": 39.319085059346996,
+      "volume_ratio": 1.954888085759046,
+      "macro_score": -19.2965
+    },
+    "price_at_prediction": 33.7400016784668,
+    "rsi": 39.319085059346996,
+    "volume_ratio": 1.954888085759046,
+    "macro_score": -19.2965,
+    "outcome": null,
+    "was_correct": null
+  },
+  "48205010": {
+    "id": "48205010",
+    "timestamp": "2025-11-04T01:09:43.675338",
+    "ticker": "MSFT",
+    "action": "HOLD",
+    "confidence": 50,
+    "reasoning": "Rule-based: No LLM response",
+    "llm_name": "rule-based",
+    "candle_pattern": "three_black_crows",
+    "indicators": {
+      "rsi": 47.09879145034562,
+      "volume_ratio": 1.0230251503209005,
+      "macro_score": -19.2965
+    },
+    "price_at_prediction": 517.030029296875,
+    "rsi": 47.09879145034562,
+    "volume_ratio": 1.0230251503209005,
+    "macro_score": -19.2965,
+    "outcome": null,
+    "was_correct": null
+  },
+  "4ba6babc": {
+    "id": "4ba6babc",
+    "timestamp": "2025-11-04T01:09:43.692721",
+    "ticker": "TSLA",
+    "action": "HOLD",
+    "confidence": 50,
+    "reasoning": "Rule-based: No LLM response",
+    "llm_name": "rule-based",
+    "candle_pattern": "cup_and_handle",
+    "indicators": {
+      "rsi": 60.48900161775592,
+      "volume_ratio": 0.8351736316054321,
+      "macro_score": -19.2965
+    },
+    "price_at_prediction": 468.3699951171875,
+    "rsi": 60.48900161775592,
+    "volume_ratio": 0.8351736316054321,
+    "macro_score": -19.2965,
+    "outcome": null,
+    "was_correct": null
+  },
+  "c3bca6b8": {
+    "id": "c3bca6b8",
+    "timestamp": "2025-11-04T01:10:43.578253",
+    "ticker": "GOOGL",
+    "action": "SELL",
+    "confidence": 35,
+    "reasoning": "Rule-based: No LLM response",
+    "llm_name": "rule-based",
+    "candle_pattern": "spinning_top",
+    "indicators": {
+      "rsi": 78.40403707707493,
+      "volume_ratio": 0.8201793928035103,
+      "macro_score": -19.2965
+    },
+    "price_at_prediction": 283.7200012207031,
+    "rsi": 78.40403707707493,
+    "volume_ratio": 0.8201793928035103,
+    "macro_score": -19.2965,
+    "outcome": null,
+    "was_correct": null
+  },
+  "7a5b302e": {
+    "id": "7a5b302e",
+    "timestamp": "2025-11-04T01:10:43.590821",
+    "ticker": "BTC",
+    "action": "BUY",
+    "confidence": 60,
+    "reasoning": "Rule-based: No LLM response",
+    "llm_name": "rule-based",
+    "candle_pattern": "double_top",
+    "indicators": {
+      "rsi": 41.84347888482562,
+      "volume_ratio": 1.5897045762845587,
+      "macro_score": -19.2965
+    },
+    "price_at_prediction": 47.20000076293945,
+    "rsi": 41.84347888482562,
+    "volume_ratio": 1.5897045762845587,
+    "macro_score": -19.2965,
+    "outcome": null,
+    "was_correct": null
+  },
+  "c658a668": {
+    "id": "c658a668",
+    "timestamp": "2025-11-04T01:10:43.598869",
+    "ticker": "UHS",
+    "action": "SELL",
+    "confidence": 35,
+    "reasoning": "Rule-based: No LLM response",
+    "llm_name": "rule-based",
+    "candle_pattern": "hammer",
+    "indicators": {
+      "rsi": 66.10911732709809,
+      "volume_ratio": 0.8867831279580287,
+      "macro_score": -19.2965
+    },
+    "price_at_prediction": 220.6999969482422,
+    "rsi": 66.10911732709809,
+    "volume_ratio": 0.8867831279580287,
+    "macro_score": -19.2965,
+    "outcome": null,
+    "was_correct": null
+  },
+  "6c84c3ff": {
+    "id": "6c84c3ff",
+    "timestamp": "2025-11-04T01:10:43.604724",
+    "ticker": "TD.TO",
+    "action": "SELL",
+    "confidence": 35,
+    "reasoning": "Rule-based: No LLM response",
+    "llm_name": "rule-based",
+    "candle_pattern": "inverted_hammer",
+    "indicators": {
+      "rsi": 67.57414038051382,
+      "volume_ratio": 1.2044630518916057,
+      "macro_score": -19.2965
+    },
+    "price_at_prediction": 115.18000030517578,
+    "rsi": 67.57414038051382,
+    "volume_ratio": 1.2044630518916057,
+    "macro_score": -19.2965,
+    "outcome": null,
+    "was_correct": null
+  },
+  "4ea3591b": {
+    "id": "4ea3591b",
+    "timestamp": "2025-11-04T01:10:43.657582",
+    "ticker": "CGL-C.TO",
+    "action": "HOLD",
+    "confidence": 50,
+    "reasoning": "Rule-based: No LLM response",
+    "llm_name": "rule-based",
+    "candle_pattern": "doji",
+    "indicators": {
+      "rsi": 53.57755949842791,
+      "volume_ratio": 0.88464243266696,
+      "macro_score": -19.2965
+    },
+    "price_at_prediction": 47.2599983215332,
+    "rsi": 53.57755949842791,
+    "volume_ratio": 0.88464243266696,
+    "macro_score": -19.2965,
+    "outcome": null,
+    "was_correct": null
   }
 }
