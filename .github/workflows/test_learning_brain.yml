@@ -26,10 +26,24 @@ jobs:
         run: python src/modules/test_learning_manually.py
           
       - name: Check database
-        run: ls -lh src/modules/data/learning.db
+        run: |
+          echo "📁 Looking for database..."
+          find . -name "learning.db" -type f
+          echo ""
+          echo "📊 Database details:"
+          ls -lh src/modules/data/learning.db
           
-      - name: Upload database
+      - name: Commit database to repo
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add src/modules/data/learning.db
+          git diff --staged --quiet || git commit -m "Update learning database [skip ci]"
+          git push
+          
+      - name: Upload database artifact
         uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: learning-database
           path: src/modules/data/learning.db
