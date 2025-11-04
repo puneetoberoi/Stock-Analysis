@@ -1,4 +1,8 @@
 import os, sys, argparse, time, logging, json, asyncio
+from pathlib import Path
+# Add learning brain import
+sys.path.append(str(Path(__file__).parent / 'modules'))
+from learning_brain import LearningBrain
 import requests
 import pandas as pd
 import numpy as np
