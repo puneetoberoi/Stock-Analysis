@@ -2099,7 +2099,7 @@ async def main(output="print"):
         logging.info(f"✅ Analyzed {len(stock_results)} market stocks")
         
         # Step 2: Analyze Portfolio & Generate Watchlist
-         portfolio_data = await analyze_portfolio_with_predictions(session, market_context=data['macro'])
+        portfolio_data = await analyze_portfolio_with_predictions(session, market_context=data['macro'])
         
         # Step 3: Find Historical Patterns & Recommendations
         pattern_data = await find_historical_patterns(session, data['macro'])
