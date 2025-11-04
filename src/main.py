@@ -2445,6 +2445,21 @@ async def check_prediction_outcomes():
 async def main(output="print"):
     logging.info("📊 FULL ANALYSIS MODE: Running market intelligence scan...")
     previous_day_memory = load_memory()
+
+     # ===== LEARNING BRAIN INITIALIZATION =====
+    learning_brain = LearningBrain()
+    
+    # Check outcomes from previous predictions (1 week ago)
+    logging.info("="*60)
+    logging.info("🧠 CHECKING PREVIOUS PREDICTIONS...")
+    logging.info("="*60)
+    learning_brain.check_outcomes(days_back=7)
+    
+    # Get accuracy report
+    accuracy_report = learning_brain.get_accuracy_report()
+    logging.info(accuracy_report)
+    logging.info("="*60)
+    # ===== END LEARNING BRAIN INITIALIZATION =====
     
     sp500 = get_cached_tickers('sp500_cache.json', fetch_sp500_tickers_sync)
     tsx = get_cached_tickers('tsx_cache.json', fetch_tsx_tickers_sync)
