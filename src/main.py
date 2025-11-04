@@ -2066,8 +2066,6 @@ def generate_learning_context(llm_name, ticker):
         logging.warning(f"Could not generate learning context: {e}")
         return ""
 
-https://farrisllp.sharepoint.com/:w:/s/FarrisIT-HelpdeskOPS/Ee-J2WB0tOVLnXSnh_EMinoBnzaeRn_z34Bk7euHQECByw?e=jJmTaW
-
 
 # ============================================================================
 # 🎯 REBUILT & VERIFIED - Portfolio & Watchlist Logic
