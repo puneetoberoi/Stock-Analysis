@@ -16,6 +16,8 @@ def run_test():
     # Step 1: Initialize
     print("\n📝 Step 1: Initializing Learning Brain...")
     brain = LearningBrain()
+    print(f"   Database location: {brain.db_path}")
+    print(f"   Absolute path: {os.path.abspath(brain.db_path)}")
     
     # Step 2: Record test predictions
     print("\n📝 Step 2: Recording test predictions...")
@@ -58,6 +60,13 @@ def run_test():
         size = os.path.getsize(db_path)
         print(f"   ✅ Database exists: {db_path}")
         print(f"   📦 Size: {size} bytes")
+        
+        # List all files in data directory
+        data_dir = os.path.dirname(db_path)
+        print(f"\n   📁 Contents of {data_dir}:")
+        for file in os.listdir(data_dir):
+            filepath = os.path.join(data_dir, file)
+            print(f"      - {file} ({os.path.getsize(filepath)} bytes)")
     else:
         print(f"   ❌ Database NOT found at: {db_path}")
         return False
