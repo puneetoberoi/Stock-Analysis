@@ -15,7 +15,7 @@ from ta.trend import MACD
 from ta.volume import OnBalanceVolumeIndicator
 from ta.volatility import BollingerBands, AverageTrueRange
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
-from io import StringIOasync def analyze_portfolio_with_predictions
+from io import StringIO
 import google.generativeai as genai
 import smtplib
 from email.mime.multipart import MIMEMultipart
