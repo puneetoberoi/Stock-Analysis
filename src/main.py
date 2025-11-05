@@ -2141,7 +2141,7 @@ class IntelligentPredictionEngine:
             logging.info(f"✅ LLM clients loaded: {list(self.llm_clients.keys())}")
             
             
-    async def analyze_with_learning(self, ticker, existing_analysis, hist_data, market_context=None):
+    async def analyze_with_learning(self, ticker, existing_analysis, hist_data, market_context=None, learning_brain=None):
     # Get patterns from BOTH analyzers
         candle_patterns = self.candle_analyzer.identify_pattern(hist_data)  # Basic patterns (18)
         
@@ -2172,7 +2172,7 @@ class IntelligentPredictionEngine:
     
         # Rest of your existing code stays the same
         pattern_success_rates = {p['name']: self.candle_analyzer.get_pattern_success_rate(p['name'], ticker) for p in candle_patterns}
-        llm_predictions = await self._get_multi_llm_consensus(ticker, existing_analysis, candle_patterns, pattern_success_rates, market_context)
+        llm_predictions = await self._get_multi_llm_consensus(ticker, existing_analysis, candle_patterns, pattern_success_rates, market_context, learning_brain)
         confidence_result = self.confidence_scorer.calculate_confidence(llm_predictions, candle_patterns, pattern_success_rates, {'rsi': existing_analysis.get('rsi', 50), 'score': existing_analysis.get('score', 50)}, {'volume_ratio': existing_analysis.get('volume_ratio', 1.0)}, market_context)
         final_prediction = self._determine_final_action(llm_predictions, confidence_result, candle_patterns)
         
@@ -2205,6 +2205,24 @@ class IntelligentPredictionEngine:
     async def _get_multi_llm_consensus(self, ticker, existing_analysis, candle_patterns, pattern_success_rates, market_context):
         logging.info(f"🔍[{ticker}] Getting LLM consensus. Available models: {list(self.llm_clients.keys())}")
         pattern_text = "\n".join([f"{p['name']} ({p['type']}, {pattern_success_rates.get(p['name'], 50):.0f}% historical success)" for p in candle_patterns[:3]]) if candle_patterns else "No clear patterns identified"
+
+        # ===== BUILD LEARNING CONTEXT =====
+        learning_context = ""
+        if learning_brain:
+            try:
+                from context_generator import ContextGenerator
+                context_gen = ContextGenerator(learning_brain)
+                
+                # Build learning context for this stock
+                current_indicators = {
+                    'patterns': candle_patterns[0]['name'] if candle_patterns else '',
+                    'rsi': existing_analysis.get('rsi', 50)
+                }
+                learning_context = context_gen.build_learning_context(ticker, current_indicators)
+            except Exception as e:
+                logging.warning(f"Could not generate learning context for {ticker}: {e}")
+        # ===== END LEARNING CONTEXT =====
+        
         context = f"""Analyze {ticker} and provide BUY/HOLD/SELL recommendation.
 TECHNICAL DATA:
 - Score: {existing_analysis.get('score', 'N/A')}/100
