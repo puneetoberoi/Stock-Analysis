@@ -2386,10 +2386,6 @@ async def analyze_portfolio_with_predictions(session, portfolio_file='portfolio.
                         pred_data = enhanced['ai_prediction']
                         current_price = stock.get('price', 0)
                         
-                        # DEBUG: Log what's in ai_prediction
-                        logging.info(f"🔍 DEBUG {ticker} ai_prediction keys: {list(pred_data.keys())}")
-                        logging.info(f"🔍 DEBUG {ticker} full ai_prediction: {pred_data}")
-                        
                         # Extract indicators from stock data
                         indicators_dict = {
                             'rsi': stock.get('rsi', 0),
@@ -2398,26 +2394,22 @@ async def analyze_portfolio_with_predictions(session, portfolio_file='portfolio.
                             'patterns': pred_data.get('pattern_detected', '')
                         }
                         
-                        # Try multiple possible field names for confidence
+                        # Extract confidence, llm, reasoning (with fallbacks)
                         confidence = (
-                            pred_data.get('conviction_score') or 
                             pred_data.get('confidence') or 
-                            pred_data.get('conviction') or 
+                            pred_data.get('conviction_score') or 
                             0
                         )
                         
-                        # Try multiple possible field names for LLM
                         llm_model = (
                             pred_data.get('llm_consensus') or 
                             pred_data.get('model_used') or 
-                            pred_data.get('llm') or 
                             'unknown'
                         )
                         
-                        # Try multiple possible field names for reasoning
                         reasoning = (
-                            pred_data.get('consensus_reasoning') or 
                             pred_data.get('reasoning') or 
+                            pred_data.get('consensus_reasoning') or 
                             ''
                         )[:500]
                         
@@ -2432,7 +2424,7 @@ async def analyze_portfolio_with_predictions(session, portfolio_file='portfolio.
                             indicators=indicators_dict
                         )
                         
-                        logging.info(f"💾 Prediction #{pred_id} saved to learning.db (confidence: {confidence}%)")
+                        logging.info(f"💾 Prediction #{pred_id} saved (confidence: {confidence}%)")
                         
                     except Exception as e:
                         logging.error(f"⚠️ Failed to record prediction for {ticker}: {e}")
