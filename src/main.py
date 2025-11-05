@@ -2906,7 +2906,6 @@ def generate_enhanced_html_email(df_stocks, context, market_news, macro_data, me
         </div>
         
         {v2_signals_html}
-        {ai_oracle_html}
         {portfolio_html}
         {ai_predictions_html}
         {pattern_html}
