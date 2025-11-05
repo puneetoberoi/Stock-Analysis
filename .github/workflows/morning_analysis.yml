@@ -51,8 +51,12 @@ jobs:
       run: |
         git config --global user.email "action@github.com"
         git config --global user.name "GitHub Action"
+        # Pull latest changes first
+        git pull origin ${{ github.ref_name }} --rebase || true
         git add src/modules/data/learning.db
         git add data/*.json logs/*.json || true
         git add market_memory.json || true
         git diff --quiet && git diff --staged --quiet || git commit -m "📊 Daily predictions and analysis [skip ci]"
-        git push || echo "No changes to push"
+        # Push changes
+        git push origin ${{ github.ref_name }} || echo "⚠️ Push failed, changes will be in next run"
+      continue-on-error: true
