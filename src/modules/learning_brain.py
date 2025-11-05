@@ -1,23 +1,24 @@
 """
-Learning Brain Module - Simplified version
+Learning Brain Module - Complete version with outcome checking
 """
 
 import sqlite3
 import json
 from datetime import datetime, timedelta
 import os
+import yfinance as yf
 
 class LearningBrain:
     def __init__(self, db_path=None):
         """Initialize the learning brain with database"""
         if db_path is None:
-            # FIXED: Create path relative to THIS FILE's location
+            # Create path relative to THIS FILE's location
             current_dir = os.path.dirname(os.path.abspath(__file__))
             data_dir = os.path.join(current_dir, 'data')
             db_path = os.path.join(data_dir, 'learning.db')
         
         self.db_path = db_path
-        print(f"🔍 Database will be created at: {self.db_path}")  # Debug line
+        print(f"🔍 Database will be created at: {self.db_path}")
         self.init_database()
         
     def init_database(self):
@@ -113,28 +114,152 @@ class LearningBrain:
         
         print(f"📝 Recorded prediction #{prediction_id}: {stock} -> {prediction} (confidence: {confidence:.1f}%)")
         return prediction_id
+    
+    def check_outcomes(self, days_back=7):
+        """Check predictions from past and record outcomes"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        # Find predictions that are due for checking (target_date has passed)
+        check_date = datetime.now().date()
+        
+        cursor.execute("""
+            SELECT id, stock, prediction, entry_price, target_date
+            FROM predictions
+            WHERE DATE(target_date) <= ?
+            AND id NOT IN (SELECT prediction_id FROM outcomes)
+            ORDER BY target_date DESC
+            LIMIT 50
+        """, (check_date,))
+        
+        due_predictions = cursor.fetchall()
+        
+        if not due_predictions:
+            print("✅ No predictions due for checking")
+            conn.close()
+            return
+            
+        print(f"\n📊 Checking {len(due_predictions)} predictions...")
+        
+        checked_count = 0
+        for pred_id, stock, prediction, entry_price, target_date in due_predictions:
+            try:
+                # Get current price
+                ticker = yf.Ticker(stock)
+                hist = ticker.history(period='5d')
+                
+                if hist.empty:
+                    print(f"⚠️ No price data for {stock}, skipping")
+                    continue
+                
+                current_price = hist['Close'].iloc[-1]
+                
+                # Calculate actual move
+                actual_move_pct = ((current_price - entry_price) / entry_price) * 100
+                
+                # Determine success based on prediction
+                success = False
+                if prediction == 'BUY' and actual_move_pct > 2:  # Gained more than 2%
+                    success = True
+                elif prediction == 'SELL' and actual_move_pct < -2:  # Dropped more than 2%
+                    success = True
+                elif prediction == 'HOLD' and abs(actual_move_pct) < 3:  # Stayed relatively flat
+                    success = True
+                
+                # Record outcome
+                cursor.execute("""
+                    INSERT INTO outcomes 
+                    (prediction_id, actual_price, actual_move_pct, success)
+                    VALUES (?, ?, ?, ?)
+                """, (pred_id, current_price, actual_move_pct, success))
+                
+                # Update accuracy tracking
+                cursor.execute("SELECT llm_model FROM predictions WHERE id = ?", (pred_id,))
+                llm_model = cursor.fetchone()[0]
+                
+                self._update_accuracy(cursor, stock, llm_model, success)
+                
+                result_emoji = "✅" if success else "❌"
+                print(f"{result_emoji} {stock}: {prediction} -> {actual_move_pct:+.1f}% move")
+                checked_count += 1
+                
+            except Exception as e:
+                print(f"⚠️ Error checking {stock}: {e}")
+                
+        conn.commit()
+        conn.close()
+        print(f"✅ Checked {checked_count} predictions\n")
+    
+    def _update_accuracy(self, cursor, stock, llm_model, success):
+        """Update accuracy statistics"""
+        cursor.execute("""
+            INSERT INTO accuracy_tracking (stock, llm_model, total_predictions, correct_predictions, accuracy_pct)
+            VALUES (?, ?, 1, ?, ?)
+            ON CONFLICT(stock, llm_model) DO UPDATE SET
+                total_predictions = total_predictions + 1,
+                correct_predictions = correct_predictions + ?,
+                accuracy_pct = (CAST(correct_predictions AS FLOAT) + ?) * 100.0 / (total_predictions + 1),
+                last_updated = CURRENT_DATE
+        """, (
+            stock, 
+            llm_model, 
+            1 if success else 0, 
+            100.0 if success else 0,
+            1 if success else 0,
+            1 if success else 0
+        ))
         
     def get_accuracy_report(self):
         """Generate accuracy report"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
-        # Get prediction count
+        # Get overall stats
         cursor.execute("SELECT COUNT(*) FROM predictions")
-        pred_count = cursor.fetchone()[0]
+        total_predictions = cursor.fetchone()[0]
         
+        cursor.execute("SELECT COUNT(*) FROM outcomes")
+        total_outcomes = cursor.fetchone()[0]
+        
+        cursor.execute("SELECT COUNT(*) FROM outcomes WHERE success = 1")
+        successful_outcomes = cursor.fetchone()[0]
+        
+        # Get per-stock accuracy
+        cursor.execute("""
+            SELECT stock, llm_model, total_predictions, 
+                   correct_predictions, accuracy_pct
+            FROM accuracy_tracking
+            WHERE total_predictions > 0
+            ORDER BY accuracy_pct DESC
+            LIMIT 10
+        """)
+        
+        top_performers = cursor.fetchall()
         conn.close()
         
-        if pred_count == 0:
+        if total_predictions == 0:
             return "No prediction history yet"
         
-        report = f"\n📊 **ACCURACY REPORT**\n"
-        report += f"Total predictions recorded: {pred_count}\n"
+        # Build report
+        overall_accuracy = (successful_outcomes / total_outcomes * 100) if total_outcomes > 0 else 0
+        
+        report = "\n📊 **LEARNING SYSTEM ACCURACY REPORT**\n"
+        report += "=" * 50 + "\n"
+        report += f"Total Predictions Made: {total_predictions}\n"
+        report += f"Predictions Checked: {total_outcomes}\n"
+        report += f"Successful Predictions: {successful_outcomes}\n"
+        report += f"Overall Accuracy: {overall_accuracy:.1f}%\n"
+        
+        if top_performers:
+            report += "\n🏆 Top Performing Stock/LLM Combinations:\n"
+            report += "-" * 50 + "\n"
+            for stock, model, total, correct, accuracy in top_performers:
+                report += f"  {stock} ({model}): {accuracy:.1f}% ({correct}/{total})\n"
         
         return report
 
 
-# Simple test
+# Test function
 if __name__ == "__main__":
     print("Starting Learning Brain test...")
     
@@ -150,6 +275,9 @@ if __name__ == "__main__":
         llm_model='test',
         reasoning='Test prediction'
     )
+    
+    # Test checking outcomes
+    brain.check_outcomes()
     
     # Show report
     print(brain.get_accuracy_report())
