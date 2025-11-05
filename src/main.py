@@ -2380,11 +2380,15 @@ async def analyze_portfolio_with_predictions(session, portfolio_file='portfolio.
             if 'ai_prediction' in enhanced:
                 successful_predictions += 1
                 logging.info(f"✅ {ticker}: Prediction added - {enhanced['ai_prediction']['action']}")
-                # ===== RECORD PREDICTION IN LEARNING DATABASE =====
+                                # ===== RECORD PREDICTION IN LEARNING DATABASE =====
                 if learning_brain:
                     try:
                         pred_data = enhanced['ai_prediction']
                         current_price = stock.get('price', 0)
+                        
+                        # DEBUG: Log what's in ai_prediction
+                        logging.info(f"🔍 DEBUG {ticker} ai_prediction keys: {list(pred_data.keys())}")
+                        logging.info(f"🔍 DEBUG {ticker} full ai_prediction: {pred_data}")
                         
                         # Extract indicators from stock data
                         indicators_dict = {
@@ -2394,18 +2398,41 @@ async def analyze_portfolio_with_predictions(session, portfolio_file='portfolio.
                             'patterns': pred_data.get('pattern_detected', '')
                         }
                         
+                        # Try multiple possible field names for confidence
+                        confidence = (
+                            pred_data.get('conviction_score') or 
+                            pred_data.get('confidence') or 
+                            pred_data.get('conviction') or 
+                            0
+                        )
+                        
+                        # Try multiple possible field names for LLM
+                        llm_model = (
+                            pred_data.get('llm_consensus') or 
+                            pred_data.get('model_used') or 
+                            pred_data.get('llm') or 
+                            'unknown'
+                        )
+                        
+                        # Try multiple possible field names for reasoning
+                        reasoning = (
+                            pred_data.get('consensus_reasoning') or 
+                            pred_data.get('reasoning') or 
+                            ''
+                        )[:500]
+                        
                         # Record prediction to SQLite
                         pred_id = learning_brain.record_prediction(
                             stock=ticker,
                             prediction=pred_data.get('action', 'HOLD'),
-                            confidence=pred_data.get('conviction_score', 0),
+                            confidence=confidence,
                             price=current_price,
-                            llm_model=pred_data.get('llm_consensus', 'unknown'),
-                            reasoning=pred_data.get('consensus_reasoning', '')[:500],
+                            llm_model=llm_model,
+                            reasoning=reasoning,
                             indicators=indicators_dict
                         )
                         
-                        logging.info(f"💾 Prediction #{pred_id} saved to learning.db")
+                        logging.info(f"💾 Prediction #{pred_id} saved to learning.db (confidence: {confidence}%)")
                         
                     except Exception as e:
                         logging.error(f"⚠️ Failed to record prediction for {ticker}: {e}")
