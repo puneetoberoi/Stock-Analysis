@@ -6047,5 +6047,170 @@
     "price_at_prediction": 25.600000381469727,
     "outcome": null,
     "was_correct": null
+  },
+  "a78a4e87": {
+    "id": "a78a4e87",
+    "timestamp": "2025-11-05T19:10:45.011967",
+    "ticker": "AAPL",
+    "action": "HOLD",
+    "confidence": 85,
+    "reasoning": "groq: The stock's high RSI and low volume, combined with consolidation candlestick patterns and a negative macro score, suggest a neutral stance.",
+    "candle_pattern": "darvas_box",
+    "indicators": {
+      "rsi": 68.31933675785572
+    },
+    "price_at_prediction": 271.1300048828125,
+    "outcome": null,
+    "was_correct": null
+  },
+  "ec328f5d": {
+    "id": "ec328f5d",
+    "timestamp": "2025-11-05T19:10:46.413456",
+    "ticker": "MSFT",
+    "action": "HOLD",
+    "confidence": 95,
+    "reasoning": "groq: The stock's relatively low RSI and presence of a swing highs lows uptrend pattern suggest potential for upward movement, but the negative Macro Score and below-average volume temper the outlook.",
+    "candle_pattern": "swing_highs_lows",
+    "indicators": {
+      "rsi": 40.779853775773475
+    },
+    "price_at_prediction": 508.45001220703125,
+    "outcome": null,
+    "was_correct": null
+  },
+  "9a396e84": {
+    "id": "9a396e84",
+    "timestamp": "2025-11-05T19:10:47.778368",
+    "ticker": "NVDA",
+    "action": "HOLD",
+    "confidence": 70,
+    "reasoning": "groq: The stock's neutral RSI and low volume, combined with a consolidation pattern and a negative macro score, suggest a hold position.",
+    "candle_pattern": "swing_highs_lows",
+    "indicators": {
+      "rsi": 60.78320594850603
+    },
+    "price_at_prediction": 201.17999267578125,
+    "outcome": null,
+    "was_correct": null
+  },
+  "5c76ee46": {
+    "id": "5c76ee46",
+    "timestamp": "2025-11-05T19:10:49.032539",
+    "ticker": "TSLA",
+    "action": "HOLD",
+    "confidence": 100,
+    "reasoning": "groq: The presence of bullish continuation and uptrend candlestick patterns is countered by low trading volume and a negative macro score, leading to a neutral hold recommendation.",
+    "candle_pattern": "cup_and_handle",
+    "indicators": {
+      "rsi": 56.76487004609483
+    },
+    "price_at_prediction": 461.82000732421875,
+    "outcome": null,
+    "was_correct": null
+  },
+  "6602f1e5": {
+    "id": "6602f1e5",
+    "timestamp": "2025-11-05T19:10:50.346352",
+    "ticker": "GOOGL",
+    "action": "SELL",
+    "confidence": 80,
+    "reasoning": "groq: The stock's high RSI value of 73.22 indicates overbought conditions, which, combined with a low volume and negative macro score, suggests a potential reversal.",
+    "candle_pattern": "swing_highs_lows",
+    "indicators": {
+      "rsi": 73.21570212748001
+    },
+    "price_at_prediction": 285.0899963378906,
+    "outcome": null,
+    "was_correct": null
+  },
+  "a77c9948": {
+    "id": "a77c9948",
+    "timestamp": "2025-11-05T19:10:51.598121",
+    "ticker": "TSM",
+    "action": "BUY",
+    "confidence": 90,
+    "reasoning": "groq: The presence of two piercing_line candlestick patterns with 100% historical success as bullish reversals, despite a low macro score, suggests a strong potential for a short-term price increase.",
+    "candle_pattern": "piercing_line",
+    "indicators": {
+      "rsi": 53.09283111956783
+    },
+    "price_at_prediction": 296.4599914550781,
+    "outcome": null,
+    "was_correct": null
+  },
+  "58a544b7": {
+    "id": "58a544b7",
+    "timestamp": "2025-11-05T19:10:52.815990",
+    "ticker": "AMD",
+    "action": "BUY",
+    "confidence": 100,
+    "reasoning": "groq: The presence of multiple bullish reversal candlestick patterns, including a piercing line with 100% historical success, suggests a potential upside for AMD despite a negative macro score.",
+    "candle_pattern": "bullish_engulfing",
+    "indicators": {
+      "rsi": 65.79053417381752
+    },
+    "price_at_prediction": 258.2926025390625,
+    "outcome": null,
+    "was_correct": null
+  },
+  "37b75094": {
+    "id": "37b75094",
+    "timestamp": "2025-11-05T19:10:54.194993",
+    "ticker": "TD.TO",
+    "action": "HOLD",
+    "confidence": 90,
+    "reasoning": "groq: The stock's neutral technical indicators, such as a moderate RSI and indecisive candlestick patterns, combined with a negative macro score, suggest a cautious approach.",
+    "candle_pattern": "doji",
+    "indicators": {
+      "rsi": 58.17844637220167
+    },
+    "price_at_prediction": 113.6500015258789,
+    "outcome": null,
+    "was_correct": null
+  },
+  "8fd1ca78": {
+    "id": "8fd1ca78",
+    "timestamp": "2025-11-05T19:10:55.352317",
+    "ticker": "AMZN",
+    "action": "SELL",
+    "confidence": 90,
+    "reasoning": "groq: The stock's high RSI and low volume, combined with indecisive candlestick patterns and a negative macro score, suggest a potential downturn.",
+    "candle_pattern": "spinning_top",
+    "indicators": {
+      "rsi": 66.89658966954116
+    },
+    "price_at_prediction": 249.39999389648438,
+    "outcome": null,
+    "was_correct": null
+  },
+  "e444d63a": {
+    "id": "e444d63a",
+    "timestamp": "2025-11-05T19:10:56.681589",
+    "ticker": "CGL-C.TO",
+    "action": "HOLD",
+    "confidence": 95,
+    "reasoning": "groq: The presence of bullish reversal candlestick patterns, such as the hammer and double bottom, suggests a potential upside, but the low volume and negative macro score warrant caution.",
+    "candle_pattern": "hammer",
+    "indicators": {
+      "rsi": 52.71857852178829
+    },
+    "price_at_prediction": 47.13999938964844,
+    "outcome": null,
+    "was_correct": null
+  },
+  "510502db": {
+    "id": "510502db",
+    "timestamp": "2025-11-05T19:10:58.091040",
+    "ticker": "SVR-C.TO",
+    "action": "HOLD",
+    "confidence": 95,
+    "reasoning": "groq: The stock's neutral RSI and low volume, combined with mixed candlestick patterns and a negative macro score, suggest a cautious approach.",
+    "candle_pattern": "bullish_marubozu",
+    "indicators": {
+      "rsi": 53.144471549687516
+    },
+    "price_at_prediction": 25.709999084472656,
+    "outcome": null,
+    "was_correct": null
   }
 }
