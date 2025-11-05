@@ -51,6 +51,7 @@ jobs:
       run: |
         git config --global user.email "action@github.com"
         git config --global user.name "GitHub Action"
+        git add src/modules/data/learning.db
         git add data/*.json logs/*.json || true
         git add market_memory.json || true
         git diff --quiet && git diff --staged --quiet || git commit -m "📊 Daily predictions and analysis [skip ci]"
