@@ -2576,8 +2576,7 @@ async def main(output="print"):
         logging.info("📧 Generating email report...")
         html_email = generate_enhanced_html_email(
             df_stocks, context_data, market_news, macro_data, 
-            previous_day_memory, portfolio_data, pattern_data, 
-            ai_analysis, portfolio_recommendations
+            previous_day_memory, portfolio_data, pattern_data, portfolio_recommendations
         )
         send_email(html_email)
     
