@@ -51,12 +51,22 @@ jobs:
       run: |
         git config --global user.email "action@github.com"
         git config --global user.name "GitHub Action"
+
+        # Stash any unstaged changes
+        git stash || true
+          
         # Pull latest changes first
         git pull origin ${{ github.ref_name }} --rebase || true
+
+        # Pop stashed changes
+        git stash pop || true
+        
         git add src/modules/data/learning.db
         git add data/*.json logs/*.json || true
         git add market_memory.json || true
+        
         git diff --quiet && git diff --staged --quiet || git commit -m "📊 Daily predictions and analysis [skip ci]"
+        
         # Push changes
-        git push origin ${{ github.ref_name }} || echo "⚠️ Push failed, changes will be in next run"
+        git push origin ${{ github.ref_name }} || git push --force-with-lease origin ${{ github.ref_name }}
       continue-on-error: true
