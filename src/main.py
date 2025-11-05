@@ -2567,14 +2567,9 @@ async def main(output="print"):
                 portfolio_data, pattern_data, macro_data
             )
         
-        # Step 7: Generate AI analysis
-        logging.info("🔍 Step 7: Generating AI analysis...")
-        market_summary = {
-            'macro': macro_data,
-            'top_stock': stock_results[0] if stock_results else {},
-            'bottom_stock': stock_results[-1] if stock_results else {}
-        }
-        ai_analysis = await generate_ai_oracle_analysis(market_summary, portfolio_data, pattern_data)
+        # Step 7: Skip AI Oracle (removed - was generating placeholder text)
+        logging.info("🔍 Step 7: Skipping AI Oracle (removed)")
+        ai_analysis = None
     
     # Outside session context - generate email
     if output == "email":
@@ -2603,7 +2598,7 @@ async def main(output="print"):
 # EMAIL GENERATION - Updated for v2.0.0
 # ========================================
 
-def generate_enhanced_html_email(df_stocks, context, market_news, macro_data, memory, portfolio_data, pattern_data, ai_analysis, portfolio_recommendations=None):
+def generate_enhanced_html_email(df_stocks, context, market_news, macro_data, memory, portfolio_data, pattern_data, portfolio_recommendations=None):
     """FIXED v2.0.0: Clear, non-conflicting email display"""
     
     def format_articles(articles):
@@ -2628,16 +2623,6 @@ def generate_enhanced_html_email(df_stocks, context, market_news, macro_data, me
                 color_24h = "#16a34a" if change_24h >= 0 else "#dc2626"
                 rows += f'<tr><td style="padding:10px;border-bottom:1px solid #eee;"><b>{asset.get("name", "")}</b><br><span style="color:#666;font-size:0.9em;">{asset.get("symbol","").upper()}</span></td><td style="padding:10px;border-bottom:1px solid #eee;">{price}<br><span style="color:{color_24h};font-size:0.9em;">{change_24h:.2f}% (24h)</span></td><td style="padding:10px;border-bottom:1px solid #eee;">{mcap}</td></tr>'
         return rows
-    
-    # AI Oracle section
-    ai_oracle_html = ""
-    if ai_analysis:
-        analysis_text = ai_analysis['analysis'].replace('\n', '<br>')
-        ai_oracle_html = f"""<div class="section" style="background-color:#f0f9ff;border-left:4px solid #0369a1;">
-        <h2>🤖 AI MARKET ORACLE</h2>
-        <p style="font-size:0.9em;color:#666;margin-bottom:15px;">Powered by Gemini AI</p>
-        <div style="line-height:1.8;">{analysis_text}</div>
-        </div>"""
     
     # v2.0.0 NEW: High-priority signals section
     v2_signals_html = ""
