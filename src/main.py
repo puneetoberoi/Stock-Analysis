@@ -2380,6 +2380,38 @@ async def analyze_portfolio_with_predictions(session, portfolio_file='portfolio.
             if 'ai_prediction' in enhanced:
                 successful_predictions += 1
                 logging.info(f"✅ {ticker}: Prediction added - {enhanced['ai_prediction']['action']}")
+                # ===== RECORD PREDICTION IN LEARNING DATABASE =====
+                if learning_brain:
+                    try:
+                        pred_data = enhanced['ai_prediction']
+                        current_price = stock.get('price', 0)
+                        
+                        # Extract indicators from stock data
+                        indicators_dict = {
+                            'rsi': stock.get('rsi', 0),
+                            'macd': stock.get('macd', 0),
+                            'volume_ratio': stock.get('volume_ratio', 0),
+                            'patterns': pred_data.get('pattern_detected', '')
+                        }
+                        
+                        # Record prediction to SQLite
+                        pred_id = learning_brain.record_prediction(
+                            stock=ticker,
+                            prediction=pred_data.get('action', 'HOLD'),
+                            confidence=pred_data.get('conviction_score', 0),
+                            price=current_price,
+                            llm_model=pred_data.get('llm_consensus', 'unknown'),
+                            reasoning=pred_data.get('consensus_reasoning', '')[:500],
+                            indicators=indicators_dict
+                        )
+                        
+                        logging.info(f"💾 Prediction #{pred_id} saved to learning.db")
+                        
+                    except Exception as e:
+                        logging.error(f"⚠️ Failed to record prediction for {ticker}: {e}")
+                        import traceback
+                        traceback.print_exc()
+                # ===== END LEARNING DATABASE RECORDING =====
             else:
                 logging.warning(f"⚠️ {ticker}: No prediction generated")
             
