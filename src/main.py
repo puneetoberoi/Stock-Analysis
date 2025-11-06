@@ -2099,7 +2099,7 @@ class IntelligentPredictionEngine:
         self.learning_memory = learning_memory
         self.confidence_scorer = ConfidenceScorer()
         self.llm_clients = {}
-        self._setup_llm_clients()
+        #self._setup_llm_clients()
 
      # Use the new LLM Manager
         self.llm_manager = llm_manager
