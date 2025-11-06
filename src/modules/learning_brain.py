@@ -57,6 +57,9 @@ class LearningBrain:
                 actual_price FLOAT,
                 actual_move_pct FLOAT,
                 success BOOLEAN,
+                timeframe_days INTEGER DEFAULT 7,
+                timeframe_weight FLOAT DEFAULT 1.0,
+                timeframe_label TEXT DEFAULT 'full_strategy',
                 FOREIGN KEY(prediction_id) REFERENCES predictions(id)
             )
         """)
