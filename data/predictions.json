@@ -6872,5 +6872,170 @@
     "price_at_prediction": 25.5,
     "outcome": null,
     "was_correct": null
+  },
+  "25973c06": {
+    "id": "25973c06",
+    "timestamp": "2025-11-06T20:37:51.502756",
+    "ticker": "AAPL",
+    "action": "SELL",
+    "confidence": 95,
+    "reasoning": "groq: The high RSI value and low volume, combined with bearish market context indicated by a negative Macro Score, suggest a potential reversal, supporting a sell recommendation.",
+    "candle_pattern": "darvas_box",
+    "indicators": {
+      "rsi": 68.67234805093955
+    },
+    "price_at_prediction": 271.2449951171875,
+    "outcome": null,
+    "was_correct": null
+  },
+  "0283f7d9": {
+    "id": "0283f7d9",
+    "timestamp": "2025-11-06T20:37:52.832657",
+    "ticker": "MSFT",
+    "action": "BUY",
+    "confidence": 95,
+    "reasoning": "groq: The low RSI value of 35.05424138967081 indicates that MSFT is oversold, suggesting a potential buying opportunity.",
+    "candle_pattern": "swing_highs_lows",
+    "indicators": {
+      "rsi": 35.05424138967081
+    },
+    "price_at_prediction": 498.2900085449219,
+    "outcome": null,
+    "was_correct": null
+  },
+  "21dba5c3": {
+    "id": "21dba5c3",
+    "timestamp": "2025-11-06T20:37:54.292992",
+    "ticker": "NVDA",
+    "action": "SELL",
+    "confidence": 80,
+    "reasoning": "groq: The presence of a bearish three_black_crows candlestick pattern with a 67% historical success rate suggests a potential downtrend, supporting a sell recommendation.",
+    "candle_pattern": "three_black_crows",
+    "indicators": {
+      "rsi": 49.529890709068404
+    },
+    "price_at_prediction": 189.47000122070312,
+    "outcome": null,
+    "was_correct": null
+  },
+  "c7f34af1": {
+    "id": "c7f34af1",
+    "timestamp": "2025-11-06T20:37:55.546354",
+    "ticker": "TSLA",
+    "action": "HOLD",
+    "confidence": 100,
+    "reasoning": "groq: The presence of a bullish continuation cup_and_handle pattern is offset by a low macro score and neutral RSI, leading to a cautious hold recommendation.",
+    "candle_pattern": "cup_and_handle",
+    "indicators": {
+      "rsi": 53.426660730589106
+    },
+    "price_at_prediction": 448.93951416015625,
+    "outcome": null,
+    "was_correct": null
+  },
+  "521e9741": {
+    "id": "521e9741",
+    "timestamp": "2025-11-06T20:37:57.052623",
+    "ticker": "GOOGL",
+    "action": "SELL",
+    "confidence": 85,
+    "reasoning": "groq: The stock's high RSI value of 73.49 indicates overbought conditions, combined with indecision candlestick patterns and a negative macro score, suggesting a potential reversal.",
+    "candle_pattern": "doji",
+    "indicators": {
+      "rsi": 73.49331461313923
+    },
+    "price_at_prediction": 285.4800109863281,
+    "outcome": null,
+    "was_correct": null
+  },
+  "bd460ecb": {
+    "id": "bd460ecb",
+    "timestamp": "2025-11-06T20:37:58.818079",
+    "ticker": "TSM",
+    "action": "SELL",
+    "confidence": 100,
+    "reasoning": "groq: The presence of a double_top bearish reversal pattern with 100% historical success, combined with a negative Macro Score, outweighs the uptrend signal from swing_highs_lows, suggesting a sell recommendation.",
+    "candle_pattern": "double_top",
+    "indicators": {
+      "rsi": 48.76174849831254
+    },
+    "price_at_prediction": 290.05999755859375,
+    "outcome": null,
+    "was_correct": null
+  },
+  "e0222ccc": {
+    "id": "e0222ccc",
+    "timestamp": "2025-11-06T20:38:00.235459",
+    "ticker": "AMD",
+    "action": "SELL",
+    "confidence": 95,
+    "reasoning": "groq: The presence of a bearish reversal evening star candlestick pattern, combined with a negative macro score, outweighs the uptrend indication from swing highs and lows, suggesting a potential downturn for AMD.",
+    "candle_pattern": "evening_star",
+    "indicators": {
+      "rsi": 55.82021885786076
+    },
+    "price_at_prediction": 239.55999755859375,
+    "outcome": null,
+    "was_correct": null
+  },
+  "5d653be8": {
+    "id": "5d653be8",
+    "timestamp": "2025-11-06T20:38:01.650099",
+    "ticker": "TD.TO",
+    "action": "SELL",
+    "confidence": 95,
+    "reasoning": "groq: The presence of a double_top bearish reversal pattern with 100% historical success, combined with a low Macro Score, suggests a high likelihood of a downward price movement.",
+    "candle_pattern": "double_top",
+    "indicators": {
+      "rsi": 57.81229606479827
+    },
+    "price_at_prediction": 113.58000183105469,
+    "outcome": null,
+    "was_correct": null
+  },
+  "3765d332": {
+    "id": "3765d332",
+    "timestamp": "2025-11-06T20:38:03.011308",
+    "ticker": "AMZN",
+    "action": "SELL",
+    "confidence": 95,
+    "reasoning": "groq: The presence of a bearish continuation pattern, three_black_crows, with a 67% historical success rate, outweighs the uptrend signal, suggesting a potential reversal.",
+    "candle_pattern": "three_black_crows",
+    "indicators": {
+      "rsi": 62.00530841607548
+    },
+    "price_at_prediction": 244.38999938964844,
+    "outcome": null,
+    "was_correct": null
+  },
+  "90366d18": {
+    "id": "90366d18",
+    "timestamp": "2025-11-06T20:38:04.307892",
+    "ticker": "CGL-C.TO",
+    "action": "HOLD",
+    "confidence": 95,
+    "reasoning": "groq: The stock's neutral RSI and low volume, combined with mixed candlestick patterns, suggest a wait-and-see approach amidst a negative macro context.",
+    "candle_pattern": "double_bottom",
+    "indicators": {
+      "rsi": 52.61849445280413
+    },
+    "price_at_prediction": 47.119998931884766,
+    "outcome": null,
+    "was_correct": null
+  },
+  "9d164343": {
+    "id": "9d164343",
+    "timestamp": "2025-11-06T20:38:05.565772",
+    "ticker": "SVR-C.TO",
+    "action": "SELL",
+    "confidence": 95,
+    "reasoning": "groq: The stock's low volume and mediocre RSI, combined with a weak macro score, outweigh the potential upside from the swing highs lows candlestick pattern.",
+    "candle_pattern": "swing_highs_lows",
+    "indicators": {
+      "rsi": 51.744081787281026
+    },
+    "price_at_prediction": 25.5,
+    "outcome": null,
+    "was_correct": null
   }
 }
