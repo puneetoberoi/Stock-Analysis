@@ -48,7 +48,7 @@ class LLMManager:
                 import google.generativeai as genai
                 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
                 # Using a slightly different model name to avoid conflicts if needed later
-                self.clients['gemini'] = genai.GenerativeModel('gemini-1.5-flash')
+                self.clients['gemini'] = genai.GenerativeModel('gemini-2.5-flash')
                 logging.info("✅ LLM Manager: Gemini client loaded.")
             except ImportError:
                 logging.warning("⚠️ LLM Manager: 'google-generativeai' library not installed. Skipping Gemini.")
