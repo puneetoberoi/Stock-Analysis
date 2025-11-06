@@ -300,16 +300,16 @@ class LearningBrain:
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
-        # Get overall stats with weighted calculations
+        # Get overall stats
         cursor.execute("SELECT COUNT(*) FROM predictions")
         total_predictions = cursor.fetchone()[0]
         
-        # Calculate weighted accuracy properly
+        # FIXED: Calculate weighted stats directly from the accuracy_tracking table
         cursor.execute("""
             SELECT 
-                SUM(timeframe_weight) as total_weighted,
-                SUM(CASE WHEN success = 1 THEN timeframe_weight ELSE 0 END) as weighted_successes
-            FROM outcomes
+                SUM(total_predictions) as total_weighted_checks,
+                SUM(correct_predictions) as weighted_successes
+            FROM accuracy_tracking
         """)
         row = cursor.fetchone()
         total_weighted_checks = row[0] if row[0] else 0
@@ -376,7 +376,7 @@ class LearningBrain:
             report += "-" * 50 + "\n"
             for label, days, checks, successes, accuracy in timeframe_stats:
                 emoji = "🟢" if accuracy >= 60 else "🟡" if accuracy >= 40 else "🔴"
-                report += f"  {emoji} {label} ({days}d): {accuracy:.1f}% ({successes}/{checks} correct)\n"
+                report += f"  {emoji} {label} ({days}d): {accuracy:.1f}% ({successes or 0}/{checks} correct)\n"
         
         # Daily trend
         if daily_trends:
@@ -384,12 +384,12 @@ class LearningBrain:
             report += "-" * 50 + "\n"
             for day, checks, successes, accuracy in daily_trends:
                 trend_emoji = "📈" if accuracy >= 60 else "📊" if accuracy >= 40 else "📉"
-                report += f"  {trend_emoji} {day}: {accuracy:.1f}% ({successes}/{checks})\n"
+                report += f"  {trend_emoji} {day}: {accuracy:.1f}% ({successes or 0}/{checks})\n"
             
             # Calculate improvement
             if len(daily_trends) >= 2:
-                recent_accuracy = daily_trends[0][3]  # Most recent
-                older_accuracy = daily_trends[-1][3]  # 7 days ago
+                recent_accuracy = daily_trends[0][3]
+                older_accuracy = daily_trends[-1][3]
                 improvement = recent_accuracy - older_accuracy
                 if improvement > 0:
                     report += f"\n  🚀 7-Day Improvement: +{improvement:.1f}%\n"
@@ -400,7 +400,7 @@ class LearningBrain:
         if top_performers:
             report += "\n🏆 Top Performing Stock/LLM Combinations:\n"
             report += "-" * 50 + "\n"
-            for stock, model, total, correct, accuracy in top_performers[:5]:  # Top 5 only
+            for stock, model, total, correct, accuracy in top_performers[:5]:
                 report += f"  {stock} ({model}): {accuracy:.1f}% ({correct:.1f}/{total:.1f})\n"
         
         return report
