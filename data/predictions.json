@@ -6377,5 +6377,170 @@
     "price_at_prediction": 25.75,
     "outcome": null,
     "was_correct": null
+  },
+  "9cb8ba8f": {
+    "id": "9cb8ba8f",
+    "timestamp": "2025-11-06T18:26:58.710100",
+    "ticker": "AAPL",
+    "action": "SELL",
+    "confidence": 85,
+    "reasoning": "groq: Overbought RSI (69.02) indicates a potential reversal.",
+    "candle_pattern": "three_white_soldiers",
+    "indicators": {
+      "rsi": 69.02270791951278
+    },
+    "price_at_prediction": 271.5249938964844,
+    "outcome": null,
+    "was_correct": null
+  },
+  "149d6251": {
+    "id": "149d6251",
+    "timestamp": "2025-11-06T18:27:00.053235",
+    "ticker": "MSFT",
+    "action": "BUY",
+    "confidence": 95,
+    "reasoning": "groq: The low RSI value of 34.43 indicates that MSFT is oversold, suggesting a potential buying opportunity.",
+    "candle_pattern": "swing_highs_lows",
+    "indicators": {
+      "rsi": 34.42641771903526
+    },
+    "price_at_prediction": 497.6400146484375,
+    "outcome": null,
+    "was_correct": null
+  },
+  "f7fe7ddb": {
+    "id": "f7fe7ddb",
+    "timestamp": "2025-11-06T18:27:01.500029",
+    "ticker": "NVDA",
+    "action": "SELL",
+    "confidence": 100,
+    "reasoning": "groq: The presence of two bearish continuation three_black_crows candlestick patterns with a 67% historical success rate suggests a high likelihood of further price decline.",
+    "candle_pattern": "three_black_crows",
+    "indicators": {
+      "rsi": 48.93263849449415
+    },
+    "price_at_prediction": 189.2449951171875,
+    "outcome": null,
+    "was_correct": null
+  },
+  "7ae79a2b": {
+    "id": "7ae79a2b",
+    "timestamp": "2025-11-06T18:27:02.750934",
+    "ticker": "TSLA",
+    "action": "SELL",
+    "confidence": 100,
+    "reasoning": "groq: Bearish reversal candlestick pattern with 100% historical success rate.",
+    "candle_pattern": "cup_and_handle",
+    "indicators": {
+      "rsi": 52.21574661816592
+    },
+    "price_at_prediction": 447.5400085449219,
+    "outcome": null,
+    "was_correct": null
+  },
+  "331b2fb5": {
+    "id": "331b2fb5",
+    "timestamp": "2025-11-06T18:27:04.080046",
+    "ticker": "GOOGL",
+    "action": "SELL",
+    "confidence": 85,
+    "reasoning": "groq: Overbought RSI (73.66) indicates a high likelihood of a price reversal.",
+    "candle_pattern": "three_white_soldiers",
+    "indicators": {
+      "rsi": 73.6602530823205
+    },
+    "price_at_prediction": 285.67999267578125,
+    "outcome": null,
+    "was_correct": null
+  },
+  "7bbcb3a4": {
+    "id": "7bbcb3a4",
+    "timestamp": "2025-11-06T18:27:05.585840",
+    "ticker": "TSM",
+    "action": "SELL",
+    "confidence": 100,
+    "reasoning": "groq: Multiple bear<|start_header_id|>assistant<|end_header_id|>",
+    "candle_pattern": "bearish_engulfing",
+    "indicators": {
+      "rsi": 48.31728155758281
+    },
+    "price_at_prediction": 289.7650146484375,
+    "outcome": null,
+    "was_correct": null
+  },
+  "2579b35f": {
+    "id": "2579b35f",
+    "timestamp": "2025-11-06T18:27:06.954529",
+    "ticker": "AMD",
+    "action": "SELL",
+    "confidence": 100,
+    "reasoning": "groq: Bearish reversal candlestick pattern with high historical success rate.",
+    "candle_pattern": "double_top",
+    "indicators": {
+      "rsi": 55.76548941517988
+    },
+    "price_at_prediction": 241.8800048828125,
+    "outcome": null,
+    "was_correct": null
+  },
+  "387460ef": {
+    "id": "387460ef",
+    "timestamp": "2025-11-06T18:27:08.398377",
+    "ticker": "TD.TO",
+    "action": "SELL",
+    "confidence": 95,
+    "reasoning": "groq: Bearish reversal candlestick patterns<|start_header_id|>assistant<|end_header_id|>",
+    "candle_pattern": "bearish_engulfing",
+    "indicators": {
+      "rsi": 54.98970795819201
+    },
+    "price_at_prediction": 113.19000244140625,
+    "outcome": null,
+    "was_correct": null
+  },
+  "7a52a880": {
+    "id": "7a52a880",
+    "timestamp": "2025-11-06T18:27:09.749924",
+    "ticker": "AMZN",
+    "action": "SELL",
+    "confidence": 100,
+    "reasoning": "groq: Bearish reversal candlestick pattern with high historical success rate.",
+    "candle_pattern": "tweezer_top",
+    "indicators": {
+      "rsi": 61.14213868403425
+    },
+    "price_at_prediction": 244.1699981689453,
+    "outcome": null,
+    "was_correct": null
+  },
+  "ca433409": {
+    "id": "ca433409",
+    "timestamp": "2025-11-06T18:27:11.292601",
+    "ticker": "CGL-C.TO",
+    "action": "HOLD",
+    "confidence": 95,
+    "reasoning": "groq: Neutral RSI and low volume volumeassistant<|end_header_id|>",
+    "candle_pattern": "double_bottom",
+    "indicators": {
+      "rsi": 52.77230530544848
+    },
+    "price_at_prediction": 47.150001525878906,
+    "outcome": null,
+    "was_correct": null
+  },
+  "976ebaef": {
+    "id": "976ebaef",
+    "timestamp": "2025-11-06T18:27:12.852804",
+    "ticker": "SVR-C.TO",
+    "action": "SELL",
+    "confidence": 80,
+    "reasoning": "groq: Low<|start_header_id|>assistant<|end_header_id|>",
+    "candle_pattern": "swing_highs_lows",
+    "indicators": {
+      "rsi": 51.49663611358287
+    },
+    "price_at_prediction": 25.5,
+    "outcome": null,
+    "was_correct": null
   }
 }
