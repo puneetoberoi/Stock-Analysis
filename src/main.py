@@ -2521,7 +2521,7 @@ async def main(output="print"):
     logging.info("="*60)
     logging.info("🧠 CHECKING PREVIOUS PREDICTIONS...")
     logging.info("="*60)
-    learning_brain.check_outcomes(days_back=7)
+    learning_brain.check_outcomes_multi_timeframe()
     
     # Get accuracy report
     accuracy_report = learning_brain.get_accuracy_report()
