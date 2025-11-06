@@ -296,53 +296,114 @@ class LearningBrain:
         ))
         
     def get_accuracy_report(self):
-        """Generate accuracy report"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
+    """Generate comprehensive accuracy report with weighted metrics and trends"""
+    conn = sqlite3.connect(self.db_path)
+    cursor = conn.cursor()
+    
+    # Get overall stats with weighted calculations
+    cursor.execute("SELECT COUNT(*) FROM predictions")
+    total_predictions = cursor.fetchone()[0]
+    
+    # Calculate weighted accuracy properly
+    cursor.execute("""
+        SELECT 
+            SUM(timeframe_weight) as total_weighted,
+            SUM(CASE WHEN success = 1 THEN timeframe_weight ELSE 0 END) as weighted_successes
+        FROM outcomes
+    """)
+    row = cursor.fetchone()
+    total_weighted_checks = row[0] if row[0] else 0
+    weighted_successes = row[1] if row[1] else 0
+    
+    overall_accuracy = (weighted_successes / total_weighted_checks * 100) if total_weighted_checks > 0 else 0
+    
+    # Get accuracy by timeframe
+    cursor.execute("""
+        SELECT 
+            timeframe_label,
+            timeframe_days,
+            COUNT(*) as checks,
+            SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) as successes,
+            ROUND(AVG(CASE WHEN success = 1 THEN 100.0 ELSE 0.0 END), 1) as accuracy
+        FROM outcomes
+        GROUP BY timeframe_label, timeframe_days
+        ORDER BY timeframe_days
+    """)
+    timeframe_stats = cursor.fetchall()
+    
+    # Get daily accuracy trend (last 7 days)
+    cursor.execute("""
+        SELECT 
+            DATE(check_date) as day,
+            COUNT(*) as checks,
+            SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) as successes,
+            ROUND(AVG(CASE WHEN success = 1 THEN 100.0 ELSE 0.0 END), 1) as daily_accuracy
+        FROM outcomes
+        WHERE check_date >= DATE('now', '-7 days')
+        GROUP BY DATE(check_date)
+        ORDER BY day DESC
+        LIMIT 7
+    """)
+    daily_trends = cursor.fetchall()
+    
+    # Get per-stock accuracy (top performers)
+    cursor.execute("""
+        SELECT stock, llm_model, total_predictions, 
+               correct_predictions, accuracy_pct
+        FROM accuracy_tracking
+        WHERE total_predictions > 0
+        ORDER BY accuracy_pct DESC
+        LIMIT 10
+    """)
+    top_performers = cursor.fetchall()
+    
+    conn.close()
+    
+    if total_predictions == 0:
+        return "No prediction history yet"
+    
+    # Build enhanced report
+    report = "\n📊 **LEARNING SYSTEM ACCURACY REPORT**\n"
+    report += "=" * 50 + "\n"
+    report += f"Total Predictions Made: {total_predictions}\n"
+    report += f"Total Weighted Checks: {total_weighted_checks:.1f}\n"
+    report += f"Weighted Successes: {weighted_successes:.1f}\n"
+    report += f"Overall Weighted Accuracy: {overall_accuracy:.1f}%\n"
+    
+    # Timeframe breakdown
+    if timeframe_stats:
+        report += "\n⏰ Accuracy by Timeframe:\n"
+        report += "-" * 50 + "\n"
+        for label, days, checks, successes, accuracy in timeframe_stats:
+            emoji = "🟢" if accuracy >= 60 else "🟡" if accuracy >= 40 else "🔴"
+            report += f"  {emoji} {label} ({days}d): {accuracy:.1f}% ({successes}/{checks} correct)\n"
+    
+    # Daily trend
+    if daily_trends:
+        report += "\n📈 Daily Accuracy Trend (Last 7 Days):\n"
+        report += "-" * 50 + "\n"
+        for day, checks, successes, accuracy in daily_trends:
+            trend_emoji = "📈" if accuracy >= 60 else "📊" if accuracy >= 40 else "📉"
+            report += f"  {trend_emoji} {day}: {accuracy:.1f}% ({successes}/{checks})\n"
         
-        # Get overall stats
-        cursor.execute("SELECT COUNT(*) FROM predictions")
-        total_predictions = cursor.fetchone()[0]
-        
-        cursor.execute("SELECT COUNT(*) FROM outcomes")
-        total_outcomes = cursor.fetchone()[0]
-        
-        cursor.execute("SELECT COUNT(*) FROM outcomes WHERE success = 1")
-        successful_outcomes = cursor.fetchone()[0]
-        
-        # Get per-stock accuracy
-        cursor.execute("""
-            SELECT stock, llm_model, total_predictions, 
-                   correct_predictions, accuracy_pct
-            FROM accuracy_tracking
-            WHERE total_predictions > 0
-            ORDER BY accuracy_pct DESC
-            LIMIT 10
-        """)
-        
-        top_performers = cursor.fetchall()
-        conn.close()
-        
-        if total_predictions == 0:
-            return "No prediction history yet"
-        
-        # Build report
-        overall_accuracy = (successful_outcomes / total_outcomes * 100) if total_outcomes > 0 else 0
-        
-        report = "\n📊 **LEARNING SYSTEM ACCURACY REPORT**\n"
-        report += "=" * 50 + "\n"
-        report += f"Total Predictions Made: {total_predictions}\n"
-        report += f"Predictions Checked: {total_outcomes}\n"
-        report += f"Successful Predictions: {successful_outcomes}\n"
-        report += f"Overall Accuracy: {overall_accuracy:.1f}%\n"
-        
-        if top_performers:
-            report += "\n🏆 Top Performing Stock/LLM Combinations:\n"
-            report += "-" * 50 + "\n"
-            for stock, model, total, correct, accuracy in top_performers:
-                report += f"  {stock} ({model}): {accuracy:.1f}% ({correct}/{total})\n"
-        
-        return report
+        # Calculate improvement
+        if len(daily_trends) >= 2:
+            recent_accuracy = daily_trends[0][3]  # Most recent
+            older_accuracy = daily_trends[-1][3]  # 7 days ago
+            improvement = recent_accuracy - older_accuracy
+            if improvement > 0:
+                report += f"\n  🚀 7-Day Improvement: +{improvement:.1f}%\n"
+            elif improvement < 0:
+                report += f"\n  📉 7-Day Change: {improvement:.1f}%\n"
+    
+    # Top performers
+    if top_performers:
+        report += "\n🏆 Top Performing Stock/LLM Combinations:\n"
+        report += "-" * 50 + "\n"
+        for stock, model, total, correct, accuracy in top_performers[:5]:  # Top 5 only
+            report += f"  {stock} ({model}): {accuracy:.1f}% ({correct:.1f}/{total:.1f})\n"
+    
+    return report
 
 
 # Test function
