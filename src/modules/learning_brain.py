@@ -1,5 +1,5 @@
 """
-Learning Brain Module - Complete version with outcome checking
+Learning Brain Module - Complete version with multi-timeframe outcome checking
 """
 
 import sqlite3
@@ -126,130 +126,129 @@ class LearningBrain:
         5-day = 75% weight (trend confirmation)
         7-day = 100% weight (full strategy)
         """
-    timeframes = [
-        {'days': 1, 'weight': 0.25, 'label': 'entry_timing'},
-        {'days': 3, 'weight': 0.50, 'label': 'short_term'},
-        {'days': 5, 'weight': 0.75, 'label': 'trend_confirm'},
-        {'days': 7, 'weight': 1.00, 'label': 'full_strategy'}
-    ]
-    
-    conn = sqlite3.connect(self.db_path)
-    cursor = conn.cursor()
-    
-    total_checked = 0
-    
-    for tf in timeframes:
-        days_ago = datetime.now().date() - timedelta(days=tf['days'])
+        timeframes = [
+            {'days': 1, 'weight': 0.25, 'label': 'entry_timing'},
+            {'days': 3, 'weight': 0.50, 'label': 'short_term'},
+            {'days': 5, 'weight': 0.75, 'label': 'trend_confirm'},
+            {'days': 7, 'weight': 1.00, 'label': 'full_strategy'}
+        ]
         
-        # Find predictions from exactly N days ago that haven't been checked at this timeframe
-        cursor.execute("""
-            SELECT p.id, p.stock, p.prediction, p.entry_price, p.timestamp
-            FROM predictions p
-            WHERE DATE(p.timestamp) = ?
-            AND NOT EXISTS (
-                SELECT 1 FROM outcomes o 
-                WHERE o.prediction_id = p.id 
-                AND o.timeframe_days = ?
-            )
-        """, (days_ago, tf['days']))
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
         
-        predictions = cursor.fetchall()
+        total_checked = 0
         
-        if not predictions:
-            continue
+        for tf in timeframes:
+            days_ago = datetime.now().date() - timedelta(days=tf['days'])
             
-        print(f"\n📊 Checking {len(predictions)} predictions at {tf['days']}-day timeframe ({tf['label']})...")
-        
-        for pred_id, stock, prediction, entry_price, timestamp in predictions:
-            try:
-                # Get current price
-                ticker = yf.Ticker(stock)
-                hist = ticker.history(period='5d')
-                
-                if hist.empty:
-                    continue
-                
-                current_price = hist['Close'].iloc[-1]
-                actual_move_pct = ((current_price - entry_price) / entry_price) * 100
-                
-                # Determine success based on timeframe
-                success = self._evaluate_success(
-                    prediction, 
-                    actual_move_pct, 
-                    tf['days'],
-                    tf['weight']
+            # Find predictions from exactly N days ago that haven't been checked at this timeframe
+            cursor.execute("""
+                SELECT p.id, p.stock, p.prediction, p.entry_price, p.timestamp
+                FROM predictions p
+                WHERE DATE(p.timestamp) = ?
+                AND NOT EXISTS (
+                    SELECT 1 FROM outcomes o 
+                    WHERE o.prediction_id = p.id 
+                    AND o.timeframe_days = ?
                 )
+            """, (days_ago, tf['days']))
+            
+            predictions = cursor.fetchall()
+            
+            if not predictions:
+                continue
                 
-                # Record outcome with timeframe info
-                cursor.execute("""
-                    INSERT INTO outcomes 
-                    (prediction_id, actual_price, actual_move_pct, success, 
-                     timeframe_days, timeframe_weight, timeframe_label)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                """, (pred_id, current_price, actual_move_pct, success, 
-                      tf['days'], tf['weight'], tf['label']))
-                
-                # Update weighted accuracy
-                cursor.execute("SELECT llm_model FROM predictions WHERE id = ?", (pred_id,))
-                llm_model = cursor.fetchone()[0]
-                
-                self._update_weighted_accuracy(cursor, stock, llm_model, success, tf['weight'])
-                
-                result = "✅" if success else "❌"
-                print(f"  {result} {stock} ({tf['days']}d): {prediction} → {actual_move_pct:+.1f}%")
-                total_checked += 1
-                
-            except Exception as e:
-                print(f"⚠️ Error checking {stock}: {e}")
-    
-    conn.commit()
-    conn.close()
-    print(f"\n✅ Checked {total_checked} prediction-timeframe combinations\n")
-    
-    # Keep old method for backwards compatibility
+            print(f"\n📊 Checking {len(predictions)} predictions at {tf['days']}-day timeframe ({tf['label']})...")
+            
+            for pred_id, stock, prediction, entry_price, timestamp in predictions:
+                try:
+                    # Get current price
+                    ticker = yf.Ticker(stock)
+                    hist = ticker.history(period='5d')
+                    
+                    if hist.empty:
+                        continue
+                    
+                    current_price = hist['Close'].iloc[-1]
+                    actual_move_pct = ((current_price - entry_price) / entry_price) * 100
+                    
+                    # Determine success based on timeframe
+                    success = self._evaluate_success(
+                        prediction, 
+                        actual_move_pct, 
+                        tf['days'],
+                        tf['weight']
+                    )
+                    
+                    # Record outcome with timeframe info
+                    cursor.execute("""
+                        INSERT INTO outcomes 
+                        (prediction_id, actual_price, actual_move_pct, success, 
+                         timeframe_days, timeframe_weight, timeframe_label)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """, (pred_id, current_price, actual_move_pct, success, 
+                          tf['days'], tf['weight'], tf['label']))
+                    
+                    # Update weighted accuracy
+                    cursor.execute("SELECT llm_model FROM predictions WHERE id = ?", (pred_id,))
+                    llm_model = cursor.fetchone()[0]
+                    
+                    self._update_weighted_accuracy(cursor, stock, llm_model, success, tf['weight'])
+                    
+                    result = "✅" if success else "❌"
+                    print(f"  {result} {stock} ({tf['days']}d): {prediction} → {actual_move_pct:+.1f}%")
+                    total_checked += 1
+                    
+                except Exception as e:
+                    print(f"⚠️ Error checking {stock}: {e}")
+        
+        conn.commit()
+        conn.close()
+        print(f"\n✅ Checked {total_checked} prediction-timeframe combinations\n")
+        
         return total_checked
 
-def _evaluate_success(self, prediction, move_pct, days, weight):
-    """
-    Evaluate success based on prediction type and timeframe
-    Shorter timeframes have looser thresholds
-    """
-    # Adjust thresholds based on timeframe
-    if days == 1:
-        threshold = 0.5  # 0.5% move in 1 day
-    elif days == 3:
-        threshold = 1.0  # 1% move in 3 days
-    elif days == 5:
-        threshold = 1.5  # 1.5% move in 5 days
-    else:  # 7 days
-        threshold = 2.0  # 2% move in 7 days
-    
-    if prediction == 'BUY':
-        return move_pct > threshold
-    elif prediction == 'SELL':
-        return move_pct < -threshold
-    elif prediction == 'HOLD':
-        return abs(move_pct) < threshold * 1.5
-    
-    return False
+    def _evaluate_success(self, prediction, move_pct, days, weight):
+        """
+        Evaluate success based on prediction type and timeframe
+        Shorter timeframes have looser thresholds
+        """
+        # Adjust thresholds based on timeframe
+        if days == 1:
+            threshold = 0.5  # 0.5% move in 1 day
+        elif days == 3:
+            threshold = 1.0  # 1% move in 3 days
+        elif days == 5:
+            threshold = 1.5  # 1.5% move in 5 days
+        else:  # 7 days
+            threshold = 2.0  # 2% move in 7 days
+        
+        if prediction == 'BUY':
+            return move_pct > threshold
+        elif prediction == 'SELL':
+            return move_pct < -threshold
+        elif prediction == 'HOLD':
+            return abs(move_pct) < threshold * 1.5
+        
+        return False
 
-def _update_weighted_accuracy(self, cursor, stock, llm_model, success, weight):
-    """Update accuracy with weighted contributions"""
-    cursor.execute("""
-        INSERT INTO accuracy_tracking 
-        (stock, llm_model, total_predictions, correct_predictions, accuracy_pct)
-        VALUES (?, ?, ?, ?, ?)
-        ON CONFLICT(stock, llm_model) DO UPDATE SET
-            total_predictions = total_predictions + ?,
-            correct_predictions = correct_predictions + ?,
-            accuracy_pct = (CAST(correct_predictions AS FLOAT) + ?) * 100.0 / 
-                          (total_predictions + ?),
-            last_updated = CURRENT_DATE
-    """, (
-        stock, llm_model, 
-        weight, weight if success else 0, (weight if success else 0) * 100,
-        weight, weight if success else 0, weight if success else 0, weight
-    ))
+    def _update_weighted_accuracy(self, cursor, stock, llm_model, success, weight):
+        """Update accuracy with weighted contributions"""
+        cursor.execute("""
+            INSERT INTO accuracy_tracking 
+            (stock, llm_model, total_predictions, correct_predictions, accuracy_pct)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(stock, llm_model) DO UPDATE SET
+                total_predictions = total_predictions + ?,
+                correct_predictions = correct_predictions + ?,
+                accuracy_pct = (CAST(correct_predictions AS FLOAT) + ?) * 100.0 / 
+                              (total_predictions + ?),
+                last_updated = CURRENT_DATE
+        """, (
+            stock, llm_model, 
+            weight, weight if success else 0, (weight if success else 0) * 100,
+            weight, weight if success else 0, weight if success else 0, weight
+        ))
         
     def get_accuracy_report(self):
         """Generate accuracy report"""
@@ -318,8 +317,8 @@ if __name__ == "__main__":
         reasoning='Test prediction'
     )
     
-    # Test checking outcomes
-    brain.check_outcomes()
+    # Test multi-timeframe checking
+    brain.check_outcomes_multi_timeframe()
     
     # Show report
     print(brain.get_accuracy_report())
