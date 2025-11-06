@@ -2171,7 +2171,15 @@ class IntelligentPredictionEngine:
         # Rest of your existing code stays the same
         pattern_success_rates = {p['name']: self.candle_analyzer.get_pattern_success_rate(p['name'], ticker) for p in candle_patterns}
         llm_predictions = await self._get_multi_llm_consensus(ticker, existing_analysis, candle_patterns, pattern_success_rates, market_context, learning_brain)
-        confidence_result = self.confidence_scorer.calculate_confidence(llm_predictions, candle_patterns, pattern_success_rates, {'rsi': existing_analysis.get('rsi', 50), 'score': existing_analysis.get('score', 50)}, {'volume_ratio': existing_analysis.get('volume_ratio', 1.0)}, market_context)
+        indicator_data = {
+            'rsi': existing_analysis.get('rsi', 50),
+            'volume_ratio': existing_analysis.get('volume_ratio', 1.0),
+            'score': existing_analysis.get('score', 50) 
+        }
+        volume_data = {
+            'volume_ratio': existing_analysis.get('volume_ratio', 1.0)
+        }
+        confidence_result = self.confidence_scorer.calculate_confidence(llm_predictions, indicator_data, volume_data, candle_patterns, pattern_success_rates, {'rsi': existing_analysis.get('rsi', 50), 'score': existing_analysis.get('score', 50)}, {'volume_ratio': existing_analysis.get('volume_ratio', 1.0)}, market_context)
         final_prediction = self._determine_final_action(llm_predictions, confidence_result, candle_patterns)
         
         if final_prediction:
