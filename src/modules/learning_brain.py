@@ -80,6 +80,51 @@ class LearningBrain:
         conn.close()
         print(f"✅ Database initialized at {self.db_path}")
         
+        # Migrate existing database
+        self.migrate_database()
+    
+    def migrate_database(self):
+        """Migrate existing database to add new columns if they don't exist"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        try:
+            # Check if new columns exist in outcomes table
+            cursor.execute("PRAGMA table_info(outcomes)")
+            columns = [col[1] for col in cursor.fetchall()]
+            
+            # Add timeframe_days if it doesn't exist
+            if 'timeframe_days' not in columns:
+                print("🔄 Migrating database: Adding timeframe_days column...")
+                cursor.execute("""
+                    ALTER TABLE outcomes 
+                    ADD COLUMN timeframe_days INTEGER DEFAULT 7
+                """)
+            
+            # Add timeframe_weight if it doesn't exist
+            if 'timeframe_weight' not in columns:
+                print("🔄 Migrating database: Adding timeframe_weight column...")
+                cursor.execute("""
+                    ALTER TABLE outcomes 
+                    ADD COLUMN timeframe_weight FLOAT DEFAULT 1.0
+                """)
+            
+            # Add timeframe_label if it doesn't exist
+            if 'timeframe_label' not in columns:
+                print("🔄 Migrating database: Adding timeframe_label column...")
+                cursor.execute("""
+                    ALTER TABLE outcomes 
+                    ADD COLUMN timeframe_label TEXT DEFAULT 'full_strategy'
+                """)
+            
+            conn.commit()
+            print("✅ Database migration complete")
+            
+        except Exception as e:
+            print(f"⚠️ Migration error: {e}")
+        finally:
+            conn.close()
+        
     def record_prediction(self, stock, prediction, confidence, price, 
                          llm_model, reasoning, indicators=None):
         """Record a new prediction"""
