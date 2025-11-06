@@ -2100,6 +2100,44 @@ class IntelligentPredictionEngine:
         self.confidence_scorer = ConfidenceScorer()
         self.llm_clients = {}
         self._setup_llm_clients()
+
+    def _setup_llm_clients(self):
+        """Setup all available LLM clients with explicit logging"""
+        if os.getenv("GROQ_API_KEY"):
+            try:
+                from groq import Groq
+                self.llm_clients['groq'] = Groq(api_key=os.getenv("GROQ_API_KEY"))
+                logging.info("✅ SUCCESS: Groq LLM client initialized.")
+            except Exception as e:
+                logging.error(f"❌ FAILED: Groq initialization error: {e}")
+        else:
+            logging.warning("⚠️ SKIPPED: GROQ_API_KEY not found in secrets.")
+        
+        if os.getenv("GEMINI_API_KEY"):
+            try:
+                import google.generativeai as genai
+                genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+                self.llm_clients['gemini'] = genai.GenerativeModel('gemini-2.5-flash') 
+                logging.info("✅ SUCCESS: Gemini LLM client initialized.")
+            except Exception as e:
+                logging.error(f"❌ FAILED: Gemini initialization error: {e}")
+        else:
+            logging.warning("⚠️ SKIPPED: GEMINI_API_KEY not found in secrets.")
+        
+        if os.getenv("COHERE_API_KEY"):
+            try:
+                import cohere
+                self.llm_clients['cohere'] = cohere.Client(os.getenv("COHERE_API_KEY"))
+                logging.info("✅ SUCCESS: Cohere LLM client initialized.")
+            except Exception as e:
+                logging.error(f"❌ FAILED: Cohere initialization error: {e}")
+        else:
+            logging.warning("⚠️ SKIPPED: COHERE_API_KEY not found in secrets.")
+        
+        if not self.llm_clients:
+            logging.error("❌ CRITICAL: No LLM clients available. System is operating in rule-based mode only.")
+        else:
+            logging.info(f"✅ LLM clients loaded: {list(self.llm_clients.keys())}")
             
             
     async def analyze_with_learning(self, ticker, existing_analysis, hist_data, market_context=None, learning_brain=None):
