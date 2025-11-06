@@ -2098,12 +2098,8 @@ class IntelligentPredictionEngine:
         self.candle_analyzer = candle_analyzer
         self.learning_memory = learning_memory
         self.confidence_scorer = ConfidenceScorer()
-        #self._setup_llm_clients()
-
-     # Use the new LLM Manager
-        self.llm_manager = llm_manager
-        self.llm_clients = self.llm_manager.clients
-        logging.info(f"Prediction engine initialized via LLM Manager. Available LLMs: {list(self.llm_clients.keys())}")
+        self.llm_clients = {}
+        self._setup_llm_clients()
             
             
     async def analyze_with_learning(self, ticker, existing_analysis, hist_data, market_context=None, learning_brain=None):
