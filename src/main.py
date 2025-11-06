@@ -1,5 +1,5 @@
 import os, sys, argparse, time, logging, json, asyncio
-from llm_manager import llm_manager
+from modules.llm_manager import llm_manager
 from pathlib import Path
 # Add learning brain import
 sys.path.append(str(Path(__file__).parent / 'modules'))
@@ -2104,7 +2104,7 @@ class IntelligentPredictionEngine:
      # Use the new LLM Manager
         self.llm_manager = llm_manager
         self.llm_clients = self.llm_manager.clients
-        logging.info(f"Prediction engine initialized. LLMs available: {list(self.llm_clients.keys())}")
+        logging.info(f"Prediction engine initialized via LLM Manager. Available LLMs: {list(self.llm_clients.keys())}")
             
             
     async def analyze_with_learning(self, ticker, existing_analysis, hist_data, market_context=None, learning_brain=None):
