@@ -207,7 +207,7 @@ class LearningBrain:
     print(f"\n✅ Checked {total_checked} prediction-timeframe combinations\n")
     
     # Keep old method for backwards compatibility
-    return total_checked
+        return total_checked
 
 def _evaluate_success(self, prediction, move_pct, days, weight):
     """
