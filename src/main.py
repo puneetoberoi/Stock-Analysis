@@ -2098,7 +2098,6 @@ class IntelligentPredictionEngine:
         self.candle_analyzer = candle_analyzer
         self.learning_memory = learning_memory
         self.confidence_scorer = ConfidenceScorer()
-        self.llm_clients = {}
         #self._setup_llm_clients()
 
      # Use the new LLM Manager
