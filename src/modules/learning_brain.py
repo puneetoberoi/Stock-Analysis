@@ -119,13 +119,13 @@ class LearningBrain:
         return prediction_id
     
     def check_outcomes_multi_timeframe(self):
-    """
-    Check predictions at multiple timeframes with weighted learning
-    1-day = 25% weight (entry timing)
-    3-day = 50% weight (short-term direction)  
-    5-day = 75% weight (trend confirmation)
-    7-day = 100% weight (full strategy)
-    """
+        """
+        Check predictions at multiple timeframes with weighted learning
+        1-day = 25% weight (entry timing)
+        3-day = 50% weight (short-term direction)  
+        5-day = 75% weight (trend confirmation)
+        7-day = 100% weight (full strategy)
+        """
     timeframes = [
         {'days': 1, 'weight': 0.25, 'label': 'entry_timing'},
         {'days': 3, 'weight': 0.50, 'label': 'short_term'},
