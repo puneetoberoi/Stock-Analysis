@@ -2388,7 +2388,7 @@ async def analyze_portfolio_with_predictions(session, portfolio_file='portfolio.
     logging.info("=" * 60)
     logging.info("🧠 ANALYZE WITH PREDICTIONS - START")
     logging.info(f"Learning brain provided: {learning_brain is not None}")
-    logging.info(f"Market context provided: {market_context is not None}")
+    #logging.info(f"Market context provided: {market_context is not None}")
     
     # Call v2.0 portfolio analysis (has Bollinger, ATR, etc.)
     original_portfolio_data = await analyze_portfolio_with_v2_features(session, portfolio_file)
