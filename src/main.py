@@ -2532,6 +2532,7 @@ async def main(output="print"):
         if ENABLE_V2_FEATURES:
             logging.info("🔍 Step 2: Calling analyze_portfolio_with_predictions (v3.0)")
             portfolio_data = await analyze_portfolio_with_predictions(session, market_context=macro_data)
+            print_database_status()  # ADD THIS LINE
         else:
             logging.info("🔍 Step 2: Calling analyze_portfolio_watchlist (v1.0)")
             portfolio_data = await analyze_portfolio_watchlist(session)
