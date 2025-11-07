@@ -2252,36 +2252,36 @@ REASON: [One sentence]"""
             return None
 
     async def _query_deepseek(self, prompt, ticker):
-    """Query DeepSeek API"""
-    try:
-        api_key = os.getenv('DEEPSEEK_API_KEY')
-        if not api_key:
+        """Query DeepSeek API"""
+        try:
+            api_key = os.getenv('DEEPSEEK_API_KEY')
+            if not api_key:
+                return None
+            
+            url = "https://api.deepseek.com/v1/chat/completions"
+            headers = {
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json"
+            }
+            
+            data = {
+                "model": "deepseek-chat",
+                "messages": [
+                    {"role": "system", "content": "You are a stock analyst. Give clear BUY, HOLD, or SELL recommendations."},
+                    {"role": "user", "content": prompt}
+                ],
+                "temperature": 0.3,
+                "max_tokens": 150
+            }
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, headers=headers, json=data) as response:
+                    if response.status == 200:
+                        result = await response.json()
+                        return self._parse_llm_response(result['choices'][0]['message']['content'], 'deepseek')
+        except Exception as e:
+            logging.warning(f"DeepSeek query failed for {ticker}: {e}")
             return None
-        
-        url = "https://api.deepseek.com/v1/chat/completions"
-        headers = {
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json"
-        }
-        
-        data = {
-            "model": "deepseek-chat",
-            "messages": [
-                {"role": "system", "content": "You are a stock analyst. Give clear BUY, HOLD, or SELL recommendations."},
-                {"role": "user", "content": prompt}
-            ],
-            "temperature": 0.3,
-            "max_tokens": 150
-        }
-        
-        async with aiohttp.ClientSession() as session:
-            async with session.post(url, headers=headers, json=data) as response:
-                if response.status == 200:
-                    result = await response.json()
-                    return self._parse_llm_response(result['choices'][0]['message']['content'], 'deepseek')
-    except Exception as e:
-        logging.warning(f"DeepSeek query failed for {ticker}: {e}")
-        return None
 
     async def _query_gemini(self, prompt, ticker):
         try:
