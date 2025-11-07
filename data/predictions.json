@@ -6158,5 +6158,200 @@
     "price_at_prediction": 1.8899999856948853,
     "outcome": null,
     "was_correct": null
+  },
+  "1ef05a47": {
+    "id": "1ef05a47",
+    "timestamp": "2025-11-07T11:21:28.278651",
+    "ticker": "AAPL",
+    "action": "HOLD",
+    "confidence": 100,
+    "reasoning": "groq: The stock's RSI indicates a slightly overbought condition, and the presence of consolidation candlestick patterns suggests a potential pause in the uptrend, warranting a cautious hold rather than a buy or sell.",
+    "candle_pattern": "darvas_box",
+    "indicators": {
+      "rsi": 66.70563414420728
+    },
+    "price_at_prediction": 269.7699890136719,
+    "outcome": null,
+    "was_correct": null
+  },
+  "31fe333f": {
+    "id": "31fe333f",
+    "timestamp": "2025-11-07T11:21:29.494975",
+    "ticker": "MSFT",
+    "action": "BUY",
+    "confidence": 100,
+    "reasoning": "groq: The stock's low RSI value of 34.09960642314104 indicates it is oversold, suggesting a potential buying opportunity.",
+    "candle_pattern": "swing_highs_lows",
+    "indicators": {
+      "rsi": 34.09960642314104
+    },
+    "price_at_prediction": 497.1000061035156,
+    "outcome": null,
+    "was_correct": null
+  },
+  "3ef514ca": {
+    "id": "3ef514ca",
+    "timestamp": "2025-11-07T11:21:30.814175",
+    "ticker": "NVDA",
+    "action": "SELL",
+    "confidence": 100,
+    "reasoning": "groq: The presence of two bearish continuation patterns, three_black_crows, and a negative Macro Score, suggest a downward trend, leading to a sell recommendation.",
+    "candle_pattern": "three_black_crows",
+    "indicators": {
+      "rsi": 47.85455149813074
+    },
+    "price_at_prediction": 188.0800018310547,
+    "outcome": null,
+    "was_correct": null
+  },
+  "4a26c093": {
+    "id": "4a26c093",
+    "timestamp": "2025-11-07T11:21:32.045030",
+    "ticker": "TSLA",
+    "action": "HOLD",
+    "confidence": 100,
+    "reasoning": "groq: The presence of both bullish and bearish candlestick patterns, combined with a neutral RSI and average volume, suggests a balanced outlook, warranting a cautious hold recommendation.",
+    "candle_pattern": "cup_and_handle",
+    "indicators": {
+      "rsi": 51.72256119807427
+    },
+    "price_at_prediction": 445.9100036621094,
+    "outcome": null,
+    "was_correct": null
+  },
+  "3e402e6b": {
+    "id": "3e402e6b",
+    "timestamp": "2025-11-07T11:21:33.265311",
+    "ticker": "GOOGL",
+    "action": "SELL",
+    "confidence": 95,
+    "reasoning": "groq: The high RSI value of 73.19 indicates overbought conditions, suggesting a potential reversal, and the presence of indecision candlestick patterns supports this bearish outlook.",
+    "candle_pattern": "doji",
+    "indicators": {
+      "rsi": 73.18897832557563
+    },
+    "price_at_prediction": 284.75,
+    "outcome": null,
+    "was_correct": null
+  },
+  "1ff9fc11": {
+    "id": "1ff9fc11",
+    "timestamp": "2025-11-07T11:21:34.544038",
+    "ticker": "TSM",
+    "action": "SELL",
+    "confidence": 100,
+    "reasoning": "groq: The presence of multiple bearish reversal candlestick patterns, including a double top with 100% historical success, suggests a strong downside momentum.",
+    "candle_pattern": "bearish_engulfing",
+    "indicators": {
+      "rsi": 47.94941545873968
+    },
+    "price_at_prediction": 289.239990234375,
+    "outcome": null,
+    "was_correct": null
+  },
+  "5939a79c": {
+    "id": "5939a79c",
+    "timestamp": "2025-11-07T11:21:36.002322",
+    "ticker": "AMD",
+    "action": "SELL",
+    "confidence": 100,
+    "reasoning": "groq: The presence of a double_top bearish reversal candlestick pattern with 100% historical success, combined with a negative Macro Score, suggests a high likelihood of a downward price movement.",
+    "candle_pattern": "double_top",
+    "indicators": {
+      "rsi": 53.473085884172754
+    },
+    "price_at_prediction": 237.6999969482422,
+    "outcome": null,
+    "was_correct": null
+  },
+  "796cec89": {
+    "id": "796cec89",
+    "timestamp": "2025-11-07T11:21:37.237216",
+    "ticker": "TD.TO",
+    "action": "SELL",
+    "confidence": 100,
+    "reasoning": "groq: The presence of two bearish reversal candlestick patterns, combined with a low volume and a negative macro score, suggests a potential downturn in the stock price.",
+    "candle_pattern": "bearish_engulfing",
+    "indicators": {
+      "rsi": 57.00658157399161
+    },
+    "price_at_prediction": 113.54000091552734,
+    "outcome": null,
+    "was_correct": null
+  },
+  "b5b466fc": {
+    "id": "b5b466fc",
+    "timestamp": "2025-11-07T11:21:38.837126",
+    "ticker": "UHS",
+    "action": "HOLD",
+    "confidence": 100,
+    "reasoning": "groq: The presence of indecision candlestick patterns, such as doji and long_legged_doji, combined with a relatively high RSI and low volume, suggests a neutral stance.",
+    "candle_pattern": "doji",
+    "indicators": {
+      "rsi": 68.90059383691134
+    },
+    "price_at_prediction": 226.38999938964844,
+    "outcome": null,
+    "was_correct": null
+  },
+  "1dd0124a": {
+    "id": "1dd0124a",
+    "timestamp": "2025-11-07T11:21:40.553553",
+    "ticker": "AMZN",
+    "action": "SELL",
+    "confidence": 100,
+    "reasoning": "groq: The appearance of a bearish reversal tweezer_top candlestick pattern, combined with a relatively high RSI and negative macro score, suggests a potential downturn in the stock's price.",
+    "candle_pattern": "tweezer_top",
+    "indicators": {
+      "rsi": 60.048990929803935
+    },
+    "price_at_prediction": 243.0399932861328,
+    "outcome": null,
+    "was_correct": null
+  },
+  "44fa02a2": {
+    "id": "44fa02a2",
+    "timestamp": "2025-11-07T11:21:41.820840",
+    "ticker": "BTC",
+    "action": "SELL",
+    "confidence": 100,
+    "reasoning": "groq: The presence of a bearish double top reversal pattern with 100% historical success, combined with a downtrend swing highs and lows pattern, suggests a strong sell signal.",
+    "candle_pattern": "double_top",
+    "indicators": {
+      "rsi": 37.750938049584136
+    },
+    "price_at_prediction": 44.65999984741211,
+    "outcome": null,
+    "was_correct": null
+  },
+  "7923440d": {
+    "id": "7923440d",
+    "timestamp": "2025-11-07T11:21:42.176981",
+    "ticker": "ETH",
+    "action": "SELL",
+    "confidence": 100,
+    "reasoning": "groq: The downtrend candlestick pattern and low RSI value suggest a potential continuation of the downward trend, especially in a negative macro context.",
+    "candle_pattern": "swing_highs_lows",
+    "indicators": {
+      "rsi": 37.35747741946115
+    },
+    "price_at_prediction": 31.1200008392334,
+    "outcome": null,
+    "was_correct": null
+  },
+  "5aadead1": {
+    "id": "5aadead1",
+    "timestamp": "2025-11-07T11:21:42.591932",
+    "ticker": "SOL",
+    "action": "HOLD",
+    "confidence": 100,
+    "reasoning": "groq: The technical data and candlestick patterns suggest a neutral outlook, with a relatively high RSI and mixed signals from the patterns, warranting a cautious hold approach.",
+    "candle_pattern": "double_bottom",
+    "indicators": {
+      "rsi": 58.43857146842841
+    },
+    "price_at_prediction": 1.8899999856948853,
+    "outcome": null,
+    "was_correct": null
   }
 }
