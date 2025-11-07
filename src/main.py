@@ -2123,7 +2123,7 @@ class IntelligentPredictionEngine:
         else:
             logging.warning("⚠️ SKIPPED: DEEPSEEK_API_KEY not found in secrets.")
 
-                if os.getenv("HUGGINGFACE_API_KEY"):
+        if os.getenv("HUGGINGFACE_API_KEY"):
             try:
                 self.llm_clients['huggingface'] = 'huggingface_client'
                 logging.info("✅ SUCCESS: HuggingFace LLM client initialized.")
