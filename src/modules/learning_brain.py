@@ -13,7 +13,8 @@ class LearningBrain:
         if db_path is None:
             # Create path relative to this file
             current_dir = os.path.dirname(os.path.abspath(__file__))
-            db_path = os.path.join(current_dir, 'data', 'learning.db')
+            data_dir = os.path.join(current_dir, 'data')
+            db_path = os.path.join(data_dir, 'learning.db')
         
         self.db_path = db_path
         self.init_database()
