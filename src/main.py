@@ -2184,7 +2184,7 @@ class IntelligentPredictionEngine:
         confidence_result = self.confidence_scorer.calculate_confidence(llm_predictions, candle_patterns, pattern_success_rates, {'rsi': existing_analysis.get('rsi', 50), 'score': existing_analysis.get('score', 50)}, {'volume_ratio': existing_analysis.get('volume_ratio', 1.0)}, market_context)
         final_prediction = self._determine_final_action(llm_predictions, confidence_result, candle_patterns)
         
-        if final_prediction:
+                if final_prediction:
             # ============================================================
             # Build comprehensive reasoning from LLM predictions
             # ============================================================
@@ -2198,7 +2198,7 @@ class IntelligentPredictionEngine:
                 llm_reasoning = final_prediction.get('reasoning', 'No LLM reasoning available')
             
             # Store prediction with detailed LLM reasoning
-           pred_id = self.prediction_tracker.store_prediction(
+            pred_id = self.prediction_tracker.store_prediction(
                 ticker=ticker,
                 action=final_prediction['action'],
                 confidence=confidence_result['score'],
