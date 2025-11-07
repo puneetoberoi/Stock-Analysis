@@ -106,7 +106,7 @@ def save_memory(data):
 # ========================================
 
 # ---------- Configuration ----------
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', force=True)
 logging.getLogger('yfinance').setLevel(logging.WARNING)
 REQUEST_HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
 MEMORY_FILE = "market_memory.json"
