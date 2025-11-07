@@ -2226,6 +2226,10 @@ REASON: [One sentence]"""
         if 'cohere' in self.llm_clients:
             tasks.append(self._query_cohere(context, ticker))
             llm_names.append('cohere')
+        if 'deepseek' in self.llm_clients:
+            tasks.append(self._query_deepseek(context, ticker))
+            llm_names.append('deepseek')
+        
         
         predictions = {}
         if tasks:
@@ -2365,6 +2369,9 @@ async def analyze_portfolio_with_predictions(session, portfolio_file='portfolio.
         return original_portfolio_data
     
     logging.info(f"Original portfolio has {len(original_portfolio_data.get('stocks', []))} stocks")
+    # Add DeepSeek if API key exists
+    if os.getenv('DEEPSEEK_API_KEY'):
+        self.llm_clients['deepseek'] = 'deepseek'  # Placeholder for deepseek
     
     # Initialize prediction engine
     try:
