@@ -1,5 +1,5 @@
 import os, sys, argparse, time, logging, json, asyncio
-from learning_brain import LearningBrain
+from modules.learning_brain import LearningBrain
 import requests
 import pandas as pd
 import numpy as np
