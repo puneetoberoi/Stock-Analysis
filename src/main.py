@@ -1,8 +1,4 @@
 import os, sys, argparse, time, logging, json, asyncio
-from pathlib import Path
-# Add learning brain import
-sys.path.append(str(Path(__file__).parent / 'modules'))
-from learning_brain import LearningBrain
 import requests
 import pandas as pd
 import numpy as np
@@ -2088,6 +2084,8 @@ class ConfidenceScorer:
             'action_advice': action_advice
         }
 
+
+# ✅ COMPLETE FIXED CLASS - REPLACE YOUR EXISTING ONE
 # ✅ COMPLETE FINAL CLASS - REPLACE YOUR EXISTING ONE
 class IntelligentPredictionEngine:
     """Multi-LLM consensus with confidence scoring"""
@@ -2099,7 +2097,7 @@ class IntelligentPredictionEngine:
         self.confidence_scorer = ConfidenceScorer()
         self.llm_clients = {}
         self._setup_llm_clients()
-
+    
     def _setup_llm_clients(self):
         """Setup all available LLM clients with explicit logging"""
         if os.getenv("GROQ_API_KEY"):
@@ -2139,78 +2137,47 @@ class IntelligentPredictionEngine:
             logging.info(f"✅ LLM clients loaded: {list(self.llm_clients.keys())}")
             
             
-    # In /src/analysis/intelligent_prediction_engine.py
-# Replace your entire analyze_with_learning method with this one.
-
-async def analyze_with_learning(self, ticker, existing_analysis, hist_data, market_context=None, learning_brain=None):
-    """
-    This is the new, robust version of the analysis method.
-    It includes detailed debugging to solve the ConfidenceScorer error.
-    """
-    try:
-        # --- 1. PATTERN ANALYSIS (No changes here, this part works) ---
-        candle_patterns = self.candle_analyzer.identify_pattern(hist_data)
+    async def analyze_with_learning(self, ticker, existing_analysis, hist_data, market_context=None):
+    # Get patterns from BOTH analyzers
+        candle_patterns = self.candle_analyzer.identify_pattern(hist_data)  # Basic patterns (18)
+        
+        # 🆕 Add enhanced patterns (30+ advanced patterns)
         if ENHANCED_PATTERNS_ENABLED and enhanced_pattern_detector:
             try:
                 enhanced_patterns = enhanced_pattern_detector.detect_all_patterns(hist_data)
+                
+                # Convert enhanced pattern format to match existing format
                 for ep in enhanced_patterns:
                     candle_patterns.append({
-                        'name': ep['name'], 'type': ep['type'], 'strength': 'strong',
-                        'description': ep['description'], 'enhanced': True, 'strength_score': ep['strength']
+                        'name': ep['name'],
+                        'type': ep['type'],
+                        'strength': 'very_strong' if ep['strength'] >= 90 else 'strong' if ep['strength'] >= 80 else 'medium',
+                        'description': ep['description'],
+                        'enhanced': True,  # Mark as enhanced pattern
+                        'strength_score': ep['strength']  # Keep original score
                     })
+                
+                # Log the strongest pattern from enhanced detector
                 if enhanced_patterns:
-                    strongest = enhanced_patterns[0]
+                    strongest = enhanced_patterns[0]  # Already sorted by strength
                     emoji = "🟢" if strongest['signal'] == 'BUY' else "🔴" if strongest['signal'] == 'SELL' else "⚪"
                     logging.info(f"   🕯️ Enhanced: {strongest['name']} {emoji} ({strongest['signal']}, {strongest['strength']}%)")
+            
             except Exception as e:
                 logging.debug(f"Enhanced pattern detection error for {ticker}: {e}")
-
+    
+        # Rest of your existing code stays the same
         pattern_success_rates = {p['name']: self.candle_analyzer.get_pattern_success_rate(p['name'], ticker) for p in candle_patterns}
-
-        # --- 2. LLM CONSENSUS (No changes here, this part works) ---
-        llm_predictions = await self._get_multi_llm_consensus(ticker, existing_analysis, candle_patterns, pattern_success_rates, market_context, learning_brain)
-
-        # --- 3. CONFIDENCE SCORING (THIS IS THE FIXED SECTION) ---
-        # We now explicitly prepare the 6 arguments for the scorer.
-        
-        # Argument 4: technical_indicators
-        tech_indicators_arg = {
-            'rsi': existing_analysis.get('rsi', 50),
-            'score': existing_analysis.get('score', 50),
-            'ticker': ticker # Pass ticker for news/events scoring
-        }
-        
-        # Argument 5: volume_data
-        volume_data_arg = {
-            'volume_ratio': existing_analysis.get('volume_ratio', 1.0)
-        }
-        
-        # --- DEBUGGING BLOCK ---
-        # This will print exactly what is being passed to the function.
-        logging.info("--- DEBUGGING CONFIDENCE SCORER CALL ---")
-        logging.info(f"Arg 1 (llm_predictions type): {type(llm_predictions)}")
-        logging.info(f"Arg 2 (candle_patterns type): {type(candle_patterns)}")
-        logging.info(f"Arg 3 (pattern_success_rates type): {type(pattern_success_rates)}")
-        logging.info(f"Arg 4 (technical_indicators): {tech_indicators_arg}")
-        logging.info(f"Arg 5 (volume_data): {volume_data_arg}")
-        logging.info(f"Arg 6 (market_context type): {type(market_context)}")
-        logging.info("--- END DEBUGGING ---")
-
-        # The corrected call with exactly 6 arguments
-        confidence_result = self.confidence_scorer.calculate_confidence(
-            llm_predictions,           # Arg 1
-            candle_patterns,         # Arg 2
-            pattern_success_rates,   # Arg 3
-            tech_indicators_arg,     # Arg 4
-            volume_data_arg,         # Arg 5
-            market_context           # Arg 6
-        )
-
-        # --- 4. FINAL PREDICTION (No changes here) ---
+        llm_predictions = await self._get_multi_llm_consensus(ticker, existing_analysis, candle_patterns, pattern_success_rates, market_context)
+        confidence_result = self.confidence_scorer.calculate_confidence(llm_predictions, candle_patterns, pattern_success_rates, {'rsi': existing_analysis.get('rsi', 50), 'score': existing_analysis.get('score', 50)}, {'volume_ratio': existing_analysis.get('volume_ratio', 1.0)}, market_context)
         final_prediction = self._determine_final_action(llm_predictions, confidence_result, candle_patterns)
         
         if final_prediction:
+            # ============================================================
+            # Build comprehensive reasoning from LLM predictions
+            # ============================================================
             if llm_predictions:
+                # Format: "groq: reasoning | gemini: reasoning | cohere: reasoning"
                 llm_reasoning = " | ".join([
                     f"{llm_name}: {pred.get('reasoning', pred.get('action', 'No reasoning'))}" 
                     for llm_name, pred in llm_predictions.items()
@@ -2218,54 +2185,22 @@ async def analyze_with_learning(self, ticker, existing_analysis, hist_data, mark
             else:
                 llm_reasoning = final_prediction.get('reasoning', 'No LLM reasoning available')
             
+            # Store prediction with detailed LLM reasoning
             pred_id = self.prediction_tracker.store_prediction(
-                ticker=ticker, action=final_prediction['action'], confidence=confidence_result['score'],
-                reasoning=llm_reasoning, candle_pattern=candle_patterns[0]['name'] if candle_patterns else None,
+                ticker=ticker,
+                action=final_prediction['action'],
+                confidence=confidence_result['score'],
+                reasoning=llm_reasoning,  # ← Use LLM reasoning, not final_prediction['reasoning']
+                candle_pattern=candle_patterns[0]['name'] if candle_patterns else None,
                 indicators={'rsi': existing_analysis.get('rsi', 50)}
             )
             final_prediction['prediction_id'] = pred_id
         
-        return {
-            **existing_analysis, 
-            'candle_patterns': candle_patterns, 
-            'pattern_success_rates': pattern_success_rates, 
-            'llm_predictions': llm_predictions, 
-            'confidence': confidence_result, 
-            'ai_prediction': final_prediction, 
-            'learning_insights': self.learning_memory.get_recent_insights(3)
-        }
+        return {**existing_analysis, 'candle_patterns': candle_patterns, 'pattern_success_rates': pattern_success_rates, 'llm_predictions': llm_predictions, 'confidence': confidence_result, 'ai_prediction': final_prediction, 'learning_insights': self.learning_memory.get_recent_insights(3)}
 
-    except TypeError as e:
-        # This will catch the specific argument error and give us a clear message.
-        logging.critical(f"FATAL ARGUMENT MISMATCH calling ConfidenceScorer: {e}")
-        return {**existing_analysis, 'ai_prediction': None} # Return gracefully
-    except Exception as e:
-        logging.error(f"Error enhancing {ticker} in analyze_with_learning: {e}")
-        import traceback
-        traceback.print_exc()
-        return {**existing_analysis, 'ai_prediction': None}
-
-    async def _get_multi_llm_consensus(self, ticker, existing_analysis, candle_patterns, pattern_success_rates, market_context, learning_brain=None):
+    async def _get_multi_llm_consensus(self, ticker, existing_analysis, candle_patterns, pattern_success_rates, market_context):
         logging.info(f"🔍[{ticker}] Getting LLM consensus. Available models: {list(self.llm_clients.keys())}")
         pattern_text = "\n".join([f"{p['name']} ({p['type']}, {pattern_success_rates.get(p['name'], 50):.0f}% historical success)" for p in candle_patterns[:3]]) if candle_patterns else "No clear patterns identified"
-
-        # ===== BUILD LEARNING CONTEXT =====
-        learning_context = ""
-        if learning_brain:
-            try:
-                from context_generator import ContextGenerator
-                context_gen = ContextGenerator(learning_brain)
-                
-                # Build learning context for this stock
-                current_indicators = {
-                    'patterns': candle_patterns[0]['name'] if candle_patterns else '',
-                    'rsi': existing_analysis.get('rsi', 50)
-                }
-                learning_context = context_gen.build_learning_context(ticker, current_indicators)
-            except Exception as e:
-                logging.warning(f"Could not generate learning context for {ticker}: {e}")
-        # ===== END LEARNING CONTEXT =====
-        
         context = f"""Analyze {ticker} and provide BUY/HOLD/SELL recommendation.
 TECHNICAL DATA:
 - Score: {existing_analysis.get('score', 'N/A')}/100
@@ -2380,15 +2315,14 @@ REASON: [One sentence]"""
 # Wraps your existing portfolio analysis with predictions
 # ========================================
 
-async def analyze_portfolio_with_predictions(session, portfolio_file='portfolio.json', market_context=None, learning_brain=None):
+async def analyze_portfolio_with_predictions(session, portfolio_file='portfolio.json', market_context=None):
     """
     Enhanced portfolio analysis with predictions and market context
     """
     
     logging.info("=" * 60)
     logging.info("🧠 ANALYZE WITH PREDICTIONS - START")
-    logging.info(f"Learning brain provided: {learning_brain is not None}")
-    #logging.info(f"Market context provided: {market_context is not None}")
+    logging.info(f"Market context provided: {market_context is not None}")
     
     # Call v2.0 portfolio analysis (has Bollinger, ATR, etc.)
     original_portfolio_data = await analyze_portfolio_with_v2_features(session, portfolio_file)
@@ -2441,57 +2375,6 @@ async def analyze_portfolio_with_predictions(session, portfolio_file='portfolio.
             if 'ai_prediction' in enhanced:
                 successful_predictions += 1
                 logging.info(f"✅ {ticker}: Prediction added - {enhanced['ai_prediction']['action']}")
-                                # ===== RECORD PREDICTION IN LEARNING DATABASE =====
-                if learning_brain:
-                    try:
-                        pred_data = enhanced['ai_prediction']
-                        current_price = stock.get('price', 0)
-                        
-                        # Extract indicators from stock data
-                        indicators_dict = {
-                            'rsi': stock.get('rsi', 0),
-                            'macd': stock.get('macd', 0),
-                            'volume_ratio': stock.get('volume_ratio', 0),
-                            'patterns': pred_data.get('pattern_detected', '')
-                        }
-                        
-                        # Extract confidence, llm, reasoning (with fallbacks)
-                        confidence = (
-                            pred_data.get('confidence') or 
-                            pred_data.get('conviction_score') or 
-                            0
-                        )
-                        
-                        llm_model = (
-                            pred_data.get('llm_consensus') or 
-                            pred_data.get('model_used') or 
-                            'unknown'
-                        )
-                        
-                        reasoning = (
-                            pred_data.get('reasoning') or 
-                            pred_data.get('consensus_reasoning') or 
-                            ''
-                        )[:500]
-                        
-                        # Record prediction to SQLite
-                        pred_id = learning_brain.record_prediction(
-                            stock=ticker,
-                            prediction=pred_data.get('action', 'HOLD'),
-                            confidence=confidence,
-                            price=current_price,
-                            llm_model=llm_model,
-                            reasoning=reasoning,
-                            indicators=indicators_dict
-                        )
-                        
-                        logging.info(f"💾 Prediction #{pred_id} saved (confidence: {confidence}%)")
-                        
-                    except Exception as e:
-                        logging.error(f"⚠️ Failed to record prediction for {ticker}: {e}")
-                        import traceback
-                        traceback.print_exc()
-                # ===== END LEARNING DATABASE RECORDING =====
             else:
                 logging.warning(f"⚠️ {ticker}: No prediction generated")
             
@@ -2558,21 +2441,6 @@ async def check_prediction_outcomes():
 async def main(output="print"):
     logging.info("📊 FULL ANALYSIS MODE: Running market intelligence scan...")
     previous_day_memory = load_memory()
-
-     # ===== LEARNING BRAIN INITIALIZATION =====
-    learning_brain = LearningBrain()
-    
-    # Check outcomes from previous predictions (1 week ago)
-    logging.info("="*60)
-    logging.info("🧠 CHECKING PREVIOUS PREDICTIONS...")
-    logging.info("="*60)
-    learning_brain.check_outcomes_multi_timeframe()
-    
-    # Get accuracy report
-    accuracy_report = learning_brain.get_accuracy_report()
-    logging.info(accuracy_report)
-    logging.info("="*60)
-    # ===== END LEARNING BRAIN INITIALIZATION =====
     
     sp500 = get_cached_tickers('sp500_cache.json', fetch_sp500_tickers_sync)
     tsx = get_cached_tickers('tsx_cache.json', fetch_tsx_tickers_sync)
@@ -2596,7 +2464,7 @@ async def main(output="print"):
         # Step 2: Create portfolio task with macro context
         if ENABLE_V2_FEATURES:
             logging.info("🔍 Step 2: Calling analyze_portfolio_with_predictions (v3.0)")
-            portfolio_data = await analyze_portfolio_with_predictions(session, market_context=macro_data, learning_brain=learning_brain)
+            portfolio_data = await analyze_portfolio_with_predictions(session, market_context=macro_data)
         else:
             logging.info("🔍 Step 2: Calling analyze_portfolio_watchlist (v1.0)")
             portfolio_data = await analyze_portfolio_watchlist(session)
@@ -2628,16 +2496,22 @@ async def main(output="print"):
                 portfolio_data, pattern_data, macro_data
             )
         
-        # Step 7: Skip AI Oracle (removed - was generating placeholder text)
-        logging.info("🔍 Step 7: Skipping AI Oracle (removed)")
-        ai_analysis = None
+        # Step 7: Generate AI analysis
+        logging.info("🔍 Step 7: Generating AI analysis...")
+        market_summary = {
+            'macro': macro_data,
+            'top_stock': stock_results[0] if stock_results else {},
+            'bottom_stock': stock_results[-1] if stock_results else {}
+        }
+        ai_analysis = await generate_ai_oracle_analysis(market_summary, portfolio_data, pattern_data)
     
     # Outside session context - generate email
     if output == "email":
         logging.info("📧 Generating email report...")
         html_email = generate_enhanced_html_email(
             df_stocks, context_data, market_news, macro_data, 
-            previous_day_memory, portfolio_data, pattern_data, portfolio_recommendations
+            previous_day_memory, portfolio_data, pattern_data, 
+            ai_analysis, portfolio_recommendations
         )
         send_email(html_email)
     
@@ -2658,7 +2532,7 @@ async def main(output="print"):
 # EMAIL GENERATION - Updated for v2.0.0
 # ========================================
 
-def generate_enhanced_html_email(df_stocks, context, market_news, macro_data, memory, portfolio_data, pattern_data, portfolio_recommendations=None):
+def generate_enhanced_html_email(df_stocks, context, market_news, macro_data, memory, portfolio_data, pattern_data, ai_analysis, portfolio_recommendations=None):
     """FIXED v2.0.0: Clear, non-conflicting email display"""
     
     def format_articles(articles):
@@ -2683,6 +2557,16 @@ def generate_enhanced_html_email(df_stocks, context, market_news, macro_data, me
                 color_24h = "#16a34a" if change_24h >= 0 else "#dc2626"
                 rows += f'<tr><td style="padding:10px;border-bottom:1px solid #eee;"><b>{asset.get("name", "")}</b><br><span style="color:#666;font-size:0.9em;">{asset.get("symbol","").upper()}</span></td><td style="padding:10px;border-bottom:1px solid #eee;">{price}<br><span style="color:{color_24h};font-size:0.9em;">{change_24h:.2f}% (24h)</span></td><td style="padding:10px;border-bottom:1px solid #eee;">{mcap}</td></tr>'
         return rows
+    
+    # AI Oracle section
+    ai_oracle_html = ""
+    if ai_analysis:
+        analysis_text = ai_analysis['analysis'].replace('\n', '<br>')
+        ai_oracle_html = f"""<div class="section" style="background-color:#f0f9ff;border-left:4px solid #0369a1;">
+        <h2>🤖 AI MARKET ORACLE</h2>
+        <p style="font-size:0.9em;color:#666;margin-bottom:15px;">Powered by Gemini AI</p>
+        <div style="line-height:1.8;">{analysis_text}</div>
+        </div>"""
     
     # v2.0.0 NEW: High-priority signals section
     v2_signals_html = ""
@@ -2967,6 +2851,7 @@ def generate_enhanced_html_email(df_stocks, context, market_news, macro_data, me
         </div>
         
         {v2_signals_html}
+        {ai_oracle_html}
         {portfolio_html}
         {ai_predictions_html}
         {pattern_html}
