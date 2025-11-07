@@ -47,6 +47,15 @@ jobs:
         ENABLE_V2_FEATURES: true
       run: |
         python src/main.py --output email
+
+        - name: Check logging and database
+          run: |
+            echo "=== Checking for logging configurations ==="
+            grep -n "logging.basicConfig" src/main.py || echo "No logging.basicConfig found"
+        
+            echo "=== Checking database contents ==="
+            sqlite3 src/modules/data/learning.db "SELECT COUNT(*) as total FROM predictions;" || echo "Database query failed"
+            sqlite3 src/modules/data/learning.db "SELECT stock, prediction, timestamp FROM predictions ORDER BY id DESC LIMIT 5;" || echo "No predictions found"
     
     - name: Commit predictions and learning data
       run: |
