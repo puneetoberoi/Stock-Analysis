@@ -2116,6 +2116,7 @@ class IntelligentPredictionEngine:
         if os.getenv("DEEPSEEK_API_KEY"):
             try:
                 self.llm_clients['deepseek'] = 'deepseek_client'  # Placeholder
+                print("DEBUG: DeepSeek added to llm_clients")  # ADD THIS
                 logging.info("✅ SUCCESS: DeepSeek LLM client initialized.")
             except Exception as e:
                 logging.error(f"❌ FAILED: DeepSeek initialization error: {e}")
@@ -2207,6 +2208,7 @@ class IntelligentPredictionEngine:
                 indicators={'rsi': existing_analysis.get('rsi', 50)}
             )
             final_prediction['prediction_id'] = pred_id
+            print(f"DEBUG: About to save {ticker} to database")  # ADD THIS LINE
             
             # Also save to learning database
             try:
