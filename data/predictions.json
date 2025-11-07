@@ -9842,5 +9842,170 @@
     "price_at_prediction": 25.670000076293945,
     "outcome": null,
     "was_correct": null
+  },
+  "8bdc079d": {
+    "id": "8bdc079d",
+    "timestamp": "2025-11-07T23:25:00.574139",
+    "ticker": "AAPL",
+    "action": "SELL",
+    "confidence": 100,
+    "reasoning": "groq: The presence of bearish reversal and downtrend candlestick patterns, combined with a relatively high RSI and negative macro score, suggests a potential downward trend for AAPL.",
+    "candle_pattern": "spinning_top",
+    "indicators": {
+      "rsi": 63.66749690809754
+    },
+    "price_at_prediction": 268.4700012207031,
+    "outcome": null,
+    "was_correct": null
+  },
+  "4e62f7b8": {
+    "id": "4e62f7b8",
+    "timestamp": "2025-11-07T23:25:02.349737",
+    "ticker": "MSFT",
+    "action": "BUY",
+    "confidence": 100,
+    "reasoning": "groq: The low RSI value of 33.95 indicates that MSFT is oversold, suggesting a potential buying opportunity.",
+    "candle_pattern": "doji",
+    "indicators": {
+      "rsi": 33.95125198496309
+    },
+    "price_at_prediction": 496.82000732421875,
+    "outcome": null,
+    "was_correct": null
+  },
+  "84b2fd75": {
+    "id": "84b2fd75",
+    "timestamp": "2025-11-07T23:25:04.085496",
+    "ticker": "NVDA",
+    "action": "HOLD",
+    "confidence": 90,
+    "reasoning": "groq: The neutral RSI and average volume, combined with a low-success candlestick pattern and negative macro score, suggest a cautious approach, warranting a hold rather than a buy or sell.",
+    "candle_pattern": "swing_highs_lows",
+    "indicators": {
+      "rsi": 47.92486647537196
+    },
+    "price_at_prediction": 188.14999389648438,
+    "outcome": null,
+    "was_correct": null
+  },
+  "3a7cedb0": {
+    "id": "3a7cedb0",
+    "timestamp": "2025-11-07T23:25:06.100915",
+    "ticker": "TSLA",
+    "action": "HOLD",
+    "confidence": 100,
+    "reasoning": "groq: The presence of a bullish continuation cup_and_handle pattern is offset by a low macro score and neutral RSI, resulting in a cautious hold recommendation.",
+    "candle_pattern": "cup_and_handle",
+    "indicators": {
+      "rsi": 47.11317611976387
+    },
+    "price_at_prediction": 429.5199890136719,
+    "outcome": null,
+    "was_correct": null
+  },
+  "cf37fe1f": {
+    "id": "cf37fe1f",
+    "timestamp": "2025-11-07T23:25:07.634527",
+    "ticker": "GOOGL",
+    "action": "SELL",
+    "confidence": 100,
+    "reasoning": "groq: The presence of bearish reversal candlestick patterns, including an evening star and double top, suggests a potential downturn in the stock price.",
+    "candle_pattern": "evening_star",
+    "indicators": {
+      "rsi": 65.23082456229068
+    },
+    "price_at_prediction": 278.8299865722656,
+    "outcome": null,
+    "was_correct": null
+  },
+  "28f24c20": {
+    "id": "28f24c20",
+    "timestamp": "2025-11-07T23:25:09.101983",
+    "ticker": "TSM",
+    "action": "SELL",
+    "confidence": 100,
+    "reasoning": "groq: The presence of a double_top bearish reversal pattern with 100% historical success, combined with a negative Macro Score, outweighs the other indicators and suggests a sell recommendation.",
+    "candle_pattern": "spinning_top",
+    "indicators": {
+      "rsi": 45.99892518746409
+    },
+    "price_at_prediction": 286.5,
+    "outcome": null,
+    "was_correct": null
+  },
+  "4ad8c919": {
+    "id": "4ad8c919",
+    "timestamp": "2025-11-07T23:25:10.699633",
+    "ticker": "AMD",
+    "action": "HOLD",
+    "confidence": 100,
+    "reasoning": "groq: The presence of both bullish and bearish reversal patterns, combined with a neutral RSI and average volume, suggests a uncertain outlook, warranting a cautious hold approach amidst a negative macro context.",
+    "candle_pattern": "hammer",
+    "indicators": {
+      "rsi": 51.272053191420724
+    },
+    "price_at_prediction": 233.5399932861328,
+    "outcome": null,
+    "was_correct": null
+  },
+  "28f5bec8": {
+    "id": "28f5bec8",
+    "timestamp": "2025-11-07T23:25:12.113615",
+    "ticker": "TD.TO",
+    "action": "SELL",
+    "confidence": 100,
+    "reasoning": "groq: The presence of a double_top bearish_reversal pattern with 100% historical success outweighs the other patterns, suggesting a potential downturn in the stock's price.",
+    "candle_pattern": "vcp",
+    "indicators": {
+      "rsi": 57.189390896423525
+    },
+    "price_at_prediction": 113.58000183105469,
+    "outcome": null,
+    "was_correct": null
+  },
+  "f5a6b493": {
+    "id": "f5a6b493",
+    "timestamp": "2025-11-07T23:25:13.718553",
+    "ticker": "AMZN",
+    "action": "HOLD",
+    "confidence": 90,
+    "reasoning": "groq: The presence of both bullish and bearish reversal candlestick patterns, combined with a neutral RSI and average volume, suggests a balanced outlook, warranting a cautious hold stance.",
+    "candle_pattern": "hammer",
+    "indicators": {
+      "rsi": 60.91536411306747
+    },
+    "price_at_prediction": 244.41000366210938,
+    "outcome": null,
+    "was_correct": null
+  },
+  "d7678fed": {
+    "id": "d7678fed",
+    "timestamp": "2025-11-07T23:25:15.266038",
+    "ticker": "CGL-C.TO",
+    "action": "SELL",
+    "confidence": 100,
+    "reasoning": "groq: The presence of a bearish continuation three_black_crows candlestick pattern with a 67% historical success rate outweighs the other patterns, indicating a likely downward trend.",
+    "candle_pattern": "three_black_crows",
+    "indicators": {
+      "rsi": 52.53473636714166
+    },
+    "price_at_prediction": 47.11000061035156,
+    "outcome": null,
+    "was_correct": null
+  },
+  "dabdb85e": {
+    "id": "dabdb85e",
+    "timestamp": "2025-11-07T23:25:16.729157",
+    "ticker": "SVR-C.TO",
+    "action": "HOLD",
+    "confidence": 80,
+    "reasoning": "groq: The stock's neutral RSI and low volume, combined with a consolidation candlestick pattern and a negative macro score, suggest a cautious approach, warranting a hold rather than a buy or sell.",
+    "candle_pattern": "swing_highs_lows",
+    "indicators": {
+      "rsi": 52.73171887330879
+    },
+    "price_at_prediction": 25.670000076293945,
+    "outcome": null,
+    "was_correct": null
   }
 }
