@@ -2087,8 +2087,6 @@ class ConfidenceScorer:
             'action_advice': action_advice
         }
 
-
-# ✅ COMPLETE FIXED CLASS - REPLACE YOUR EXISTING ONE
 # ✅ COMPLETE FINAL CLASS - REPLACE YOUR EXISTING ONE
 class IntelligentPredictionEngine:
     """Multi-LLM consensus with confidence scoring"""
@@ -2337,57 +2335,57 @@ REASON: [One sentence]"""
             logging.warning(f"DeepSeek query failed for {ticker}: {e}")
             return None
 
-        async def _query_huggingface(self, prompt, ticker):
-            """Query HuggingFace Inference API"""
-            logging.info(f"📞 Calling HuggingFace API for {ticker}...")
-            try:
-                api_key = os.getenv('HUGGINGFACE_API_KEY')
-                if not api_key:
-                    logging.warning(f"⚠️ HuggingFace API key not found for {ticker}")
-                    return None
-                
-                # Using Mistral-7B model (fast and good for free tier)
-                url = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2"
-                headers = {
-                    "Authorization": f"Bearer {api_key}",
-                    "Content-Type": "application/json"
+    async def _query_huggingface(self, prompt, ticker):
+        """Query HuggingFace Inference API"""
+        logging.info(f"📞 Calling HuggingFace API for {ticker}...")
+        try:
+            api_key = os.getenv('HUGGINGFACE_API_KEY')
+            if not api_key:
+                logging.warning(f"⚠️ HuggingFace API key not found for {ticker}")
+                return None
+            
+            # Using Mistral-7B model (fast and good for free tier)
+            url = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2"
+            headers = {
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json"
+            }
+            
+            # Format prompt for instruction model
+            formatted_prompt = f"[INST] You are a stock analyst. Analyze and provide ONLY: ACTION (BUY/HOLD/SELL), CONFIDENCE (0-100), REASON (one sentence).\n\n{prompt} [/INST]"
+            
+            data = {
+                "inputs": formatted_prompt,
+                "parameters": {
+                    "max_new_tokens": 150,
+                    "temperature": 0.3,
+                    "return_full_text": False
                 }
-                
-                # Format prompt for instruction model
-                formatted_prompt = f"[INST] You are a stock analyst. Analyze and provide ONLY: ACTION (BUY/HOLD/SELL), CONFIDENCE (0-100), REASON (one sentence).\n\n{prompt} [/INST]"
-                
-                data = {
-                    "inputs": formatted_prompt,
-                    "parameters": {
-                        "max_new_tokens": 150,
-                        "temperature": 0.3,
-                        "return_full_text": False
-                    }
-                }
-                
-                async with aiohttp.ClientSession() as session:
-                    async with session.post(url, headers=headers, json=data, timeout=aiohttp.ClientTimeout(total=30)) as response:
-                        response_text = await response.text()
-                        logging.info(f"🔍 HuggingFace response status for {ticker}: {response.status}")
-                        
-                        if response.status == 200:
-                            result = await response.json()
-                            # HuggingFace returns array with generated text
-                            if isinstance(result, list) and len(result) > 0:
-                                generated_text = result[0].get('generated_text', '')
-                                return self._parse_llm_response(generated_text, 'huggingface')
-                            else:
-                                logging.warning(f"⚠️ HuggingFace unexpected response format for {ticker}")
-                                return None
+            }
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, headers=headers, json=data, timeout=aiohttp.ClientTimeout(total=30)) as response:
+                    response_text = await response.text()
+                    logging.info(f"🔍 HuggingFace response status for {ticker}: {response.status}")
+                    
+                    if response.status == 200:
+                        result = await response.json()
+                        # HuggingFace returns array with generated text
+                        if isinstance(result, list) and len(result) > 0:
+                            generated_text = result[0].get('generated_text', '')
+                            return self._parse_llm_response(generated_text, 'huggingface')
                         else:
-                            logging.error(f"❌ HuggingFace failed for {ticker}: {response.status} - {response_text[:200]}")
+                            logging.warning(f"⚠️ HuggingFace unexpected response format for {ticker}")
                             return None
-            except asyncio.TimeoutError:
-                logging.warning(f"⏱️ HuggingFace timeout for {ticker}")
-                return None
-            except Exception as e:
-                logging.error(f"❌ HuggingFace error for {ticker}: {e}")
-                return None
+                    else:
+                        logging.error(f"❌ HuggingFace failed for {ticker}: {response.status} - {response_text[:200]}")
+                        return None
+        except asyncio.TimeoutError:
+            logging.warning(f"⏱️ HuggingFace timeout for {ticker}")
+            return None
+        except Exception as e:
+            logging.error(f"❌ HuggingFace error for {ticker}: {e}")
+            return None
 
     async def _query_gemini(self, prompt, ticker):
         try:
