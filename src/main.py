@@ -2532,7 +2532,21 @@ async def main(output="print"):
         if ENABLE_V2_FEATURES:
             logging.info("🔍 Step 2: Calling analyze_portfolio_with_predictions (v3.0)")
             portfolio_data = await analyze_portfolio_with_predictions(session, market_context=macro_data)
-            print_database_status()  # ADD THIS LINE
+            # Debug: Check database status
+            try:
+                import sqlite3
+                conn = sqlite3.connect('src/modules/data/learning.db')
+                cursor = conn.cursor()
+                cursor.execute("SELECT COUNT(*) FROM predictions")
+                count = cursor.fetchone()[0]
+                logging.info(f"📊 DEBUG: Total predictions in database: {count}")
+                
+                cursor.execute("SELECT stock, prediction, confidence FROM predictions ORDER BY id DESC LIMIT 3")
+                recent = cursor.fetchall()
+                logging.info(f"📊 DEBUG: Recent predictions: {recent}")
+                conn.close()
+            except Exception as e:
+                logging.error(f"❌ DEBUG: Database check failed: {e}")
         else:
             logging.info("🔍 Step 2: Calling analyze_portfolio_watchlist (v1.0)")
             portfolio_data = await analyze_portfolio_watchlist(session)
