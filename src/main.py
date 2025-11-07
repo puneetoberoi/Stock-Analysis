@@ -2110,6 +2110,15 @@ class IntelligentPredictionEngine:
                 logging.error(f"❌ FAILED: Groq initialization error: {e}")
         else:
             logging.warning("⚠️ SKIPPED: GROQ_API_KEY not found in secrets.")
+
+        if os.getenv("DEEPSEEK_API_KEY"):
+            try:
+                self.llm_clients['deepseek'] = 'deepseek_client'  # Placeholder
+                logging.info("✅ SUCCESS: DeepSeek LLM client initialized.")
+            except Exception as e:
+                logging.error(f"❌ FAILED: DeepSeek initialization error: {e}")
+        else:
+            logging.warning("⚠️ SKIPPED: DEEPSEEK_API_KEY not found in secrets.")
         
         if os.getenv("GEMINI_API_KEY"):
             try:
@@ -2226,8 +2235,8 @@ REASON: [One sentence]"""
         if 'cohere' in self.llm_clients:
             tasks.append(self._query_cohere(context, ticker))
             llm_names.append('cohere')
-        if 'deepseek' in llm_clients:
-            tasks.append(_query_deepseek(context, ticker))
+        if 'deepseek' in self.llm_clients:
+            tasks.append(self._query_deepseek(context, ticker))
             llm_names.append('deepseek')
         
         
@@ -2255,7 +2264,7 @@ REASON: [One sentence]"""
             logging.warning(f"Groq query failed for {ticker}: {e}")
             return None
 
-    async def _query_deepseek(prompt, ticker):
+    async def _query_deepseek(self, prompt, ticker):
         """Query DeepSeek API"""
         try:
             api_key = os.getenv('DEEPSEEK_API_KEY')
@@ -2369,9 +2378,6 @@ async def analyze_portfolio_with_predictions(session, portfolio_file='portfolio.
         return original_portfolio_data
     
     logging.info(f"Original portfolio has {len(original_portfolio_data.get('stocks', []))} stocks")
-    # Add DeepSeek if API key exists
-    if os.getenv('DEEPSEEK_API_KEY'):
-        llm_clients['deepseek'] = 'deepseek'  # Placeholder for deepseek
     
     # Initialize prediction engine
     try:
