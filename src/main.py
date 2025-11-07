@@ -2310,9 +2310,16 @@ REASON: [One sentence]"""
             
             async with aiohttp.ClientSession() as session:
                 async with session.post(url, headers=headers, json=data) as response:
+                    response_text = await response.text()  # ADD THIS
+                    logging.info(f"🔍 DeepSeek response status for {ticker}: {response.status}")  # ADD THIS
+                    
                     if response.status == 200:
                         result = await response.json()
                         return self._parse_llm_response(result['choices'][0]['message']['content'], 'deepseek')
+
+                    else:
+                        logging.error(f"❌ DeepSeek failed for {ticker}: {response.status} - {response_text[:200]}")  # ADD THIS
+                        return None
         except Exception as e:
             logging.warning(f"DeepSeek query failed for {ticker}: {e}")
             return None
