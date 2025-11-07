@@ -256,11 +256,12 @@ class LearningBrain:
         if daily_outcomes:
             report += f"\n📈 Daily Accuracy Trend (Last 7 Days):\n{'-'*50}\n"
             for day, success in daily_outcomes:
-                if day not in daily_trends:
-                    daily_trends[day] = {'checks': 0, 'successes': 0}
-                daily_trends[day]['checks'] += 1
+                day_str = str(day)
+                if day_str not in daily_trends:
+                    daily_trends[day_str] = {'checks': 0, 'successes': 0}
+                daily_trends[day_str]['checks'] += 1
                 if success:
-                    daily_trends[day]['successes'] += 1
+                    daily_trends[day_str]['successes'] += 1
             
             sorted_days = sorted(daily_trends.items(), key=lambda item: item[0], reverse=True)
             for day, stats in sorted_days:
