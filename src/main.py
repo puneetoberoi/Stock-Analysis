@@ -2345,7 +2345,7 @@ REASON: [One sentence]"""
                 return None
             
             # Using Mistral-7B model (fast and good for free tier)
-            url = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2"
+            url = "https://router.huggingface.co/hf-inference/models/mistralai/Mistral-7B-Instruct-v0.2"
             headers = {
                 "Authorization": f"Bearer {api_key}",
                 "Content-Type": "application/json"
