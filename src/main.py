@@ -2180,14 +2180,14 @@ class IntelligentPredictionEngine:
             'volume_ratio': existing_analysis.get('volume_ratio', 1.0)
         }
         # THIS IS THE CORRECT, ORIGINAL VERSION
-confidence_result = self.confidence_scorer.calculate_confidence(
-    llm_predictions, 
-    candle_patterns, 
-    pattern_success_rates, 
-    {'rsi': existing_analysis.get('rsi', 50), 'score': existing_analysis.get('score', 50)}, 
-    {'volume_ratio': existing_analysis.get('volume_ratio', 1.0)}, 
-    market_context
-)
+        confidence_result = self.confidence_scorer.calculate_confidence(
+            llm_predictions, 
+            candle_patterns, 
+            pattern_success_rates, 
+            {'rsi': existing_analysis.get('rsi', 50), 'score': existing_analysis.get('score', 50)}, 
+            {'volume_ratio': existing_analysis.get('volume_ratio', 1.0)}, 
+            market_context
+        )
         final_prediction = self._determine_final_action(llm_predictions, confidence_result, candle_patterns)
         
         if final_prediction:
