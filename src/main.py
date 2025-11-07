@@ -1,5 +1,7 @@
 import os, sys, argparse, time, logging, json, asyncio
 from modules.learning_brain import LearningBrain
+learning_brain = LearningBrain()
+logging.info("✅ Learning Brain initialized for SQLite storage")
 import requests
 import pandas as pd
 import numpy as np
@@ -2196,7 +2198,7 @@ class IntelligentPredictionEngine:
                 llm_reasoning = final_prediction.get('reasoning', 'No LLM reasoning available')
             
             # Store prediction with detailed LLM reasoning
-            pred_id = self.prediction_tracker.store_prediction(
+           pred_id = self.prediction_tracker.store_prediction(
                 ticker=ticker,
                 action=final_prediction['action'],
                 confidence=confidence_result['score'],
@@ -2205,6 +2207,21 @@ class IntelligentPredictionEngine:
                 indicators={'rsi': existing_analysis.get('rsi', 50)}
             )
             final_prediction['prediction_id'] = pred_id
+            
+            # Also save to learning database
+            try:
+                learning_brain.record_prediction(
+                    stock=ticker,
+                    prediction=final_prediction['action'],
+                    confidence=confidence_result['score'],
+                    price=existing_analysis.get('current_price', 0),
+                    llm_model='consensus',
+                    reasoning=llm_reasoning,
+                    indicators={'rsi': existing_analysis.get('rsi', 50)}
+                )
+                logging.info(f"💾 Saved {ticker} to learning database")
+            except Exception as e:
+                logging.error(f"❌ Failed to save {ticker} to database: {e}")
         
         return {**existing_analysis, 'candle_patterns': candle_patterns, 'pattern_success_rates': pattern_success_rates, 'llm_predictions': llm_predictions, 'confidence': confidence_result, 'ai_prediction': final_prediction, 'learning_insights': self.learning_memory.get_recent_insights(3)}
 
@@ -2266,9 +2283,11 @@ REASON: [One sentence]"""
 
     async def _query_deepseek(self, prompt, ticker):
         """Query DeepSeek API"""
+        logging.info(f"📞 Calling DeepSeek API for {ticker}...")  # ADD THIS LINE
         try:
             api_key = os.getenv('DEEPSEEK_API_KEY')
             if not api_key:
+                logging.warning(f"⚠️ DeepSeek API key not found for {ticker}")  # ADD THIS
                 return None
             
             url = "https://api.deepseek.com/v1/chat/completions"
