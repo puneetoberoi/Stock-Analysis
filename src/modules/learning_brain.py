@@ -209,11 +209,13 @@ class LearningBrain:
         cursor.execute("SELECT COUNT(*) FROM predictions")
         total_predictions = cursor.fetchone()[0]
         
+        # This part is correct and reliable
         cursor.execute("SELECT SUM(total_predictions), SUM(correct_predictions) FROM accuracy_tracking")
         row = cursor.fetchone()
         total_weighted_checks, weighted_successes = (row[0] or 0), (row[1] or 0)
         overall_accuracy = (weighted_successes / total_weighted_checks * 100) if total_weighted_checks > 0 else 0
         
+        # --- Simplified and Corrected Python Calculation ---
         cursor.execute("SELECT timeframe_label, timeframe_days, success FROM outcomes")
         all_outcomes = cursor.fetchall()
         
@@ -229,55 +231,43 @@ class LearningBrain:
     
         if total_predictions == 0: return "No prediction history yet"
     
+        # --- Build Report ---
         report = f"\n📊 **LEARNING SYSTEM ACCURACY REPORT**\n{'='*50}\n"
         report += f"Total Predictions Made: {total_predictions}\n"
         report += f"Total Weighted Checks: {total_weighted_checks:.1f}\n"
         report += f"Weighted Successes: {weighted_successes:.1f}\n"
         report += f"Overall Weighted Accuracy: {overall_accuracy:.1f}%\n"
     
-        timeframe_stats = {}
+        # --- Timeframe Stats ---
         if all_outcomes:
             report += f"\n⏰ Accuracy by Timeframe:\n{'-'*50}\n"
+            timeframe_stats = {}
             for label, days, success in all_outcomes:
                 key = (label, days)
-                if key not in timeframe_stats:
-                    timeframe_stats[key] = {'checks': 0, 'successes': 0}
+                if key not in timeframe_stats: timeframe_stats[key] = {'checks': 0, 'successes': 0}
                 timeframe_stats[key]['checks'] += 1
-                if success:
-                    timeframe_stats[key]['successes'] += 1
+                if success: timeframe_stats[key]['successes'] += 1
             
-            sorted_timeframes = sorted(timeframe_stats.items(), key=lambda item: item[0][1])
-            for (label, days), stats in sorted_timeframes:
+            for (label, days), stats in sorted(timeframe_stats.items(), key=lambda item: item[0][1]):
                 accuracy = (stats['successes'] / stats['checks'] * 100) if stats['checks'] > 0 else 0
                 emoji = "🟢" if accuracy >= 60 else "🟡" if accuracy >= 40 else "🔴"
                 report += f"  {emoji} {label} ({days}d): {accuracy:.1f}% ({stats['successes']}/{stats['checks']} correct)\n"
         
-        daily_trends = {}
+        # --- Daily Trend Stats ---
         if daily_outcomes:
             report += f"\n📈 Daily Accuracy Trend (Last 7 Days):\n{'-'*50}\n"
+            daily_trends = {}
             for day, success in daily_outcomes:
-                day_str = str(day)
-                if day_str not in daily_trends:
-                    daily_trends[day_str] = {'checks': 0, 'successes': 0}
-                daily_trends[day_str]['checks'] += 1
-                if success:
-                    daily_trends[day_str]['successes'] += 1
+                if day not in daily_trends: daily_trends[day] = {'checks': 0, 'successes': 0}
+                daily_trends[day]['checks'] += 1
+                if success: daily_trends[day]['successes'] += 1
             
-            sorted_days = sorted(daily_trends.items(), key=lambda item: item[0], reverse=True)
-            for day, stats in sorted_days:
+            for day, stats in sorted(daily_trends.items(), reverse=True):
                 accuracy = (stats['successes'] / stats['checks'] * 100) if stats['checks'] > 0 else 0
                 trend_emoji = "📈" if accuracy >= 60 else "📊" if accuracy >= 40 else "📉"
                 report += f"  {trend_emoji} {day}: {accuracy:.1f}% ({stats['successes']}/{stats['checks']})\n"
-            
-            if len(sorted_days) >= 2:
-                recent_stats = sorted_days[0][1]
-                older_stats = sorted_days[-1][1]
-                recent_accuracy = (recent_stats['successes'] / recent_stats['checks'] * 100) if recent_stats['checks'] > 0 else 0
-                older_accuracy = (older_stats['successes'] / older_stats['checks'] * 100) if older_stats['checks'] > 0 else 0
-                improvement = recent_accuracy - older_accuracy
-                if improvement != 0:
-                    report += f"\n  {'🚀' if improvement > 0 else '📉'} 7-Day Change: {improvement:+.1f}%\n"
     
+        # --- Top Performers ---
         if top_performers:
             report += f"\n🏆 Top Performing Stock/LLM Combinations:\n{'-'*50}\n"
             for stock, model, total, correct, acc_pct in top_performers:
