@@ -1,7 +1,4 @@
 import os, sys, argparse, time, logging, json, asyncio
-from modules.prediction_tracker import PredictionTracker
-from modules.learning_brain import LearningBrain
-from modules.outcome_evaluator import OutcomeEvaluator
 import requests
 import pandas as pd
 import numpy as np
@@ -68,13 +65,6 @@ try:
     COHERE_AVAILABLE = True
 except ImportError:
     COHERE_AVAILABLE = False
-
-# TEST CODE - Delete after testing
-try:
-    brain = LearningBrain()
-    st.success("✅ Database connected successfully!")
-except Exception as e:
-    st.error(f"❌ Database error: {e}")
 
 
 # Add this after your imports, before any other functions:
@@ -746,36 +736,15 @@ def generate_fallback_analysis(market_data, portfolio_data, pattern_data):
 
 # ✅ COMPLETE FIXED FUNCTION
 async def generate_ai_oracle_analysis(market_data, portfolio_data, pattern_data):
-    """AI-powered market analysis using Gemini with model fallback and safety settings"""
+    """AI-powered market analysis using Gemini with model fallback"""
+    # ... (the rest of the function is the same, just ensure this part is correct)
     try:
         genai.configure(api_key=GEMINI_API_KEY)
-        
-        # ✅ Safety settings to prevent blocking
-        safety_settings = [
-            {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
-            {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
-            {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
-            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
-        ]
-        
-        # Generation config for better responses
-        generation_config = {
-            "temperature": 0.7,
-            "top_p": 0.9,
-            "top_k": 40,
-            "max_output_tokens": 2048,
-        }
-        
-        models_to_try = ['gemini-2.0-flash-exp', 'gemini-1.5-flash', 'gemini-pro']
+        models_to_try = ['gemini-2.5-flash'] # ✅ Use 'gemini-pro' as primary
         model = None
-        
         for model_name in models_to_try:
             try:
-                model = genai.GenerativeModel(
-                    model_name=model_name,
-                    safety_settings=safety_settings,
-                    generation_config=generation_config
-                )
+                model = genai.GenerativeModel(model_name)
                 logging.info(f"✅ Successfully loaded Gemini model for Oracle: {model_name}")
                 break
             except Exception as e:
@@ -785,17 +754,22 @@ async def generate_ai_oracle_analysis(market_data, portfolio_data, pattern_data)
             logging.error("❌ Oracle: All Gemini models failed to load. Using fallback.")
             return generate_fallback_analysis(market_data, portfolio_data, pattern_data)
         
-        # Your existing prompt
+        # ... rest of the prompt and generate_content call ...
+        prompt = f"..." # Your existing prompt
+        response = await asyncio.to_thread(
+            model.generate_content,
+            prompt,
+            # ... your existing generation_config
+        )
+        
+        logging.info("✅ Gemini AI Oracle analysis generated successfully")
+        return {'analysis': response.text, 'generated_at': datetime.now().isoformat()}
+        
+    except Exception as e:
+        logging.error(f"Gemini API Oracle error: {e}")
+        return generate_fallback_analysis(market_data, portfolio_data, pattern_data)
+        
         prompt = f"""You are an elite hedge fund analyst. Analyze this market data and provide sharp, actionable intelligence.
-
-MARKET CONTEXT:
-{json.dumps(market_data, indent=2)}
-
-PORTFOLIO DATA:
-{json.dumps(portfolio_data, indent=2)}
-
-PATTERN ANALYSIS:
-{json.dumps(pattern_data, indent=2)}
 
 CURRENT MARKET:
 - Geopolitical Risk: {market_data['macro']['geopolitical_risk']}/100
@@ -803,29 +777,20 @@ CURRENT MARKET:
 - Economic Sentiment: {market_data['macro']['economic_sentiment']:.2f}
 - Top Stock: {market_data['top_stock'].get('name', 'N/A')} - Score: {market_data['top_stock'].get('score', 'N/A')}
 
-Provide:
-1. Today's market outlook (2-3 sentences)
-2. Key risks to watch
-3. Top 3 actionable insights
+PORTFOLIO HIGHLIGHTS:
+{json.dumps([{'ticker': s['ticker'], 'rsi': round(s['rsi'], 1), 'monthly_change': round(s['monthly_change'], 1)} for s in portfolio_data['stocks'][:4]], indent=2) if portfolio_data else 'N/A'}
 
-Be direct, data-driven, and specific."""
+HISTORICAL PATTERN:
+{json.dumps(pattern_data.get('interpretation', [])[:2], indent=2) if pattern_data else 'N/A'}
 
-        # Generate response
-        response = await asyncio.to_thread(
-            model.generate_content,
-            prompt
-        )
-        
-        logging.info("✅ Gemini AI Oracle analysis generated successfully")
-        return {
-            'analysis': response.text,
-            'generated_at': datetime.now().isoformat()
-        }
-        
-    except Exception as e:
-        logging.error(f"Gemini API Oracle error: {e}")
-        return generate_fallback_analysis(market_data, portfolio_data, pattern_data)
+Provide concise, actionable insights in 5 sections:
+1. IMMEDIATE OPPORTUNITIES: Specific stocks/sectors to buy now and why.
+2. CRITICAL RISKS: What could hurt portfolios in the next 2 weeks.
+3. CONTRARIAN PLAY: One against-the-crowd idea.
+4. SECTOR ROTATION: Where smart money is likely moving.
+5. PORTFOLIO ACTIONS: Specific buy/sell/hold for my portfolio stocks.
 
+Focus on AI, geopolitical plays, and hidden opportunities. Be specific with price targets and timeframes. Be decisive. Keep it under 400 words."""
         
         response = model.generate_content(
             prompt,
@@ -2236,20 +2201,19 @@ class IntelligentPredictionEngine:
     async def _get_multi_llm_consensus(self, ticker, existing_analysis, candle_patterns, pattern_success_rates, market_context):
         logging.info(f"🔍[{ticker}] Getting LLM consensus. Available models: {list(self.llm_clients.keys())}")
         pattern_text = "\n".join([f"{p['name']} ({p['type']}, {pattern_success_rates.get(p['name'], 50):.0f}% historical success)" for p in candle_patterns[:3]]) if candle_patterns else "No clear patterns identified"
-        #context = f"""Analyze {ticker} and provide BUY/HOLD/SELL recommendation.
-        #TECHNICAL DATA:
-        #- Score: {existing_analysis.get('score', 'N/A')}/100
-        #- RSI: {existing_analysis.get('rsi', 'N/A')}
-        #- Volume: {existing_analysis.get('volume_ratio', 1.0):.1f}x average
-        #CANDLESTICK PATTERNS (Today):
-        #{pattern_text}
-        #MARKET CONTEXT:
-        #{f"Macro Score: {market_context.get('overall_macro_score', 0):.0f}" if market_context else "Not available"}
-        #Respond with ONLY:
-        #ACTION: [BUY/HOLD/SELL]
-        #CONFIDENCE: [0-100]
-        #REASON: [One sentence]"""
-        context = "Test"
+        context = f"""Analyze {ticker} and provide BUY/HOLD/SELL recommendation.
+TECHNICAL DATA:
+- Score: {existing_analysis.get('score', 'N/A')}/100
+- RSI: {existing_analysis.get('rsi', 'N/A')}
+- Volume: {existing_analysis.get('volume_ratio', 1.0):.1f}x average
+CANDLESTICK PATTERNS (Today):
+{pattern_text}
+MARKET CONTEXT:
+{f"Macro Score: {market_context.get('overall_macro_score', 0):.0f}" if market_context else "Not available"}
+Respond with ONLY:
+ACTION: [BUY/HOLD/SELL]
+CONFIDENCE: [0-100]
+REASON: [One sentence]"""
         
         tasks, llm_names = [], []
         if 'groq' in self.llm_clients:
@@ -2540,78 +2504,6 @@ async def main(output="print"):
             'bottom_stock': stock_results[-1] if stock_results else {}
         }
         ai_analysis = await generate_ai_oracle_analysis(market_summary, portfolio_data, pattern_data)
-    def store_predictions_to_db(predictions_dict, stock_data):
-        """Store all predictions to database for learning"""
-        tracker = PredictionTracker("learning.db")
-        stored_count = 0
-        
-        for symbol, prediction_data in predictions_dict.items():
-            try:
-                # Get stock indicators and patterns
-                stock_info = next((s for s in stock_data if s['symbol'] == symbol), None)
-                if not stock_info:
-                    continue
-                
-                # Extract prediction details
-                prediction = prediction_data.get('prediction', 'HOLD')
-                confidence = prediction_data.get('conviction_score', 50)
-                reasoning = prediction_data.get('consensus_reasoning', '')
-                
-                # Get the LLM that made this prediction (from reasoning)
-                llm_model = 'consensus'  # Default to consensus
-                if 'groq:' in reasoning:
-                    llm_model = 'groq'
-                elif 'cohere:' in reasoning:
-                    llm_model = 'cohere'
-                elif 'gemini:' in reasoning:
-                    llm_model = 'gemini'
-                
-                # Prepare indicators
-                indicators = {
-                    'rsi': stock_info.get('rsi'),
-                    'macd': stock_info.get('macd', {}).get('macd'),
-                    'volume_ratio': stock_info.get('volume_ratio')
-                }
-                
-                # Extract patterns
-                patterns = []
-                if 'patterns' in stock_info:
-                    patterns = [p['pattern_name'] for p in stock_info['patterns']]
-                
-                # Market context
-                market_context = {
-                    'regime': 'normal',  # You can enhance this
-                    'macro_score': prediction_data.get('macro_score', 0),
-                    'sector': stock_info.get('sector', 'Unknown'),
-                    'news_sentiment': 0  # Can be enhanced with news sentiment
-                }
-                
-                # Log prediction
-                prediction_id = tracker.log_prediction(
-                    stock=symbol,
-                    prediction=prediction,
-                    confidence=confidence,
-                    price=stock_info.get('price'),
-                    llm_model=llm_model,
-                    reasoning=reasoning,
-                    indicators=indicators,
-                    patterns=patterns,
-                    market_context=market_context
-                )
-                
-                if prediction_id > 0:
-                    stored_count += 1
-                    print(f"✅ Stored prediction #{prediction_id} for {symbol}")
-                    
-            except Exception as e:
-                print(f"❌ Failed to store prediction for {symbol}: {e}")
-        
-        print(f"\n📊 Stored {stored_count} predictions to database")
-        return stored_count
-
-# In your main() function, after generating predictions, add:
-# if ai_predictions:
-#     store_predictions_to_db(ai_predictions, analyzed_stocks)
     
     # Outside session context - generate email
     if output == "email":
