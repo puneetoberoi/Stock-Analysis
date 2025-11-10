@@ -826,20 +826,6 @@ Be direct, data-driven, and specific."""
         logging.error(f"Gemini API Oracle error: {e}")
         return generate_fallback_analysis(market_data, portfolio_data, pattern_data)
 
-PORTFOLIO HIGHLIGHTS:
-{json.dumps([{'ticker': s['ticker'], 'rsi': round(s['rsi'], 1), 'monthly_change': round(s['monthly_change'], 1)} for s in portfolio_data['stocks'][:4]], indent=2) if portfolio_data else 'N/A'}
-
-HISTORICAL PATTERN:
-{json.dumps(pattern_data.get('interpretation', [])[:2], indent=2) if pattern_data else 'N/A'}
-
-Provide concise, actionable insights in 5 sections:
-1. IMMEDIATE OPPORTUNITIES: Specific stocks/sectors to buy now and why.
-2. CRITICAL RISKS: What could hurt portfolios in the next 2 weeks.
-3. CONTRARIAN PLAY: One against-the-crowd idea.
-4. SECTOR ROTATION: Where smart money is likely moving.
-5. PORTFOLIO ACTIONS: Specific buy/sell/hold for my portfolio stocks.
-
-Focus on AI, geopolitical plays, and hidden opportunities. Be specific with price targets and timeframes. Be decisive. Keep it under 400 words."""
         
         response = model.generate_content(
             prompt,
