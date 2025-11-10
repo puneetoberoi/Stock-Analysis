@@ -825,6 +825,7 @@ CURRENT MARKET:
 - Trade Risk: {market_data['macro']['trade_risk']}/100
 - Economic Sentiment: {market_data['macro']['economic_sentiment']:.2f}
 - Top Stock: {market_data['top_stock'].get('name', 'N/A')} - Score: {market_data['top_stock'].get('score', 'N/A')}
+"""
 
 PORTFOLIO HIGHLIGHTS:
 {json.dumps([{'ticker': s['ticker'], 'rsi': round(s['rsi'], 1), 'monthly_change': round(s['monthly_change'], 1)} for s in portfolio_data['stocks'][:4]], indent=2) if portfolio_data else 'N/A'}
