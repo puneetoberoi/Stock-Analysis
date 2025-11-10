@@ -15,14 +15,32 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Add src to path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# Fix Python path - add src directory
+current_dir = os.path.dirname(os.path.abspath(__file__))
+src_dir = os.path.dirname(current_dir) if 'modules' in current_dir else current_dir
+project_root = os.path.dirname(src_dir) if os.path.basename(src_dir) == 'src' else os.path.dirname(current_dir)
+
+# Add both src and project root to path
+sys.path.insert(0, src_dir)
+sys.path.insert(0, project_root)
+
+logger.info(f"Python path: {sys.path[:3]}")
+logger.info(f"Current directory: {os.getcwd()}")
+logger.info(f"Script location: {current_dir}")
 
 try:
-    from modules.prediction_tracker import PredictionTracker
-    from modules.outcome_evaluator import OutcomeEvaluator
+    # Try multiple import paths
+    try:
+        from modules.prediction_tracker import PredictionTracker
+        from modules.outcome_evaluator import OutcomeEvaluator
+        logger.info("✅ Imported from modules.*")
+    except ImportError:
+        from src.modules.prediction_tracker import PredictionTracker
+        from src.modules.outcome_evaluator import OutcomeEvaluator
+        logger.info("✅ Imported from src.modules.*")
 except ImportError as e:
-    logger.error(f"Import error: {e}")
+    logger.error(f"❌ Import error: {e}")
+    logger.error(f"Tried importing from: {sys.path}")
     sys.exit(1)
 
 def main():
@@ -32,9 +50,27 @@ def main():
     logger.info("="*60)
     
     try:
+        # Find database file
+        db_paths_to_try = [
+            "learning.db",
+            os.path.join(project_root, "learning.db"),
+            os.path.join(os.getcwd(), "learning.db")
+        ]
+        
+        db_path = None
+        for path in db_paths_to_try:
+            if os.path.exists(path):
+                db_path = path
+                logger.info(f"✅ Found database at: {db_path}")
+                break
+        
+        if not db_path:
+            logger.error(f"❌ Database not found. Tried: {db_paths_to_try}")
+            return 1
+        
         # Initialize
-        tracker = PredictionTracker("learning.db")
-        evaluator = OutcomeEvaluator("learning.db")
+        tracker = PredictionTracker(db_path)
+        evaluator = OutcomeEvaluator(db_path)
         
         # Get predictions that need checking
         pending = tracker.get_pending_checks()
@@ -42,6 +78,7 @@ def main():
         
         if not pending:
             logger.info("✅ No pending predictions to check today")
+            logger.info("💡 Predictions are checked 1 day after they're made")
             return 0
         
         # Evaluate outcomes
