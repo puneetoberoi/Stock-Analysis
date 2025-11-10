@@ -24,6 +24,34 @@ import email
 import email.utils
 import re
 
+from modules.learning_context import LearningContext
+from modules.outcome_checker import OutcomeChecker
+import sqlite3
+from pathlib import Path
+
+# Initialize learning system
+LEARNING_DB_PATH = Path(__file__).parent / "modules" / "data" / "learning.db"
+
+def init_learning_database():
+    """Initialize the learning database with schema."""
+    LEARNING_DB_PATH.parent.mkdir(exist_ok=True)
+    
+    # Read and execute schema
+    schema_path = Path(__file__).parent / "modules" / "schemas.sql"
+    if schema_path.exists():
+        conn = sqlite3.connect(LEARNING_DB_PATH)
+        with open(schema_path, 'r') as f:
+            conn.executescript(f.read())
+        conn.close()
+        print("[Learning] ✅ Database initialized")
+    else:
+        print("[Learning] ⚠️ schemas.sql not found")
+
+# Initialize on startup
+init_learning_database()
+learning_context = LearningContext(str(LEARNING_DB_PATH))
+outcome_checker = OutcomeChecker(str(LEARNING_DB_PATH))
+
 try:
     import spacy
     SPACY_AVAILABLE = True
@@ -201,6 +229,32 @@ class IntelligentPredictionEngine:
         parsed_llm_predictions = {name: {'action': self._parse_llm_reasoning_for_action(pred['reasoning']), 'confidence': 50} for name, pred in raw_llm_predictions.items()}
         confidence_result = self.confidence_scorer.calculate_confidence(parsed_llm_predictions, candle_patterns, pattern_success_rates, {'rsi': existing_analysis.get('rsi', 50), 'score': existing_analysis.get('score', 50)}, {'volume_ratio': existing_analysis.get('volume_ratio', 1.0)}, market_context)
         final_prediction = self._determine_final_action(parsed_llm_predictions, candle_patterns)
+            # 🧠 RECORD PREDICTION TO DATABASE
+    try:
+        conn = sqlite3.connect(LEARNING_DB_PATH)
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            INSERT INTO predictions 
+            (timestamp, stock_symbol, prediction_action, conviction_score, 
+             current_price, reasoning, technical_data, market_context)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            datetime.now().isoformat(),
+            symbol,
+            final_prediction,
+            confidence_result['score'],
+            data['Close'].iloc[-1],
+            confidence_result.get('reasoning', ''),
+            str(technical_indicators),
+            str({'macro_score': macro_score, 'patterns': pattern_data})
+        ))
+        
+        conn.commit()
+        conn.close()
+        print(f"[Learning] 📝 {symbol} → {final_prediction} @ ${data['Close'].iloc[-1]:.2f}")
+    except Exception as e:
+        print(f"[Learning] ⚠️ Failed to record prediction: {e}")
 
         if final_prediction:
             llm_reasoning = " | ".join([pred.get('reasoning', 'N/A') for pred in raw_llm_predictions.values()]) if raw_llm_predictions else final_prediction.get('reasoning', "No LLM reasoning available.")
@@ -3074,7 +3128,7 @@ class IntelligentMarketAnalyzer:
         if 'groq' in self.llm_clients:
             try:
                 client = self.llm_clients['groq']
-                completion = client.chat.completions.create(model="llama-3.3-70b-versatile",messages=[{"role":"user","content":prompt}],temperature=0.7,max_tokens=800)
+                completion = client.chat.completions.create(model="llama-3.3-70b-versatile",messages=[{"role":"user","content":prompt}],temperature=0.3,max_tokens=800)
                 response = completion.choices[0].message.content
                 if response: logging.info("✅ Groq response generated")
             except Exception as e: logging.warning(f"Groq failed: {e}")
