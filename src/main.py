@@ -2209,13 +2209,13 @@ class IntelligentPredictionEngine:
         raw_llm_predictions = await self._get_multi_llm_consensus(ticker, autonomous_prompt)
         
         # This clean parsing step prevents the KeyError
-       parsed_llm_predictions = {}
-        if raw_llm_predictions:
-            for name, pred in raw_llm_predictions.items():
-                # This parser ALWAYS returns 'BUY', 'SELL', or 'HOLD'
-                parsed_action = self._parse_llm_reasoning_for_action(pred.get('reasoning', ''))
-                # This ensures the dictionary always has the keys your system expects
-                parsed_llm_predictions[name] = {'action': parsed_action, 'confidence': 50, 'reasoning': pred.get('reasoning', '')}
+        parsed_llm_predictions = {}
+            if raw_llm_predictions:
+                for name, pred in raw_llm_predictions.items():
+                    # This parser ALWAYS returns 'BUY', 'SELL', or 'HOLD'
+                    parsed_action = self._parse_llm_reasoning_for_action(pred.get('reasoning', ''))
+                    # This ensures the dictionary always has the keys your system expects
+                    parsed_llm_predictions[name] = {'action': parsed_action, 'confidence': 50, 'reasoning': pred.get('reasoning', '')}
 
         # Step B: Your original, working logic can now run without crashing
         confidence_result = self.confidence_scorer.calculate_confidence(parsed_llm_predictions, candle_patterns, pattern_success_rates, {'rsi': existing_analysis.get('rsi', 50), 'score': existing_analysis.get('score', 50)}, {'volume_ratio': existing_analysis.get('volume_ratio', 1.0)}, market_context)
