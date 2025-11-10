@@ -2165,140 +2165,137 @@ class IntelligentPredictionEngine:
             logging.info(f"✅ LLM clients loaded: {list(self.llm_clients.keys())}")
             
             
-    async def analyze_with_learning(self, ticker, existing_analysis, hist_data, market_context=None):
-        """
-        The main analysis function, now upgraded with an autonomous learning loop.
-        """
-        # ============================================================
-        # 1. GET PERFORMANCE DATA (NEW)
-        #    This is the foundation for learning.
-        # ============================================================
-        try:
-            performance_summary = outcome_checker.get_performance_summary(days=30)
-        except Exception as e:
-            logging.error(f"Failed to get performance summary: {e}")
-            performance_summary = None # Fallback to ensure it exists
-
-        # ============================================================
-        # 2. RUN EXISTING PATTERN ANALYSIS (UNTOUCHED)
-        #    Your original, powerful pattern detection logic is preserved.
-        # ============================================================
-        candle_patterns = self.candle_analyzer.identify_pattern(hist_data)
-        if ENHANCED_PATTERNS_ENABLED and enhanced_pattern_detector:
+        async def analyze_with_learning(self, ticker, existing_analysis, hist_data, market_context=None):
+            # ============================================================
+            # 1. GET PERFORMANCE DATA (NEW)
+            # ============================================================
             try:
-                enhanced_patterns = enhanced_pattern_detector.detect_all_patterns(hist_data)
-                for ep in enhanced_patterns:
-                    candle_patterns.append({
-                        'name': ep['name'], 'type': ep['type'],
-                        'strength': 'very_strong' if ep['strength'] >= 90 else 'strong' if ep['strength'] >= 80 else 'medium',
-                        'description': ep['description'], 'enhanced': True, 'strength_score': ep['strength']
-                    })
-                if enhanced_patterns:
-                    strongest = enhanced_patterns[0]
-                    emoji = "🟢" if strongest['signal'] == 'BUY' else "🔴" if strongest['signal'] == 'SELL' else "⚪"
-                    logging.info(f"   🕯️ Enhanced: {strongest['name']} {emoji} ({strongest['signal']}, {strongest['strength']}%)")
+                performance_summary = outcome_checker.get_performance_summary(days=30)
             except Exception as e:
-                logging.debug(f"Enhanced pattern detection error for {ticker}: {e}")
-
-        # ============================================================
-        # 3. GENERATE AUTONOMOUS PROMPT (NEW)
-        #    We build the smart prompt here instead of in the other function.
-        # ============================================================
-        current_data_for_prompt = {
-            **existing_analysis,
-            'patterns': [p['name'] for p in candle_patterns],
-            'macro_score': market_context.get('overall_macro_score', 0) if market_context else 0,
-            'current_price': hist_data['Close'].iloc[-1]
-        }
-        
-        # Generate the full autonomous prompt
-        autonomous_prompt = learning_context_generator.generate_autonomous_context(
-            stock=ticker,
-            current_data=current_data_for_prompt,
-            performance_summary=performance_summary
-        )
-
-        # ============================================================
-        # 4. GET PREDICTIONS & RUN ORIGINAL CONFIDENCE SCORING
-        #    We now pass the autonomous prompt to the consensus function.
-        # ============================================================
-        llm_predictions = await self._get_multi_llm_consensus(ticker, autonomous_prompt)
-        
-        # Your original confidence and final action logic is preserved.
-        pattern_success_rates = {p['name']: self.candle_analyzer.get_pattern_success_rate(p['name'], ticker) for p in candle_patterns}
-        confidence_result = self.confidence_scorer.calculate_confidence(llm_predictions, candle_patterns, pattern_success_rates, {'rsi': existing_analysis.get('rsi', 50), 'score': existing_analysis.get('score', 50)}, {'volume_ratio': existing_analysis.get('volume_ratio', 1.0)}, market_context)
-        final_prediction = self._determine_final_action(llm_predictions, confidence_result, candle_patterns)
-
-        # ============================================================
-        # 5. STORE PREDICTION & LEARNINGS
-        #    This part is also preserved and enhanced.
-        # ============================================================
-        if final_prediction:
-            if llm_predictions:
-                llm_reasoning = " | ".join([
-                    f"{llm_name}: {pred.get('reasoning', pred.get('action', 'No reasoning'))}" 
-                    for llm_name, pred in llm_predictions.items()
-                ])
-            else:
-                llm_reasoning = final_prediction.get('reasoning', 'No LLM reasoning available')
+                logging.error(f"Failed to get performance summary: {e}")
+                performance_summary = None
+    
+            # ============================================================
+            # 2. RUN EXISTING PATTERN ANALYSIS (UNTOUCHED)
+            # ============================================================
+            candle_patterns = self.candle_analyzer.identify_pattern(hist_data)
+            if ENHANCED_PATTERNS_ENABLED and enhanced_pattern_detector:
+                try:
+                    enhanced_patterns = enhanced_pattern_detector.detect_all_patterns(hist_data)
+                    for ep in enhanced_patterns:
+                        candle_patterns.append({
+                            'name': ep['name'], 'type': ep['type'],
+                            'strength': 'very_strong' if ep['strength'] >= 90 else 'strong' if ep['strength'] >= 80 else 'medium',
+                            'description': ep['description'], 'enhanced': True, 'strength_score': ep['strength']
+                        })
+                    if enhanced_patterns:
+                        strongest = enhanced_patterns[0]
+                        emoji = "🟢" if strongest['signal'] == 'BUY' else "🔴" if strongest['signal'] == 'SELL' else "⚪"
+                        logging.info(f"   🕯️ Enhanced: {strongest['name']} {emoji} ({strongest['signal']}, {strongest['strength']}%)")
+                except Exception as e:
+                    logging.debug(f"Enhanced pattern detection error for {ticker}: {e}")
+    
+            # ============================================================
+            # 3. GENERATE AUTONOMOUS PROMPT (NEW)
+            # ============================================================
+            current_data_for_prompt = {
+                **existing_analysis,
+                'patterns': [p['name'] for p in candle_patterns],
+                'macro_score': market_context.get('overall_macro_score', 0) if market_context else 0,
+                'current_price': hist_data['Close'].iloc[-1]
+            }
             
-            # Store in your original JSON tracker
-            pred_id = self.prediction_tracker.store_prediction(
-                ticker=ticker, action=final_prediction['action'],
-                confidence=confidence_result['score'], reasoning=llm_reasoning,
-                candle_pattern=candle_patterns[0]['name'] if candle_patterns else None,
-                indicators={'rsi': existing_analysis.get('rsi', 50)}
+            autonomous_prompt = learning_context_generator.generate_autonomous_context(
+                stock=ticker,
+                current_data=current_data_for_prompt,
+                performance_summary=performance_summary
             )
-            final_prediction['prediction_id'] = pred_id
+    
+            # ============================================================
+            # 4. GET PREDICTIONS & RUN ORIGINAL CONFIDENCE SCORING
+            # ============================================================
+            # THIS CALL IS NOW CORRECT
+            llm_predictions = await self._get_multi_llm_consensus(ticker, autonomous_prompt)
             
-            # Also save to the new Learning Database
-            try:
-                learning_brain.record_prediction(
-                    stock=ticker, prediction=final_prediction['action'],
-                    confidence=confidence_result['score'], price=current_data_for_prompt['current_price'],
-                    llm_model='groq_autonomous', reasoning=llm_reasoning,
+            pattern_success_rates = {p['name']: self.candle_analyzer.get_pattern_success_rate(p['name'], ticker) for p in candle_patterns}
+            confidence_result = self.confidence_scorer.calculate_confidence(llm_predictions, candle_patterns, pattern_success_rates, {'rsi': existing_analysis.get('rsi', 50), 'score': existing_analysis.get('score', 50)}, {'volume_ratio': existing_analysis.get('volume_ratio', 1.0)}, market_context)
+            final_prediction = self._determine_final_action(llm_predictions, confidence_result, candle_patterns)
+    
+            # ============================================================
+            # 5. STORE PREDICTION & LEARNINGS
+            # ============================================================
+            if final_prediction:
+                if llm_predictions:
+                    llm_reasoning = " | ".join([
+                        f"{llm_name}: {pred.get('reasoning', pred.get('action', 'No reasoning'))}" 
+                        for llm_name, pred in llm_predictions.items()
+                    ])
+                else:
+                    llm_reasoning = final_prediction.get('reasoning', 'No LLM reasoning available')
+                
+                # Store in original JSON tracker
+                pred_id = self.prediction_tracker.store_prediction(
+                    ticker=ticker, action=final_prediction['action'],
+                    confidence=confidence_result['score'], reasoning=llm_reasoning,
+                    candle_pattern=candle_patterns[0]['name'] if candle_patterns else None,
                     indicators={'rsi': existing_analysis.get('rsi', 50)}
                 )
-                logging.info(f"💾 Saved {ticker} to learning database")
-            except Exception as e:
-                logging.error(f"❌ Failed to save {ticker} to database: {e}")
-
-        # ============================================================
-        # 6. RETURN FULL, UNCHANGED STRUCTURE FOR EMAIL
-        #    This ensures your email format does not break.
-        # ============================================================
-        return {
-            **existing_analysis,
-            'candle_patterns': candle_patterns,
-            'pattern_success_rates': pattern_success_rates,
-            'llm_predictions': llm_predictions,
-            'confidence': confidence_result,
-            'ai_prediction': final_prediction,
-            'learning_insights': self.learning_memory.get_recent_insights(3)
-        }
+                final_prediction['prediction_id'] = pred_id
+                
+                # Save to Learning Database
+                try:
+                    learning_brain.record_prediction(
+                        stock=ticker, prediction=final_prediction['action'],
+                        confidence=confidence_result['score'], price=current_data_for_prompt['current_price'],
+                        llm_model='groq_autonomous', reasoning=llm_reasoning,
+                        indicators={'rsi': existing_analysis.get('rsi', 50)}
+                    )
+                    logging.info(f"💾 Saved {ticker} to learning database")
+                except Exception as e:
+                    logging.error(f"❌ Failed to save {ticker} to database: {e}")
+    
+            # ============================================================
+            # 6. RETURN FULL STRUCTURE FOR EMAIL (UNTOUCHED)
+            # ============================================================
+            return {
+                **existing_analysis,
+                'candle_patterns': candle_patterns,
+                'pattern_success_rates': pattern_success_rates,
+                'llm_predictions': llm_predictions,
+                'confidence': confidence_result,
+                'ai_prediction': final_prediction,
+                'learning_insights': self.learning_memory.get_recent_insights(3)
+            }
         
         async def _get_multi_llm_consensus(self, ticker, autonomous_prompt):
             """
             Gets LLM consensus using a pre-built autonomous prompt.
             This function now ONLY handles API calls, not prompt creation.
             """
-            logging.info(f"🔍[{ticker}] Getting LLM consensus using autonomous prompt. Models: {list(self.llm_clients.keys())}")
+            logging.info(f"🔍[{ticker}] Getting LLM consensus using autonomous prompt. Available models: {list(self.llm_clients.keys())}")
             
             tasks, llm_names = [], []
             
             # --- STABILITY FIRST: Only use the working LLM (Groq) for now ---
             if 'groq' in self.llm_clients:
+                # Pass the full autonomous prompt to the query function
                 tasks.append(self._query_groq(autonomous_prompt, ticker))
                 llm_names.append('groq')
             
-            # --- The other LLMs are disabled until they are stable ---
+            # --- The other LLMs are disabled to prevent errors and ensure a clean run ---
+            # You can re-enable them one by one later for testing if you wish.
             # if 'gemini' in self.llm_clients:
             #     tasks.append(self._query_gemini(autonomous_prompt, ticker))
             #     llm_names.append('gemini')
             # if 'deepseek' in self.llm_clients:
             #     tasks.append(self._query_deepseek(autonomous_prompt, ticker))
             #     llm_names.append('deepseek')
-            # etc...
+            # if 'huggingface' in self.llm_clients:
+            #     tasks.append(self._query_huggingface(autonomous_prompt, ticker))
+            #     llm_names.append('huggingface')
+            # if 'cohere' in self.llm_clients:
+            #     tasks.append(self._query_cohere(autonomous_prompt, ticker))
+            #     llm_names.append('cohere')
             
             predictions = {}
             if tasks:
@@ -2309,58 +2306,6 @@ class IntelligentPredictionEngine:
             
             logging.info(f"🔍[{ticker}] Received {len(predictions)} LLM predictions.")
             return predictions
-
-    async def _query_huggingface(self, prompt, ticker):
-        """Query HuggingFace Inference API"""
-        logging.info(f"📞 Calling HuggingFace API for {ticker}...")
-        try:
-            api_key = os.getenv('HUGGINGFACE_API_KEY')
-            if not api_key:
-                logging.warning(f"⚠️ HuggingFace API key not found for {ticker}")
-                return None
-            
-            # Using Mistral-7B model (fast and good for free tier)
-            url = "https://router.huggingface.co/hf-inference/models/mistralai/Mistral-7B-Instruct-v0.2"
-            headers = {
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json"
-            }
-            
-            # Format prompt for instruction model
-            formatted_prompt = f"[INST] You are a stock analyst. Analyze and provide ONLY: ACTION (BUY/HOLD/SELL), CONFIDENCE (0-100), REASON (one sentence).\n\n{prompt} [/INST]"
-            
-            data = {
-                "inputs": formatted_prompt,
-                "parameters": {
-                    "max_new_tokens": 150,
-                    "temperature": 0.3,
-                    "return_full_text": False
-                }
-            }
-            
-            async with aiohttp.ClientSession() as session:
-                async with session.post(url, headers=headers, json=data, timeout=aiohttp.ClientTimeout(total=30)) as response:
-                    response_text = await response.text()
-                    logging.info(f"🔍 HuggingFace response status for {ticker}: {response.status}")
-                    
-                    if response.status == 200:
-                        result = await response.json()
-                        # HuggingFace returns array with generated text
-                        if isinstance(result, list) and len(result) > 0:
-                            generated_text = result[0].get('generated_text', '')
-                            return self._parse_llm_response(generated_text, 'huggingface')
-                        else:
-                            logging.warning(f"⚠️ HuggingFace unexpected response format for {ticker}")
-                            return None
-                    else:
-                        logging.error(f"❌ HuggingFace failed for {ticker}: {response.status} - {response_text[:200]}")
-                        return None
-        except asyncio.TimeoutError:
-            logging.warning(f"⏱️ HuggingFace timeout for {ticker}")
-            return None
-        except Exception as e:
-            logging.error(f"❌ HuggingFace error for {ticker}: {e}")
-            return None
 
     async def _query_gemini(self, prompt, ticker):
         try:
