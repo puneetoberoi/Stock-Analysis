@@ -2165,185 +2165,150 @@ class IntelligentPredictionEngine:
             logging.info(f"✅ LLM clients loaded: {list(self.llm_clients.keys())}")
             
             
-        async def analyze_with_learning(self, ticker, existing_analysis, hist_data, market_context=None):
+    async def analyze_with_learning(self, ticker, existing_analysis, hist_data, market_context=None):
+        """
+        The main analysis function, now upgraded with an autonomous learning loop.
+        """
         # ============================================================
         # 1. GET PERFORMANCE DATA (NEW)
+        #    This is the foundation for learning.
         # ============================================================
+        try:
             performance_summary = outcome_checker.get_performance_summary(days=30)
-    
-            # ============================================================
-            # 2. GENERATE AUTONOMOUS CONTEXT (NEW)
-            # ============================================================
-            # Combine current analysis with market context for the prompt
-            current_data_for_prompt = {
-                **existing_analysis,
-                'patterns': [p['name'] for p in self.candle_analyzer.identify_pattern(hist_data)],
-                'macro_score': market_context.get('overall_macro_score', 0) if market_context else 0,
-                'current_price': hist_data['Close'].iloc[-1]
-            }
+        except Exception as e:
+            logging.error(f"Failed to get performance summary: {e}")
+            performance_summary = None # Fallback to ensure it exists
+
+        # ============================================================
+        # 2. RUN EXISTING PATTERN ANALYSIS (UNTOUCHED)
+        #    Your original, powerful pattern detection logic is preserved.
+        # ============================================================
+        candle_patterns = self.candle_analyzer.identify_pattern(hist_data)
+        if ENHANCED_PATTERNS_ENABLED and enhanced_pattern_detector:
+            try:
+                enhanced_patterns = enhanced_pattern_detector.detect_all_patterns(hist_data)
+                for ep in enhanced_patterns:
+                    candle_patterns.append({
+                        'name': ep['name'], 'type': ep['type'],
+                        'strength': 'very_strong' if ep['strength'] >= 90 else 'strong' if ep['strength'] >= 80 else 'medium',
+                        'description': ep['description'], 'enhanced': True, 'strength_score': ep['strength']
+                    })
+                if enhanced_patterns:
+                    strongest = enhanced_patterns[0]
+                    emoji = "🟢" if strongest['signal'] == 'BUY' else "🔴" if strongest['signal'] == 'SELL' else "⚪"
+                    logging.info(f"   🕯️ Enhanced: {strongest['name']} {emoji} ({strongest['signal']}, {strongest['strength']}%)")
+            except Exception as e:
+                logging.debug(f"Enhanced pattern detection error for {ticker}: {e}")
+
+        # ============================================================
+        # 3. GENERATE AUTONOMOUS PROMPT (NEW)
+        #    We build the smart prompt here instead of in the other function.
+        # ============================================================
+        current_data_for_prompt = {
+            **existing_analysis,
+            'patterns': [p['name'] for p in candle_patterns],
+            'macro_score': market_context.get('overall_macro_score', 0) if market_context else 0,
+            'current_price': hist_data['Close'].iloc[-1]
+        }
+        
+        # Generate the full autonomous prompt
+        autonomous_prompt = learning_context_generator.generate_autonomous_context(
+            stock=ticker,
+            current_data=current_data_for_prompt,
+            performance_summary=performance_summary
+        )
+
+        # ============================================================
+        # 4. GET PREDICTIONS & RUN ORIGINAL CONFIDENCE SCORING
+        #    We now pass the autonomous prompt to the consensus function.
+        # ============================================================
+        llm_predictions = await self._get_multi_llm_consensus(ticker, autonomous_prompt)
+        
+        # Your original confidence and final action logic is preserved.
+        pattern_success_rates = {p['name']: self.candle_analyzer.get_pattern_success_rate(p['name'], ticker) for p in candle_patterns}
+        confidence_result = self.confidence_scorer.calculate_confidence(llm_predictions, candle_patterns, pattern_success_rates, {'rsi': existing_analysis.get('rsi', 50), 'score': existing_analysis.get('score', 50)}, {'volume_ratio': existing_analysis.get('volume_ratio', 1.0)}, market_context)
+        final_prediction = self._determine_final_action(llm_predictions, confidence_result, candle_patterns)
+
+        # ============================================================
+        # 5. STORE PREDICTION & LEARNINGS
+        #    This part is also preserved and enhanced.
+        # ============================================================
+        if final_prediction:
+            if llm_predictions:
+                llm_reasoning = " | ".join([
+                    f"{llm_name}: {pred.get('reasoning', pred.get('action', 'No reasoning'))}" 
+                    for llm_name, pred in llm_predictions.items()
+                ])
+            else:
+                llm_reasoning = final_prediction.get('reasoning', 'No LLM reasoning available')
             
-            # Generate the full autonomous prompt
-            autonomous_prompt = learning_context_generator.generate_autonomous_context(
-                stock=ticker,
-                current_data=current_data_for_prompt,
-                performance_summary=performance_summary
+            # Store in your original JSON tracker
+            pred_id = self.prediction_tracker.store_prediction(
+                ticker=ticker, action=final_prediction['action'],
+                confidence=confidence_result['score'], reasoning=llm_reasoning,
+                candle_pattern=candle_patterns[0]['name'] if candle_patterns else None,
+                indicators={'rsi': existing_analysis.get('rsi', 50)}
             )
-    
-            # ============================================================
-            # 3. GET PREDICTION FROM GROQ (USING NEW PROMPT)
-            # ============================================================
-            # We will only use Groq for now, as it's the only reliable one.
-            llm_predictions = {}
-            if 'groq' in self.llm_clients:
-                groq_response = await self._query_groq(autonomous_prompt, ticker)
-                if groq_response:
-                    llm_predictions['groq'] = groq_response
+            final_prediction['prediction_id'] = pred_id
             
-            logging.info(f"🔍[{ticker}] Received {len(llm_predictions)} LLM predictions using autonomous context.")
-            
-            # ============================================================
-            # 4. DETERMINE FINAL ACTION & STORE
-            # ============================================================
-            if not llm_predictions:
-                logging.warning(f"⚠️ No LLM predictions for {ticker}, cannot proceed.")
-                return {**existing_analysis, 'ai_prediction': None}
-    
-            # Use the first (and only) prediction from Groq
-            final_prediction_data = list(llm_predictions.values())[0]
-            
-            # We'll use the LLM's self-assessed confidence directly
-            final_action = final_prediction_data.get('action', 'HOLD')
-            confidence_score = final_prediction_data.get('confidence', 50)
-            llm_reasoning = final_prediction_data.get('reasoning', 'No reasoning provided.')
-    
-            # Store the prediction in the database
+            # Also save to the new Learning Database
             try:
                 learning_brain.record_prediction(
-                    stock=ticker,
-                    prediction=final_action,
-                    confidence=confidence_score,
-                    price=current_data_for_prompt['current_price'],
-                    llm_model='groq_autonomous',
-                    reasoning=llm_reasoning,
-                    indicators={
-                        'rsi': existing_analysis.get('rsi', 50),
-                        'volume_ratio': existing_analysis.get('volume_ratio', 1.0)
-                    }
+                    stock=ticker, prediction=final_prediction['action'],
+                    confidence=confidence_result['score'], price=current_data_for_prompt['current_price'],
+                    llm_model='groq_autonomous', reasoning=llm_reasoning,
+                    indicators={'rsi': existing_analysis.get('rsi', 50)}
                 )
                 logging.info(f"💾 Saved {ticker} to learning database")
             except Exception as e:
                 logging.error(f"❌ Failed to save {ticker} to database: {e}")
-    
-            # Return the enhanced data for the email
-            return {
-                **existing_analysis,
-                'ai_prediction': {
-                    'action': final_action,
-                    'confidence': confidence_score,
-                    'reasoning': llm_reasoning
-                }
-            }
-        
-    async def _get_multi_llm_consensus(self, ticker, existing_analysis, candle_patterns, pattern_success_rates, market_context):
-        logging.info(f"🔍[{ticker}] Getting LLM consensus. Available models: {list(self.llm_clients.keys())}")
-        pattern_text = "\n".join([f"{p['name']} ({p['type']}, {pattern_success_rates.get(p['name'], 50):.0f}% historical success)" for p in candle_patterns[:3]]) if candle_patterns else "No clear patterns identified"
-        context = f"""Analyze {ticker} and provide BUY/HOLD/SELL recommendation.
-TECHNICAL DATA:
-- Score: {existing_analysis.get('score', 'N/A')}/100
-- RSI: {existing_analysis.get('rsi', 'N/A')}
-- Volume: {existing_analysis.get('volume_ratio', 1.0):.1f}x average
-CANDLESTICK PATTERNS (Today):
-{pattern_text}
-MARKET CONTEXT:
-{f"Macro Score: {market_context.get('overall_macro_score', 0):.0f}" if market_context else "Not available"}
-Respond with ONLY:
-ACTION: [BUY/HOLD/SELL]
-CONFIDENCE: [0-100]
-REASON: [One sentence]"""
-        
-        tasks, llm_names = [], []
-        if 'groq' in self.llm_clients:
-            tasks.append(self._query_groq(context, ticker))
-            llm_names.append('groq')
-        if 'gemini' in self.llm_clients:
-            tasks.append(self._query_gemini(context, ticker))
-            llm_names.append('gemini')
-        if 'cohere' in self.llm_clients:
-            tasks.append(self._query_cohere(context, ticker))
-            llm_names.append('cohere')
-        if 'deepseek' in self.llm_clients:
-            tasks.append(self._query_deepseek(context, ticker))
-            llm_names.append('deepseek')
-        if 'huggingface' in self.llm_clients:  # ADD THESE 3 LINES
-            tasks.append(self._query_huggingface(context, ticker))
-            llm_names.append('huggingface')
-        
-        
-        
-        predictions = {}
-        if tasks:
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-            for llm_name, result in zip(llm_names, results):
-                if not isinstance(result, Exception) and result:
-                    predictions[llm_name] = result
-        
-        logging.info(f"🔍[{ticker}] Received {len(predictions)} LLM predictions.")
-        return predictions
 
-    async def _query_groq(self, prompt, ticker):
-        try:
-            client = self.llm_clients['groq']
-            response = await asyncio.to_thread(
-                client.chat.completions.create,
-                model="llama-3.3-70b-versatile",  # ✅ FIXED: Use the smaller, stable model
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.3, max_tokens=150
-            )
-            return self._parse_llm_response(response.choices[0].message.content, 'groq')
-        except Exception as e:
-            logging.warning(f"Groq query failed for {ticker}: {e}")
-            return None
-
-    async def _query_deepseek(self, prompt, ticker):
-        """Query DeepSeek API"""
-        logging.info(f"📞 Calling DeepSeek API for {ticker}...")  # ADD THIS LINE
-        try:
-            api_key = os.getenv('DEEPSEEK_API_KEY')
-            if not api_key:
-                logging.warning(f"⚠️ DeepSeek API key not found for {ticker}")  # ADD THIS
-                return None
+        # ============================================================
+        # 6. RETURN FULL, UNCHANGED STRUCTURE FOR EMAIL
+        #    This ensures your email format does not break.
+        # ============================================================
+        return {
+            **existing_analysis,
+            'candle_patterns': candle_patterns,
+            'pattern_success_rates': pattern_success_rates,
+            'llm_predictions': llm_predictions,
+            'confidence': confidence_result,
+            'ai_prediction': final_prediction,
+            'learning_insights': self.learning_memory.get_recent_insights(3)
+        }
+        
+        async def _get_multi_llm_consensus(self, ticker, autonomous_prompt):
+            """
+            Gets LLM consensus using a pre-built autonomous prompt.
+            This function now ONLY handles API calls, not prompt creation.
+            """
+            logging.info(f"🔍[{ticker}] Getting LLM consensus using autonomous prompt. Models: {list(self.llm_clients.keys())}")
             
-            url = "https://api.deepseek.com/v1/chat/completions"
-            headers = {
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json"
-            }
+            tasks, llm_names = [], []
             
-            data = {
-                "model": "deepseek-chat",
-                "messages": [
-                    {"role": "system", "content": "You are a stock analyst. Give clear BUY, HOLD, or SELL recommendations."},
-                    {"role": "user", "content": prompt}
-                ],
-                "temperature": 0.3,
-                "max_tokens": 150
-            }
+            # --- STABILITY FIRST: Only use the working LLM (Groq) for now ---
+            if 'groq' in self.llm_clients:
+                tasks.append(self._query_groq(autonomous_prompt, ticker))
+                llm_names.append('groq')
             
-            async with aiohttp.ClientSession() as session:
-                async with session.post(url, headers=headers, json=data) as response:
-                    response_text = await response.text()  # ADD THIS
-                    logging.info(f"🔍 DeepSeek response status for {ticker}: {response.status}")  # ADD THIS
-                    
-                    if response.status == 200:
-                        result = await response.json()
-                        return self._parse_llm_response(result['choices'][0]['message']['content'], 'deepseek')
-
-                    else:
-                        logging.error(f"❌ DeepSeek failed for {ticker}: {response.status} - {response_text[:200]}")  # ADD THIS
-                        return None
-        except Exception as e:
-            logging.warning(f"DeepSeek query failed for {ticker}: {e}")
-            return None
+            # --- The other LLMs are disabled until they are stable ---
+            # if 'gemini' in self.llm_clients:
+            #     tasks.append(self._query_gemini(autonomous_prompt, ticker))
+            #     llm_names.append('gemini')
+            # if 'deepseek' in self.llm_clients:
+            #     tasks.append(self._query_deepseek(autonomous_prompt, ticker))
+            #     llm_names.append('deepseek')
+            # etc...
+            
+            predictions = {}
+            if tasks:
+                results = await asyncio.gather(*tasks, return_exceptions=True)
+                for llm_name, result in zip(llm_names, results):
+                    if not isinstance(result, Exception) and result:
+                        predictions[llm_name] = result
+            
+            logging.info(f"🔍[{ticker}] Received {len(predictions)} LLM predictions.")
+            return predictions
 
     async def _query_huggingface(self, prompt, ticker):
         """Query HuggingFace Inference API"""
