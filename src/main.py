@@ -2251,18 +2251,18 @@ class IntelligentPredictionEngine:
         logging.info(f"🔍[{ticker}] Getting LLM consensus. Available models: {list(self.llm_clients.keys())}")
         pattern_text = "\n".join([f"{p['name']} ({p['type']}, {pattern_success_rates.get(p['name'], 50):.0f}% historical success)" for p in candle_patterns[:3]]) if candle_patterns else "No clear patterns identified"
         context = f"""Analyze {ticker} and provide BUY/HOLD/SELL recommendation.
-TECHNICAL DATA:
-- Score: {existing_analysis.get('score', 'N/A')}/100
-- RSI: {existing_analysis.get('rsi', 'N/A')}
-- Volume: {existing_analysis.get('volume_ratio', 1.0):.1f}x average
-CANDLESTICK PATTERNS (Today):
-{pattern_text}
-MARKET CONTEXT:
-{f"Macro Score: {market_context.get('overall_macro_score', 0):.0f}" if market_context else "Not available"}
-Respond with ONLY:
-ACTION: [BUY/HOLD/SELL]
-CONFIDENCE: [0-100]
-REASON: [One sentence]"""
+        TECHNICAL DATA:
+        - Score: {existing_analysis.get('score', 'N/A')}/100
+        - RSI: {existing_analysis.get('rsi', 'N/A')}
+        - Volume: {existing_analysis.get('volume_ratio', 1.0):.1f}x average
+        CANDLESTICK PATTERNS (Today):
+        {pattern_text}
+        MARKET CONTEXT:
+        {f"Macro Score: {market_context.get('overall_macro_score', 0):.0f}" if market_context else "Not available"}
+        Respond with ONLY:
+        ACTION: [BUY/HOLD/SELL]
+        CONFIDENCE: [0-100]
+        REASON: [One sentence]"""
         
         tasks, llm_names = [], []
         if 'groq' in self.llm_clients:
