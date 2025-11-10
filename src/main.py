@@ -11,7 +11,7 @@ learning_context_generator = LearningContextGenerator()
 logging.info("✅ Autonomous Learning Loop initialized")
 logging.info("✅ Autonomous Learning Loop components initialized.")
 
-from modules.llm_integration import LLMIntegration
+
 from analysis_v2.confidence_scorer import ConfidenceScorer
 from analysis_v2.analyzer_v2 import PortfolioAnalyzerV2
 from modules.learning_brain import LearningBrain
