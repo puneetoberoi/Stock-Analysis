@@ -1,0 +1,50 @@
+name: 🌅 Evening Outcome Check
+
+on:
+  schedule:
+    - cron: '0 22 * * 1-5'  # 6pm EST (10pm UTC) Mon-Fri
+  workflow_dispatch:  # Manual testing button
+
+jobs:
+  evening-check:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+      
+      - name: 📦 Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install yfinance pandas numpy requests
+      
+      - name: 🌅 Run Evening Outcome Check
+        run: |
+          echo "🔍 Checking prediction outcomes..."
+          python src/evening_check.py
+        continue-on-error: true
+        
+      - name: 💾 Commit updated learning database
+        run: |
+          git config --global user.name "Learning Bot"
+          git config --global user.email "action@github.com"
+          
+          # Add learning database
+          git add learning.db || true
+          
+          # Check if there are changes
+          if git diff --staged --quiet; then
+            echo "✅ No database changes to commit"
+          else
+            git commit -m "📊 Evening outcomes checked [skip ci]"
+            git push
+            echo "✅ Database updated and pushed"
+          fi
