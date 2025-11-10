@@ -1,5 +1,6 @@
 import os, sys, argparse, time, logging, json, asyncio
 from modules.prediction_tracker import PredictionTracker
+from modules.learning_brain import LearningBrain
 from modules.outcome_evaluator import OutcomeEvaluator
 import requests
 import pandas as pd
@@ -67,6 +68,13 @@ try:
     COHERE_AVAILABLE = True
 except ImportError:
     COHERE_AVAILABLE = False
+
+# TEST CODE - Delete after testing
+try:
+    brain = LearningBrain()
+    st.success("✅ Database connected successfully!")
+except Exception as e:
+    st.error(f"❌ Database error: {e}")
 
 
 # Add this after your imports, before any other functions:
