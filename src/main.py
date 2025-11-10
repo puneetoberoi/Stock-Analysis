@@ -2135,7 +2135,7 @@ class IntelligentPredictionEngine:
         try:
             client = self.llm_clients['groq']
             # --- THE FIX FOR ERROR #1: Use the new, recommended Groq model ---
-            model_to_use = "llama3-70b-8192" 
+            model_to_use = "llama-3.3-70b-versatile" 
             
             response = await asyncio.to_thread(
                 client.chat.completions.create,
