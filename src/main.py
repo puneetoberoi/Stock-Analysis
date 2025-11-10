@@ -2506,7 +2506,7 @@ async def main(output="print"):
             'bottom_stock': stock_results[-1] if stock_results else {}
         }
         ai_analysis = await generate_ai_oracle_analysis(market_summary, portfolio_data, pattern_data)
-        def store_predictions_to_db(predictions_dict, stock_data):
+def store_predictions_to_db(predictions_dict, stock_data):
     """Store all predictions to database for learning"""
     tracker = PredictionTracker("learning.db")
     stored_count = 0
