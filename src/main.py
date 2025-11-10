@@ -2243,11 +2243,25 @@ class IntelligentPredictionEngine:
         
         llm_predictions = await self._get_multi_llm_consensus(ticker, autonomous_prompt)
         
-        pattern_success_rates = {p['name']: self.candle_analyzer.get_pattern_success_rate(p['name'], ticker) for p in candle_patterns}
-        confidence_result = self.confidence_scorer.calculate_confidence(llm_predictions, candle_patterns, pattern_success_rates, {'rsi': existing_analysis.get('rsi', 50), 'score': existing_analysis.get('score', 50)}, {'volume_ratio': existing_analysis.get('volume_ratio', 1.0)}, market_context)
-        
-        # This call will now work correctly
-        final_prediction = self._determine_final_action(llm_predictions, confidence_result, candle_patterns)
+                # STEP 4 (NEW): Trust the AI's autonomous decision
+        final_prediction = None
+        if llm_predictions and 'groq' in llm_predictions:
+            # The AI's full response is in the 'reasoning' field
+            ai_response_text = llm_predictions['groq']['reasoning']
+            
+            # Use the AI's self-assessed action and confidence
+            parsed_prediction = self._parse_llm_response(ai_response_text, 'groq')
+            
+            final_prediction = {
+                'action': parsed_prediction['action'],
+                'confidence': parsed_prediction['confidence'], # We now use the AI's own confidence!
+                'reasoning': ai_response_text # Keep the full text for the email
+            }
+            confidence_result = {'score': parsed_prediction['confidence']} # For compatibility
+        else:
+            # Fallback if the LLM fails entirely
+            final_prediction = {'action': 'HOLD', 'reasoning': 'LLM analysis failed.', 'confidence': 0}
+            confidence_result = {'score': 0}
 
         if final_prediction:
             llm_reasoning = final_prediction.get('reasoning', 'No reasoning available.')
