@@ -2146,7 +2146,7 @@ class IntelligentPredictionEngine:
         try:
             client = self.llm_clients['groq']
             # --- THE FINAL MODEL FIX: Using the most stable and recommended Llama3 model ---
-            model_to_use = "llama3-8b-8192"
+            model_to_use = "llama-3.3-70b-versatile"
             
             logging.info(f"Querying Groq with model: {model_to_use}")
             response = await asyncio.to_thread(
