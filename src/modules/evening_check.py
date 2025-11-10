@@ -5,7 +5,7 @@ Runs at 6pm to evaluate today's predictions
 
 import sys
 import os
-import logging
+import logging, modules
 from datetime import datetime
 
 # Setup logging
