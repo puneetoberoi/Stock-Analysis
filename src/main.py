@@ -738,15 +738,36 @@ def generate_fallback_analysis(market_data, portfolio_data, pattern_data):
 
 # ✅ COMPLETE FIXED FUNCTION
 async def generate_ai_oracle_analysis(market_data, portfolio_data, pattern_data):
-    """AI-powered market analysis using Gemini with model fallback"""
-    # ... (the rest of the function is the same, just ensure this part is correct)
+    """AI-powered market analysis using Gemini with model fallback and safety settings"""
     try:
         genai.configure(api_key=GEMINI_API_KEY)
-        models_to_try = ['gemini-2.5-flash'] # ✅ Use 'gemini-pro' as primary
+        
+        # ✅ Safety settings to prevent blocking
+        safety_settings = [
+            {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
+        ]
+        
+        # Generation config for better responses
+        generation_config = {
+            "temperature": 0.7,
+            "top_p": 0.9,
+            "top_k": 40,
+            "max_output_tokens": 2048,
+        }
+        
+        models_to_try = ['gemini-2.0-flash-exp', 'gemini-1.5-flash', 'gemini-pro']
         model = None
+        
         for model_name in models_to_try:
             try:
-                model = genai.GenerativeModel(model_name)
+                model = genai.GenerativeModel(
+                    model_name=model_name,
+                    safety_settings=safety_settings,
+                    generation_config=generation_config
+                )
                 logging.info(f"✅ Successfully loaded Gemini model for Oracle: {model_name}")
                 break
             except Exception as e:
@@ -756,22 +777,40 @@ async def generate_ai_oracle_analysis(market_data, portfolio_data, pattern_data)
             logging.error("❌ Oracle: All Gemini models failed to load. Using fallback.")
             return generate_fallback_analysis(market_data, portfolio_data, pattern_data)
         
-        # ... rest of the prompt and generate_content call ...
-        prompt = f"..." # Your existing prompt
+        # Your existing prompt
+        prompt = f"""You are an elite hedge fund analyst. Analyze this market data and provide sharp, actionable intelligence.
+
+MARKET CONTEXT:
+{json.dumps(market_data, indent=2)}
+
+PORTFOLIO DATA:
+{json.dumps(portfolio_data, indent=2)}
+
+PATTERN ANALYSIS:
+{json.dumps(pattern_data, indent=2)}
+
+Provide:
+1. Today's market outlook (2-3 sentences)
+2. Key risks to watch
+3. Top 3 actionable insights
+
+Be direct, data-driven, and specific."""
+
+        # Generate response
         response = await asyncio.to_thread(
             model.generate_content,
-            prompt,
-            # ... your existing generation_config
+            prompt
         )
         
         logging.info("✅ Gemini AI Oracle analysis generated successfully")
-        return {'analysis': response.text, 'generated_at': datetime.now().isoformat()}
+        return {
+            'analysis': response.text,
+            'generated_at': datetime.now().isoformat()
+        }
         
     except Exception as e:
         logging.error(f"Gemini API Oracle error: {e}")
         return generate_fallback_analysis(market_data, portfolio_data, pattern_data)
-        
-        prompt = f"""You are an elite hedge fund analyst. Analyze this market data and provide sharp, actionable intelligence.
 
 CURRENT MARKET:
 - Geopolitical Risk: {market_data['macro']['geopolitical_risk']}/100
