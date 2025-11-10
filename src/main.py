@@ -18,12 +18,14 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from datetime import datetime, date, timedelta
 
+# 🆕 Email bot imports
 import sqlite3
 import imaplib
 import email
 import email.utils
 import re
 
+# 🆕 INTELLIGENT SYSTEM IMPORTS (Add after existing imports)
 try:
     import spacy
     SPACY_AVAILABLE = True
@@ -53,18 +55,16 @@ except ImportError:
     logging.warning("Markdown not available - using plain text")
 
 try:
-    from groq import Groq
+    import groq
     GROQ_AVAILABLE = True
 except ImportError:
     GROQ_AVAILABLE = False
-    logging.warning("Groq not available")
 
 try:
     import cohere
     COHERE_AVAILABLE = True
 except ImportError:
     COHERE_AVAILABLE = False
-    logging.warning("Cohere not available")
 
 
 # Add this after your imports, before any other functions:
