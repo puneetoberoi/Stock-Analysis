@@ -20,7 +20,7 @@ jobs:
       
       - name: Install dependencies
         run: |
-          pip install yfinance pandas numpy requests modules
+          pip install yfinance pandas numpy requests
       
       - name: Run evening check
         run: |
