@@ -2165,7 +2165,7 @@ class IntelligentPredictionEngine:
             logging.info(f"✅ LLM clients loaded: {list(self.llm_clients.keys())}")
             
             
-        async def analyze_with_learning(self, ticker, existing_analysis, hist_data, market_context=None):
+    async def analyze_with_learning(self, ticker, existing_analysis, hist_data, market_context=None):
             # ============================================================
             # 1. GET PERFORMANCE DATA (NEW)
             # ============================================================
@@ -2267,7 +2267,7 @@ class IntelligentPredictionEngine:
                 'learning_insights': self.learning_memory.get_recent_insights(3)
             }
         
-        async def _get_multi_llm_consensus(self, ticker, autonomous_prompt):
+    async def _get_multi_llm_consensus(self, ticker, autonomous_prompt):
             """
             Gets LLM consensus using a pre-built autonomous prompt.
             This function now ONLY handles API calls, not prompt creation.
