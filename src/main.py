@@ -2,6 +2,14 @@ import os, sys, argparse, time, logging, json, asyncio
 from modules.learning_brain import LearningBrain
 learning_brain = LearningBrain()
 logging.info("✅ Learning Brain initialized for SQLite storage")
+from modules.outcome_checker import OutcomeChecker
+from modules.learning_context import LearningContextGenerator
+
+# Initialize autonomous learning components
+outcome_checker = OutcomeChecker()
+learning_context_generator = LearningContextGenerator()
+logging.info("✅ Autonomous Learning Loop initialized")
+
 import requests
 import pandas as pd
 import numpy as np
@@ -2576,6 +2584,16 @@ async def check_prediction_outcomes():
 # ========================================
 
 async def main(output="print"):
+    # Check yesterday's predictions FIRST (before new analysis)
+    try:
+        yesterday_results = outcome_checker.check_yesterdays_predictions()
+        if yesterday_results:
+            logging.info(f"📊 Checked {len(yesterday_results)} predictions from yesterday")
+    except Exception as e:
+        logging.error(f"Error checking outcomes: {e}")
+    
+    # Rest of your existing main() code...
+
     logging.info("📊 FULL ANALYSIS MODE: Running market intelligence scan...")
     previous_day_memory = load_memory()
     
