@@ -1,0 +1,34 @@
+name: Evening Outcome Check
+
+on:
+  schedule:
+    - cron: '0 22 * * 1-5'  # 6pm EST (22:00 UTC) weekdays
+  workflow_dispatch:  # Manual trigger
+
+jobs:
+  evening-check:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      
+      - name: Install dependencies
+        run: |
+          pip install yfinance pandas numpy sqlite3
+      
+      - name: Run evening outcome check
+        run: python src/evening_check.py
+        
+      - name: Commit updated database
+        run: |
+          git config --global user.name "Learning Bot"
+          git config --global user.email "action@github.com"
+          git add learning.db
+          git commit -m "📊 Evening outcomes checked [skip ci]" || echo "No changes"
+          git push
