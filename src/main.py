@@ -9,6 +9,7 @@ from modules.learning_context import LearningContextGenerator
 outcome_checker = OutcomeChecker()
 learning_context_generator = LearningContextGenerator()
 logging.info("✅ Autonomous Learning Loop initialized")
+logging.info("✅ Autonomous Learning Loop components initialized.")
 
 import requests
 import pandas as pd
@@ -115,6 +116,21 @@ def save_memory(data):
 
 # ---------- Configuration ----------
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', force=True)
+# --- THIS BLOCK WAS MISSING. IT IS NOW RESTORED. ---
+analyzer_v2 = PortfolioAnalyzerV2()
+prediction_tracker = analyzer_v2.prediction_tracker
+candle_analyzer = analyzer_v2.candle_analyzer
+learning_memory = analyzer_v2.learning_memory
+confidence_scorer = analyzer_v2.confidence_scorer
+
+ENHANCED_PATTERNS_ENABLED = os.getenv('ENHANCED_PATTERNS_ENABLED', 'true').lower() == 'true'
+enhanced_pattern_detector = None
+if ENHANCED_PATTERNS_ENABLED:
+    try:
+        enhanced_pattern_detector = EnhancedPatternDetector()
+        logging.info("✅ Enhanced Pattern Detector initialized.")
+    except Exception as e:
+        logging.error(f"Failed to initialize EnhancedPatternDetector: {e}")
 logging.getLogger('yfinance').setLevel(logging.WARNING)
 REQUEST_HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
 MEMORY_FILE = "market_memory.json"
