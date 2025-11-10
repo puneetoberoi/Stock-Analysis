@@ -2506,6 +2506,78 @@ async def main(output="print"):
             'bottom_stock': stock_results[-1] if stock_results else {}
         }
         ai_analysis = await generate_ai_oracle_analysis(market_summary, portfolio_data, pattern_data)
+        def store_predictions_to_db(predictions_dict, stock_data):
+    """Store all predictions to database for learning"""
+    tracker = PredictionTracker("learning.db")
+    stored_count = 0
+    
+    for symbol, prediction_data in predictions_dict.items():
+        try:
+            # Get stock indicators and patterns
+            stock_info = next((s for s in stock_data if s['symbol'] == symbol), None)
+            if not stock_info:
+                continue
+            
+            # Extract prediction details
+            prediction = prediction_data.get('prediction', 'HOLD')
+            confidence = prediction_data.get('conviction_score', 50)
+            reasoning = prediction_data.get('consensus_reasoning', '')
+            
+            # Get the LLM that made this prediction (from reasoning)
+            llm_model = 'consensus'  # Default to consensus
+            if 'groq:' in reasoning:
+                llm_model = 'groq'
+            elif 'cohere:' in reasoning:
+                llm_model = 'cohere'
+            elif 'gemini:' in reasoning:
+                llm_model = 'gemini'
+            
+            # Prepare indicators
+            indicators = {
+                'rsi': stock_info.get('rsi'),
+                'macd': stock_info.get('macd', {}).get('macd'),
+                'volume_ratio': stock_info.get('volume_ratio')
+            }
+            
+            # Extract patterns
+            patterns = []
+            if 'patterns' in stock_info:
+                patterns = [p['pattern_name'] for p in stock_info['patterns']]
+            
+            # Market context
+            market_context = {
+                'regime': 'normal',  # You can enhance this
+                'macro_score': prediction_data.get('macro_score', 0),
+                'sector': stock_info.get('sector', 'Unknown'),
+                'news_sentiment': 0  # Can be enhanced with news sentiment
+            }
+            
+            # Log prediction
+            prediction_id = tracker.log_prediction(
+                stock=symbol,
+                prediction=prediction,
+                confidence=confidence,
+                price=stock_info.get('price'),
+                llm_model=llm_model,
+                reasoning=reasoning,
+                indicators=indicators,
+                patterns=patterns,
+                market_context=market_context
+            )
+            
+            if prediction_id > 0:
+                stored_count += 1
+                print(f"✅ Stored prediction #{prediction_id} for {symbol}")
+                
+        except Exception as e:
+            print(f"❌ Failed to store prediction for {symbol}: {e}")
+    
+    print(f"\n📊 Stored {stored_count} predictions to database")
+    return stored_count
+
+# In your main() function, after generating predictions, add:
+# if ai_predictions:
+#     store_predictions_to_db(ai_predictions, analyzed_stocks)
     
     # Outside session context - generate email
     if output == "email":
