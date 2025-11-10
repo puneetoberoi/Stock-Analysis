@@ -797,6 +797,12 @@ PORTFOLIO DATA:
 PATTERN ANALYSIS:
 {json.dumps(pattern_data, indent=2)}
 
+CURRENT MARKET:
+- Geopolitical Risk: {market_data['macro']['geopolitical_risk']}/100
+- Trade Risk: {market_data['macro']['trade_risk']}/100
+- Economic Sentiment: {market_data['macro']['economic_sentiment']:.2f}
+- Top Stock: {market_data['top_stock'].get('name', 'N/A')} - Score: {market_data['top_stock'].get('score', 'N/A')}
+
 Provide:
 1. Today's market outlook (2-3 sentences)
 2. Key risks to watch
@@ -819,13 +825,6 @@ Be direct, data-driven, and specific."""
     except Exception as e:
         logging.error(f"Gemini API Oracle error: {e}")
         return generate_fallback_analysis(market_data, portfolio_data, pattern_data)
-
-CURRENT MARKET:
-- Geopolitical Risk: {market_data['macro']['geopolitical_risk']}/100
-- Trade Risk: {market_data['macro']['trade_risk']}/100
-- Economic Sentiment: {market_data['macro']['economic_sentiment']:.2f}
-- Top Stock: {market_data['top_stock'].get('name', 'N/A')} - Score: {market_data['top_stock'].get('score', 'N/A')}
-"""
 
 PORTFOLIO HIGHLIGHTS:
 {json.dumps([{'ticker': s['ticker'], 'rsi': round(s['rsi'], 1), 'monthly_change': round(s['monthly_change'], 1)} for s in portfolio_data['stocks'][:4]], indent=2) if portfolio_data else 'N/A'}
