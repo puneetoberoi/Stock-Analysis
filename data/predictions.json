@@ -11162,5 +11162,170 @@
     "price_at_prediction": 25.670000076293945,
     "outcome": null,
     "was_correct": null
+  },
+  "1089b850": {
+    "id": "1089b850",
+    "timestamp": "2025-11-10T05:47:30.157916",
+    "ticker": "AAPL",
+    "action": "INDECISION",
+    "confidence": 70,
+    "reasoning": "No LLM reasoning.",
+    "candle_pattern": "spinning_top",
+    "indicators": {
+      "rsi": 63.66749690857546
+    },
+    "price_at_prediction": 268.4700012207031,
+    "outcome": null,
+    "was_correct": null
+  },
+  "85748be2": {
+    "id": "85748be2",
+    "timestamp": "2025-11-10T05:47:30.403190",
+    "ticker": "MSFT",
+    "action": "BEARISH_CONTINUATION",
+    "confidence": 70,
+    "reasoning": "No LLM reasoning.",
+    "candle_pattern": "three_black_crows",
+    "indicators": {
+      "rsi": 33.95125198519524
+    },
+    "price_at_prediction": 496.82000732421875,
+    "outcome": null,
+    "was_correct": null
+  },
+  "37101c58": {
+    "id": "37101c58",
+    "timestamp": "2025-11-10T05:47:30.609583",
+    "ticker": "NVDA",
+    "action": "CONSOLIDATION",
+    "confidence": 50,
+    "reasoning": "No LLM reasoning.",
+    "candle_pattern": "swing_highs_lows",
+    "indicators": {
+      "rsi": 47.92486647553633
+    },
+    "price_at_prediction": 188.14999389648438,
+    "outcome": null,
+    "was_correct": null
+  },
+  "e73410e1": {
+    "id": "e73410e1",
+    "timestamp": "2025-11-10T05:47:30.786131",
+    "ticker": "TSLA",
+    "action": "BULLISH_CONTINUATION",
+    "confidence": 75,
+    "reasoning": "No LLM reasoning.",
+    "candle_pattern": "cup_and_handle",
+    "indicators": {
+      "rsi": 47.11317611976387
+    },
+    "price_at_prediction": 429.5199890136719,
+    "outcome": null,
+    "was_correct": null
+  },
+  "8d9e7d59": {
+    "id": "8d9e7d59",
+    "timestamp": "2025-11-10T05:47:30.983980",
+    "ticker": "GOOGL",
+    "action": "BEARISH_REVERSAL",
+    "confidence": 75,
+    "reasoning": "No LLM reasoning.",
+    "candle_pattern": "evening_star",
+    "indicators": {
+      "rsi": 65.23082456227603
+    },
+    "price_at_prediction": 278.8299865722656,
+    "outcome": null,
+    "was_correct": null
+  },
+  "a809bdc5": {
+    "id": "a809bdc5",
+    "timestamp": "2025-11-10T05:47:31.176537",
+    "ticker": "TSM",
+    "action": "INDECISION",
+    "confidence": 75,
+    "reasoning": "No LLM reasoning.",
+    "candle_pattern": "spinning_top",
+    "indicators": {
+      "rsi": 45.99892518746386
+    },
+    "price_at_prediction": 286.5,
+    "outcome": null,
+    "was_correct": null
+  },
+  "2a0822fb": {
+    "id": "2a0822fb",
+    "timestamp": "2025-11-10T05:47:31.380077",
+    "ticker": "AMD",
+    "action": "BULLISH_REVERSAL",
+    "confidence": 60,
+    "reasoning": "No LLM reasoning.",
+    "candle_pattern": "hammer",
+    "indicators": {
+      "rsi": 51.272053191420724
+    },
+    "price_at_prediction": 233.5399932861328,
+    "outcome": null,
+    "was_correct": null
+  },
+  "0f621139": {
+    "id": "0f621139",
+    "timestamp": "2025-11-10T05:47:31.573772",
+    "ticker": "TD.TO",
+    "action": "BULLISH_CONTINUATION",
+    "confidence": 60,
+    "reasoning": "No LLM reasoning.",
+    "candle_pattern": "vcp",
+    "indicators": {
+      "rsi": 57.189390896390584
+    },
+    "price_at_prediction": 113.58000183105469,
+    "outcome": null,
+    "was_correct": null
+  },
+  "b396970c": {
+    "id": "b396970c",
+    "timestamp": "2025-11-10T05:47:31.764925",
+    "ticker": "AMZN",
+    "action": "BULLISH_REVERSAL",
+    "confidence": 50,
+    "reasoning": "No LLM reasoning.",
+    "candle_pattern": "hammer",
+    "indicators": {
+      "rsi": 60.91536411306747
+    },
+    "price_at_prediction": 244.41000366210938,
+    "outcome": null,
+    "was_correct": null
+  },
+  "848cf125": {
+    "id": "848cf125",
+    "timestamp": "2025-11-10T05:47:32.058901",
+    "ticker": "CGL-C.TO",
+    "action": "BEARISH_CONTINUATION",
+    "confidence": 75,
+    "reasoning": "No LLM reasoning.",
+    "candle_pattern": "three_black_crows",
+    "indicators": {
+      "rsi": 52.53473636714166
+    },
+    "price_at_prediction": 47.11000061035156,
+    "outcome": null,
+    "was_correct": null
+  },
+  "7b1c2288": {
+    "id": "7b1c2288",
+    "timestamp": "2025-11-10T05:47:32.214443",
+    "ticker": "SVR-C.TO",
+    "action": "CONSOLIDATION",
+    "confidence": 40,
+    "reasoning": "No LLM reasoning.",
+    "candle_pattern": "swing_highs_lows",
+    "indicators": {
+      "rsi": 52.73171887330879
+    },
+    "price_at_prediction": 25.670000076293945,
+    "outcome": null,
+    "was_correct": null
   }
 }
