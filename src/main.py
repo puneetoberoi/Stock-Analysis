@@ -1,25 +1,4 @@
 import os, sys, argparse, time, logging, json, asyncio
-from modules.learning_brain import LearningBrain
-learning_brain = LearningBrain()
-logging.info("✅ Learning Brain initialized for SQLite storage")
-from modules.outcome_checker import OutcomeChecker
-from modules.learning_context import LearningContextGenerator
-
-# Initialize autonomous learning components
-outcome_checker = OutcomeChecker()
-learning_context_generator = LearningContextGenerator()
-logging.info("✅ Autonomous Learning Loop initialized")
-logging.info("✅ Autonomous Learning Loop components initialized.")
-
-
-from modules.llm_integration import LLMIntegration
-from analysis_v2.confidence_scorer import ConfidenceScorer
-from analysis_v2.analyzer_v2 import PortfolioAnalyzerV2
-from modules.candlestick_scanner import CandlestickScanner
-from modules.learning_brain import LearningBrain
-from modules.outcome_checker import OutcomeChecker
-from modules.learning_context import LearningContextGenerator
-from groq import Groq
 import requests
 import pandas as pd
 import numpy as np
@@ -39,14 +18,12 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from datetime import datetime, date, timedelta
 
-# 🆕 Email bot imports
 import sqlite3
 import imaplib
 import email
 import email.utils
 import re
 
-# 🆕 INTELLIGENT SYSTEM IMPORTS (Add after existing imports)
 try:
     import spacy
     SPACY_AVAILABLE = True
@@ -76,16 +53,18 @@ except ImportError:
     logging.warning("Markdown not available - using plain text")
 
 try:
-    import groq
+    from groq import Groq
     GROQ_AVAILABLE = True
 except ImportError:
     GROQ_AVAILABLE = False
+    logging.warning("Groq not available")
 
 try:
     import cohere
     COHERE_AVAILABLE = True
 except ImportError:
     COHERE_AVAILABLE = False
+    logging.warning("Cohere not available")
 
 
 # Add this after your imports, before any other functions:
