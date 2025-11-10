@@ -2165,83 +2165,85 @@ class IntelligentPredictionEngine:
             logging.info(f"✅ LLM clients loaded: {list(self.llm_clients.keys())}")
             
             
-    async def analyze_with_learning(self, ticker, existing_analysis, hist_data, market_context=None):
-    # Get patterns from BOTH analyzers
-        candle_patterns = self.candle_analyzer.identify_pattern(hist_data)  # Basic patterns (18)
-        
-        # 🆕 Add enhanced patterns (30+ advanced patterns)
-        if ENHANCED_PATTERNS_ENABLED and enhanced_pattern_detector:
-            try:
-                enhanced_patterns = enhanced_pattern_detector.detect_all_patterns(hist_data)
-                
-                # Convert enhanced pattern format to match existing format
-                for ep in enhanced_patterns:
-                    candle_patterns.append({
-                        'name': ep['name'],
-                        'type': ep['type'],
-                        'strength': 'very_strong' if ep['strength'] >= 90 else 'strong' if ep['strength'] >= 80 else 'medium',
-                        'description': ep['description'],
-                        'enhanced': True,  # Mark as enhanced pattern
-                        'strength_score': ep['strength']  # Keep original score
-                    })
-                
-                # Log the strongest pattern from enhanced detector
-                if enhanced_patterns:
-                    strongest = enhanced_patterns[0]  # Already sorted by strength
-                    emoji = "🟢" if strongest['signal'] == 'BUY' else "🔴" if strongest['signal'] == 'SELL' else "⚪"
-                    logging.info(f"   🕯️ Enhanced: {strongest['name']} {emoji} ({strongest['signal']}, {strongest['strength']}%)")
-            
-            except Exception as e:
-                logging.debug(f"Enhanced pattern detection error for {ticker}: {e}")
-    
-        # Rest of your existing code stays the same
-        pattern_success_rates = {p['name']: self.candle_analyzer.get_pattern_success_rate(p['name'], ticker) for p in candle_patterns}
-        llm_predictions = await self._get_multi_llm_consensus(ticker, existing_analysis, candle_patterns, pattern_success_rates, market_context)
-        confidence_result = self.confidence_scorer.calculate_confidence(llm_predictions, candle_patterns, pattern_success_rates, {'rsi': existing_analysis.get('rsi', 50), 'score': existing_analysis.get('score', 50)}, {'volume_ratio': existing_analysis.get('volume_ratio', 1.0)}, market_context)
-        final_prediction = self._determine_final_action(llm_predictions, confidence_result, candle_patterns)
-        
-        if final_prediction:
-            # ============================================================
-            # Build comprehensive reasoning from LLM predictions
-            # ============================================================
-            if llm_predictions:
-                # Format: "groq: reasoning | gemini: reasoning | cohere: reasoning"
-                llm_reasoning = " | ".join([
-                    f"{llm_name}: {pred.get('reasoning', pred.get('action', 'No reasoning'))}" 
-                    for llm_name, pred in llm_predictions.items()
-                ])
-            else:
-                llm_reasoning = final_prediction.get('reasoning', 'No LLM reasoning available')
-            
-            # Store prediction with detailed LLM reasoning
-            pred_id = self.prediction_tracker.store_prediction(
-                ticker=ticker,
-                action=final_prediction['action'],
-                confidence=confidence_result['score'],
-                reasoning=llm_reasoning,  # ← Use LLM reasoning, not final_prediction['reasoning']
-                candle_pattern=candle_patterns[0]['name'] if candle_patterns else None,
-                indicators={'rsi': existing_analysis.get('rsi', 50)}
-            )
-            final_prediction['prediction_id'] = pred_id
-            print(f"DEBUG: About to save {ticker} to database")  # ADD THIS LINE
-            
-            # Also save to learning database
-            try:
-                learning_brain.record_prediction(
-                    stock=ticker,
-                    prediction=final_prediction['action'],
-                    confidence=confidence_result['score'],
-                    price=existing_analysis.get('current_price', 0),
-                    llm_model='consensus',
-                    reasoning=llm_reasoning,
-                    indicators={'rsi': existing_analysis.get('rsi', 50)}
-                )
-                logging.info(f"💾 Saved {ticker} to learning database")
-            except Exception as e:
-                logging.error(f"❌ Failed to save {ticker} to database: {e}")
-        
-        return {**existing_analysis, 'candle_patterns': candle_patterns, 'pattern_success_rates': pattern_success_rates, 'llm_predictions': llm_predictions, 'confidence': confidence_result, 'ai_prediction': final_prediction, 'learning_insights': self.learning_memory.get_recent_insights(3)}
+        async def analyze_with_learning(self, ticker, existing_analysis, hist_data, market_context=None):
+        # ============================================================
+        # 1. GET PERFORMANCE DATA (NEW)
+        # ============================================================
+        performance_summary = outcome_checker.get_performance_summary(days=30)
 
+        # ============================================================
+        # 2. GENERATE AUTONOMOUS CONTEXT (NEW)
+        # ============================================================
+        # Combine current analysis with market context for the prompt
+        current_data_for_prompt = {
+            **existing_analysis,
+            'patterns': [p['name'] for p in self.candle_analyzer.identify_pattern(hist_data)],
+            'macro_score': market_context.get('overall_macro_score', 0) if market_context else 0,
+            'current_price': hist_data['Close'].iloc[-1]
+        }
+        
+        # Generate the full autonomous prompt
+        autonomous_prompt = learning_context_generator.generate_autonomous_context(
+            stock=ticker,
+            current_data=current_data_for_prompt,
+            performance_summary=performance_summary
+        )
+
+        # ============================================================
+        # 3. GET PREDICTION FROM GROQ (USING NEW PROMPT)
+        # ============================================================
+        # We will only use Groq for now, as it's the only reliable one.
+        llm_predictions = {}
+        if 'groq' in self.llm_clients:
+            groq_response = await self._query_groq(autonomous_prompt, ticker)
+            if groq_response:
+                llm_predictions['groq'] = groq_response
+        
+        logging.info(f"🔍[{ticker}] Received {len(llm_predictions)} LLM predictions using autonomous context.")
+        
+        # ============================================================
+        # 4. DETERMINE FINAL ACTION & STORE
+        # ============================================================
+        if not llm_predictions:
+            logging.warning(f"⚠️ No LLM predictions for {ticker}, cannot proceed.")
+            return {**existing_analysis, 'ai_prediction': None}
+
+        # Use the first (and only) prediction from Groq
+        final_prediction_data = list(llm_predictions.values())[0]
+        
+        # We'll use the LLM's self-assessed confidence directly
+        final_action = final_prediction_data.get('action', 'HOLD')
+        confidence_score = final_prediction_data.get('confidence', 50)
+        llm_reasoning = final_prediction_data.get('reasoning', 'No reasoning provided.')
+
+        # Store the prediction in the database
+        try:
+            learning_brain.record_prediction(
+                stock=ticker,
+                prediction=final_action,
+                confidence=confidence_score,
+                price=current_data_for_prompt['current_price'],
+                llm_model='groq_autonomous',
+                reasoning=llm_reasoning,
+                indicators={
+                    'rsi': existing_analysis.get('rsi', 50),
+                    'volume_ratio': existing_analysis.get('volume_ratio', 1.0)
+                }
+            )
+            logging.info(f"💾 Saved {ticker} to learning database")
+        except Exception as e:
+            logging.error(f"❌ Failed to save {ticker} to database: {e}")
+
+        # Return the enhanced data for the email
+        return {
+            **existing_analysis,
+            'ai_prediction': {
+                'action': final_action,
+                'confidence': confidence_score,
+                'reasoning': llm_reasoning
+            }
+        }
+        
     async def _get_multi_llm_consensus(self, ticker, existing_analysis, candle_patterns, pattern_success_rates, market_context):
         logging.info(f"🔍[{ticker}] Getting LLM consensus. Available models: {list(self.llm_clients.keys())}")
         pattern_text = "\n".join([f"{p['name']} ({p['type']}, {pattern_success_rates.get(p['name'], 50):.0f}% historical success)" for p in candle_patterns[:3]]) if candle_patterns else "No clear patterns identified"
