@@ -2099,13 +2099,16 @@ class ConfidenceScorer:
 # THE FINAL, GUARANTEED-TO-WORK, RESILIENT INTELLIGENT PREDICTION ENGINE
 # =================================================================================
 class IntelligentPredictionEngine:
-    def __init__(self):
-        self.prediction_tracker = prediction_tracker
-        self.candle_analyzer = candle_analyzer
-        self.learning_memory = learning_memory
-        self.confidence_scorer = confidence_scorer
+    def __init__(self, analyzer_v2_instance):
+        # --- THE DEFINITIVE FIX: We now pass in your working analyzer ---
+        self.analyzer_v2 = analyzer_v2_instance
+        self.prediction_tracker = self.analyzer_v2.prediction_tracker
+        self.candle_analyzer = self.analyzer_v2.candle_analyzer
+        self.learning_memory = self.analyzer_v2.learning_memory
+        self.confidence_scorer = self.analyzer_v2.confidence_scorer
+        # --- END OF DEFINITIVE FIX ---
+        
         self.llm_clients = {}
-        # A priority list of models. It will try them in order.
         self.groq_model_priority = ["llama3-8b-8192", "gemma-7b-it", "llama3-70b-8192"]
         self._setup_llm_clients()
 
@@ -2123,73 +2126,63 @@ class IntelligentPredictionEngine:
         client = self.llm_clients.get('groq')
         if not client: return None
 
-        # --- THE RESILIENCE FIX: Loop through models until one works ---
         for model in self.groq_model_priority:
             try:
                 logging.info(f"Attempting Groq query for {ticker} with model: {model}")
                 response = await asyncio.to_thread(
                     client.chat.completions.create,
-                    model=model,
-                    messages=[{"role": "user", "content": prompt}],
-                    temperature=0.2,
-                    max_tokens=350
+                    model=model, messages=[{"role": "user", "content": prompt}],
+                    temperature=0.2, max_tokens=350
                 )
                 logging.info(f"✅ Groq query successful for {ticker} with model: {model}")
                 return {'reasoning': response.choices[0].message.content}
             except Exception as e:
-                logging.warning(f"Groq model '{model}' failed for {ticker}: {e}. Trying next model...")
+                if 'decommissioned' in str(e):
+                    logging.warning(f"Groq model '{model}' is decommissioned. Trying next model...")
+                else:
+                    logging.warning(f"Groq query with model '{model}' failed for {ticker}: {e}")
                 continue
         
-        logging.error(f"❌ All Groq models failed for {ticker}. No prediction will be made by LLM.")
+        logging.error(f"❌ All Groq models failed for {ticker}.")
         return None
 
     def _parse_llm_reasoning_for_action(self, reasoning_text):
-        """A robust parser that ALWAYS returns 'BUY', 'SELL', or 'HOLD'."""
         if not reasoning_text: return "HOLD"
         text_upper = reasoning_text.upper()
-        # Stricter search first
         if "ACTION: BUY" in text_upper or "PREDICTION: BUY" in text_upper: return "BUY"
         if "ACTION: SELL" in text_upper or "PREDICTION: SELL" in text_upper: return "SELL"
         if "ACTION: HOLD" in text_upper or "PREDICTION: HOLD" in text_upper: return "HOLD"
-        # Fallback to general keyword search
-        if "BULLISH" in text_upper or "UPTREND" in text_upper: return "BUY"
-        if "BEARISH" in text_upper or "DOWNTREND" in text_upper: return "SELL"
         return "HOLD"
 
     def _determine_final_action(self, parsed_llm_predictions, candle_patterns):
-        """Your original function - now with a bulletproof fallback."""
         if parsed_llm_predictions:
             return {'action': list(parsed_llm_predictions.values())[0]['action']}
 
-        logging.warning("LLM predictions failed. Falling back to rule-based pattern analysis.")
+        logging.warning("LLM failed. Falling back to rule-based pattern analysis.")
         if candle_patterns:
             strongest_pattern_type = candle_patterns[0].get('type', 'HOLD').upper()
-            if "BUY" in strongest_pattern_type: return {'action': 'BUY', 'reasoning': f"LLM FAILED. Fallback: {candle_patterns[0]['name']}"}
-            if "SELL" in strongest_pattern_type: return {'action': 'SELL', 'reasoning': f"LLM FAILED. Fallback: {candle_patterns[0]['name']}"}
+            action = 'HOLD'
+            if "BUY" in strongest_pattern_type: action = 'BUY'
+            elif "SELL" in strongest_pattern_type: action = 'SELL'
+            return {'action': action, 'reasoning': f"LLM FAILED. Fallback: {candle_patterns[0]['name']}"}
         return {'action': 'HOLD', 'reasoning': 'LLM FAILED and no clear candlestick signal.'}
 
     async def _get_multi_llm_consensus(self, ticker, autonomous_prompt):
         logging.info(f"🔍[{ticker}] Getting LLM consensus using autonomous prompt.")
-        tasks, llm_names = [], []
-        
-        if 'groq' in self.llm_clients:
-            tasks.append(self._query_groq(autonomous_prompt, ticker))
-            llm_names.append('groq')
+        tasks = [self._query_groq(autonomous_prompt, ticker)] if 'groq' in self.llm_clients else []
         
         raw_predictions = {}
         if tasks:
             results = await asyncio.gather(*tasks, return_exceptions=True)
-            for llm_name, result in zip(llm_names, results):
-                if result and not isinstance(result, Exception):
-                    raw_predictions[llm_name] = result
+            if results and results[0] and not isinstance(results[0], Exception):
+                raw_predictions['groq'] = results[0]
         
         logging.info(f"🔍[{ticker}] Received {len(raw_predictions)} LLM predictions.")
         return raw_predictions
 
     async def analyze_with_learning(self, ticker, existing_analysis, hist_data, market_context=None):
-        """The final, integrated analysis function."""
-        performance_summary = outcome_checker.get_performance_summary(days=30) if outcome_checker else None
-        candle_patterns = candle_analyzer.identify_pattern(hist_data)
+        performance_summary = outcome_checker.get_performance_summary(days=30)
+        candle_patterns = self.candle_analyzer.identify_pattern(hist_data)
         
         if ENHANCED_PATTERNS_ENABLED and enhanced_pattern_detector:
             try:
@@ -2201,23 +2194,14 @@ class IntelligentPredictionEngine:
                     logging.info(f"   🕯️ Enhanced: {strongest['name']} {emoji} ({strongest['signal']}, {strongest['strength']}%)")
             except Exception as e: logging.debug(f"Enhanced pattern detection error for {ticker}: {e}")
 
-        pattern_success_rates = {p['name']: candle_analyzer.get_pattern_success_rate(p['name'], ticker) for p in candle_patterns}
+        pattern_success_rates = {p['name']: self.candle_analyzer.get_pattern_success_rate(p['name'], ticker) for p in candle_patterns}
         current_data_for_prompt = {**existing_analysis, 'patterns': [p['name'] for p in candle_patterns], 'macro_score': market_context.get('overall_macro_score', 0) if market_context else 0, 'current_price': hist_data['Close'].iloc[-1]}
         
-        autonomous_prompt = learning_context_generator.generate_autonomous_context(stock=ticker, current_data=current_data_for_prompt, performance_summary=performance_summary) if learning_context_generator else "Provide a stock analysis."
+        autonomous_prompt = learning_context_generator.generate_autonomous_context(stock=ticker, current_data=current_data_for_prompt, performance_summary=performance_summary)
         
         raw_llm_predictions = await self._get_multi_llm_consensus(ticker, autonomous_prompt)
+        parsed_llm_predictions = {name: {'action': self._parse_llm_reasoning_for_action(pred['reasoning']), 'confidence': 50} for name, pred in raw_llm_predictions.items()}
         
-        # This clean parsing step prevents the KeyError
-        parsed_llm_predictions = {}
-        if raw_llm_predictions:
-            for name, pred in raw_llm_predictions.items():
-                # This parser ALWAYS returns 'BUY', 'SELL', or 'HOLD'
-                parsed_action = self._parse_llm_reasoning_for_action(pred.get('reasoning', ''))
-                # This ensures the dictionary always has the keys your system expects
-                parsed_llm_predictions[name] = {'action': parsed_action, 'confidence': 50, 'reasoning': pred.get('reasoning', '')}
-
-        # Step B: Your original, working logic can now run without crashing
         confidence_result = self.confidence_scorer.calculate_confidence(parsed_llm_predictions, candle_patterns, pattern_success_rates, {'rsi': existing_analysis.get('rsi', 50), 'score': existing_analysis.get('score', 50)}, {'volume_ratio': existing_analysis.get('volume_ratio', 1.0)}, market_context)
         final_prediction = self._determine_final_action(parsed_llm_predictions, candle_patterns)
 
@@ -2225,17 +2209,16 @@ class IntelligentPredictionEngine:
             llm_reasoning = " | ".join([pred.get('reasoning', 'N/A') for pred in raw_llm_predictions.values()]) if raw_llm_predictions else final_prediction.get('reasoning', "No LLM reasoning available.")
             final_prediction['reasoning'] = llm_reasoning
 
-            pred_id = prediction_tracker.store_prediction(ticker=ticker, action=final_prediction['action'], confidence=confidence_result['score'], reasoning=llm_reasoning, candle_pattern=candle_patterns[0]['name'] if candle_patterns else None, indicators={'rsi': existing_analysis.get('rsi', 50)})
+            pred_id = self.prediction_tracker.store_prediction(ticker=ticker, action=final_prediction['action'], confidence=confidence_result['score'], reasoning=llm_reasoning, candle_pattern=candle_patterns[0]['name'] if candle_patterns else None, indicators={'rsi': existing_analysis.get('rsi', 50)})
             final_prediction['prediction_id'] = pred_id
             
-            if learning_brain:
-                learning_brain.record_prediction(stock=ticker, prediction=final_prediction['action'], confidence=confidence_result['score'], price=current_data_for_prompt['current_price'], llm_model='groq_autonomous', reasoning=llm_reasoning, indicators={'rsi': existing_analysis.get('rsi', 50)})
-                logging.info(f"💾 Saved {ticker} to learning database")
+            learning_brain.record_prediction(stock=ticker, prediction=final_prediction['action'], confidence=confidence_result['score'], price=current_data_for_prompt['current_price'], llm_model='groq_autonomous', reasoning=llm_reasoning, indicators={'rsi': existing_analysis.get('rsi', 50)})
+            logging.info(f"💾 Saved {ticker} to learning database")
 
         return {
             **existing_analysis, 'candle_patterns': candle_patterns, 'pattern_success_rates': pattern_success_rates,
             'llm_predictions': raw_llm_predictions, 'confidence': confidence_result,
-            'ai_prediction': final_prediction, 'learning_insights': learning_memory.get_recent_insights(3)
+            'ai_prediction': final_prediction, 'learning_insights': self.learning_memory.get_recent_insights(3)
         }
 # ========================================
 # 🎯 ENHANCED PORTFOLIO ANALYZER
@@ -2243,86 +2226,34 @@ class IntelligentPredictionEngine:
 # ========================================
 
 async def analyze_portfolio_with_predictions(session, portfolio_file='portfolio.json', market_context=None):
-    """
-    Enhanced portfolio analysis with predictions and market context
-    """
-    
     logging.info("=" * 60)
     logging.info("🧠 ANALYZE WITH PREDICTIONS - START")
-    logging.info(f"Market context provided: {market_context is not None}")
     
-    # Call v2.0 portfolio analysis (has Bollinger, ATR, etc.)
-    original_portfolio_data = await analyze_portfolio_with_v2_features(session, portfolio_file)
-    
-    if not original_portfolio_data:
-        logging.warning("No portfolio data from v2 features")
-        return original_portfolio_data
+    # analyzer_v2 is already defined globally
+    original_portfolio_data = await analyzer_v2.analyze_portfolio_with_v2_features(session, portfolio_file)
+    if not original_portfolio_data: return None
     
     logging.info(f"Original portfolio has {len(original_portfolio_data.get('stocks', []))} stocks")
     
-    # Initialize prediction engine
     try:
-        prediction_engine = IntelligentPredictionEngine()
-        logging.info(f"Prediction engine initialized. LLMs available: {list(prediction_engine.llm_clients.keys())}")
+        # --- THE FIX ---
+        # We pass the global analyzer_v2 instance into the engine
+        prediction_engine = IntelligentPredictionEngine(analyzer_v2)
+        # --- END FIX ---
+        logging.info(f"Prediction engine initialized.")
     except Exception as e:
-        logging.error(f"Failed to initialize prediction engine: {e}")
-        # Return original data without predictions
-        return {
-            **original_portfolio_data,
-            'learning_active': False,
-            'predictions_made': 0
-        }
+        logging.error(f"FATAL: Failed to initialize prediction engine: {e}", exc_info=True)
+        return {**original_portfolio_data, 'predictions_made': 0}
     
-    # Add predictions to each stock
-    enhanced_stocks = []
-    successful_predictions = 0
+    tasks = [enhance_stock_with_prediction(prediction_engine, stock, market_context) for stock in original_portfolio_data['stocks']]
+    results = await asyncio.gather(*tasks)
     
-    for stock in original_portfolio_data['stocks']:
-        try:
-            ticker = stock['ticker']
-            logging.info(f"🔍 Processing {ticker}...")
-            
-            yf_ticker = yf.Ticker(ticker)
-            hist = await asyncio.to_thread(yf_ticker.history, period="3mo", interval="1d")
-            
-            if hist.empty:
-                logging.warning(f"No history for {ticker}, skipping predictions")
-                enhanced_stocks.append(stock)
-                continue
-            
-            # Get enhanced analysis with market context
-            enhanced = await prediction_engine.analyze_with_learning(
-                ticker=ticker,
-                existing_analysis=stock,
-                hist_data=hist,
-                market_context=market_context
-            )
-            
-            # Verify prediction was added
-            if 'ai_prediction' in enhanced:
-                successful_predictions += 1
-                logging.info(f"✅ {ticker}: Prediction added - {enhanced['ai_prediction']['action']}")
-            else:
-                logging.warning(f"⚠️ {ticker}: No prediction generated")
-            
-            enhanced_stocks.append(enhanced)
-            
-        except Exception as e:
-            logging.error(f"Error enhancing {ticker}: {e}")
-            enhanced_stocks.append(stock)  # Keep original
-    
-    result = {
-        **original_portfolio_data,
-        'stocks': enhanced_stocks,
-        'predictions_made': successful_predictions,
-        'learning_active': True
-    }
+    successful_predictions = sum(1 for stock in results if stock and stock.get('ai_prediction'))
     
     logging.info("=" * 60)
-    logging.info(f"✅ PREDICTIONS COMPLETE: {successful_predictions}/{len(enhanced_stocks)} stocks")
-    logging.info("=" * 60)
+    logging.info(f"✅ PREDICTIONS COMPLETE: {successful_predictions}/{len(results)} stocks")
     
-    return result
+    return {**original_portfolio_data, 'stocks': results, 'predictions_made': successful_predictions}
 
 
 # ========================================
