@@ -11492,5 +11492,170 @@
     "price_at_prediction": 25.670000076293945,
     "outcome": null,
     "was_correct": null
+  },
+  "31a2660a": {
+    "id": "31a2660a",
+    "timestamp": "2025-11-10T16:51:58.201529",
+    "ticker": "AAPL",
+    "action": "HOLD",
+    "confidence": 60,
+    "reasoning": "LLM FAILED and no clear candlestick signal found.",
+    "candle_pattern": "doji",
+    "indicators": {
+      "rsi": 64.4586732059029
+    },
+    "price_at_prediction": 269.0199890136719,
+    "outcome": null,
+    "was_correct": null
+  },
+  "158b3866": {
+    "id": "158b3866",
+    "timestamp": "2025-11-10T16:51:58.438633",
+    "ticker": "MSFT",
+    "action": "HOLD",
+    "confidence": 45,
+    "reasoning": "LLM FAILED and no clear candlestick signal found.",
+    "candle_pattern": "doji",
+    "indicators": {
+      "rsi": 37.36289133944331
+    },
+    "price_at_prediction": 500.1025085449219,
+    "outcome": null,
+    "was_correct": null
+  },
+  "85c12de2": {
+    "id": "85c12de2",
+    "timestamp": "2025-11-10T16:51:58.649756",
+    "ticker": "NVDA",
+    "action": "HOLD",
+    "confidence": 60,
+    "reasoning": "LLM FAILED and no clear candlestick signal found.",
+    "candle_pattern": "inverted_hammer",
+    "indicators": {
+      "rsi": 53.94913513961613
+    },
+    "price_at_prediction": 194.41000366210938,
+    "outcome": null,
+    "was_correct": null
+  },
+  "6d3a7439": {
+    "id": "6d3a7439",
+    "timestamp": "2025-11-10T16:51:58.866016",
+    "ticker": "TSLA",
+    "action": "HOLD",
+    "confidence": 65,
+    "reasoning": "LLM FAILED and no clear candlestick signal found.",
+    "candle_pattern": "cup_and_handle",
+    "indicators": {
+      "rsi": 51.48943765026649
+    },
+    "price_at_prediction": 444.82000732421875,
+    "outcome": null,
+    "was_correct": null
+  },
+  "0375c8c2": {
+    "id": "0375c8c2",
+    "timestamp": "2025-11-10T16:51:59.085368",
+    "ticker": "GOOGL",
+    "action": "HOLD",
+    "confidence": 65,
+    "reasoning": "LLM FAILED and no clear candlestick signal found.",
+    "candle_pattern": "spinning_top",
+    "indicators": {
+      "rsi": 69.51775254645489
+    },
+    "price_at_prediction": 285.9200134277344,
+    "outcome": null,
+    "was_correct": null
+  },
+  "0d72b9bc": {
+    "id": "0d72b9bc",
+    "timestamp": "2025-11-10T16:51:59.265512",
+    "ticker": "TSM",
+    "action": "HOLD",
+    "confidence": 65,
+    "reasoning": "LLM FAILED and no clear candlestick signal found.",
+    "candle_pattern": "double_top",
+    "indicators": {
+      "rsi": 50.552607795899945
+    },
+    "price_at_prediction": 292.260009765625,
+    "outcome": null,
+    "was_correct": null
+  },
+  "63c7b30f": {
+    "id": "63c7b30f",
+    "timestamp": "2025-11-10T16:51:59.451882",
+    "ticker": "AMD",
+    "action": "HOLD",
+    "confidence": 65,
+    "reasoning": "LLM FAILED and no clear candlestick signal found.",
+    "candle_pattern": "doji",
+    "indicators": {
+      "rsi": 55.5880162890533
+    },
+    "price_at_prediction": 242.63499450683594,
+    "outcome": null,
+    "was_correct": null
+  },
+  "fc8ef13d": {
+    "id": "fc8ef13d",
+    "timestamp": "2025-11-10T16:51:59.695410",
+    "ticker": "TD.TO",
+    "action": "HOLD",
+    "confidence": 65,
+    "reasoning": "LLM FAILED and no clear candlestick signal found.",
+    "candle_pattern": "bearish_engulfing",
+    "indicators": {
+      "rsi": 53.74403983540924
+    },
+    "price_at_prediction": 113.02999877929688,
+    "outcome": null,
+    "was_correct": null
+  },
+  "78e5a53d": {
+    "id": "78e5a53d",
+    "timestamp": "2025-11-10T16:51:59.992455",
+    "ticker": "AMZN",
+    "action": "HOLD",
+    "confidence": 55,
+    "reasoning": "LLM FAILED and no clear candlestick signal found.",
+    "candle_pattern": "swing_highs_lows",
+    "indicators": {
+      "rsi": 62.08833738448071
+    },
+    "price_at_prediction": 246.19009399414062,
+    "outcome": null,
+    "was_correct": null
+  },
+  "cdd02e61": {
+    "id": "cdd02e61",
+    "timestamp": "2025-11-10T16:52:00.169715",
+    "ticker": "CGL-C.TO",
+    "action": "HOLD",
+    "confidence": 65,
+    "reasoning": "LLM FAILED and no clear candlestick signal found.",
+    "candle_pattern": "morning_star",
+    "indicators": {
+      "rsi": 58.38749677906536
+    },
+    "price_at_prediction": 48.18000030517578,
+    "outcome": null,
+    "was_correct": null
+  },
+  "659dd313": {
+    "id": "659dd313",
+    "timestamp": "2025-11-10T16:52:00.411741",
+    "ticker": "SVR-C.TO",
+    "action": "HOLD",
+    "confidence": 75,
+    "reasoning": "LLM FAILED and no clear candlestick signal found.",
+    "candle_pattern": "morning_star",
+    "indicators": {
+      "rsi": 58.840048902463764
+    },
+    "price_at_prediction": 26.59000015258789,
+    "outcome": null,
+    "was_correct": null
   }
 }
