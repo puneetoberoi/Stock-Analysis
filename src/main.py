@@ -11,6 +11,13 @@ learning_context_generator = LearningContextGenerator()
 logging.info("✅ Autonomous Learning Loop initialized")
 logging.info("✅ Autonomous Learning Loop components initialized.")
 
+from src.modules.llm_integration import LLMIntegration
+from src.analysis_v2.confidence_scorer import ConfidenceScorer
+from src.analysis_v2.analyzer_v2 import PortfolioAnalyzerV2
+from src.modules.learning_brain import LearningBrain
+from src.modules.outcome_checker import OutcomeChecker
+from src.modules.learning_context import LearningContextGenerator
+from groq import Groq
 import requests
 import pandas as pd
 import numpy as np
@@ -116,8 +123,127 @@ def save_memory(data):
 
 # ---------- Configuration ----------
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', force=True)
+
+# =================================================================================
+# THE FINAL, GUARANTEED-TO-WORK, RESILIENT INTELLIGENT PREDICTION ENGINE
+# =================================================================================
+class IntelligentPredictionEngine:
+    def __init__(self, analyzer_v2_instance):
+        self.analyzer_v2 = analyzer_v2_instance
+        self.prediction_tracker = self.analyzer_v2.prediction_tracker
+        self.candle_analyzer = self.analyzer_v2.candle_analyzer
+        self.learning_memory = self.analyzer_v2.learning_memory
+        self.confidence_scorer = self.analyzer_v2.confidence_scorer
+        self.llm_clients = {}
+        self.groq_model_priority = ["llama3-8b-8192", "gemma-7b-it", "llama3-70b-8192"]
+        self._setup_llm_clients()
+
+    def _setup_llm_clients(self):
+        if os.getenv("GROQ_API_KEY"):
+            try:
+                from groq import Groq
+                self.llm_clients['groq'] = Groq(api_key=os.getenv("GROQ_API_KEY"))
+                logging.info("✅ SUCCESS: Groq LLM client initialized.")
+            except Exception as e: logging.error(f"❌ FAILED: Groq initialization error: {e}")
+        logging.info(f"✅ LLM clients loaded: {list(self.llm_clients.keys())}")
+
+    async def _query_groq(self, prompt, ticker):
+        client = self.llm_clients.get('groq')
+        if not client: return None
+        for model in self.groq_model_priority:
+            try:
+                logging.info(f"Attempting Groq query for {ticker} with model: {model}")
+                response = await asyncio.to_thread(
+                    client.chat.completions.create,
+                    model=model, messages=[{"role": "user", "content": prompt}],
+                    temperature=0.2, max_tokens=350
+                )
+                logging.info(f"✅ Groq query successful for {ticker} with model: {model}")
+                return {'reasoning': response.choices[0].message.content}
+            except Exception as e:
+                if 'decommissioned' in str(e).lower():
+                    logging.warning(f"Groq model '{model}' is decommissioned. Trying next model...")
+                else:
+                    logging.warning(f"Groq query with model '{model}' failed for {ticker}: {e}")
+                continue
+        logging.error(f"❌ All Groq models failed for {ticker}.")
+        return None
+
+    def _parse_llm_reasoning_for_action(self, reasoning_text):
+        if not reasoning_text: return "HOLD"
+        text_upper = reasoning_text.upper()
+        if "ACTION: BUY" in text_upper or "PREDICTION: BUY" in text_upper: return "BUY"
+        if "ACTION: SELL" in text_upper or "PREDICTION: SELL" in text_upper: return "SELL"
+        if "ACTION: HOLD" in text_upper or "PREDICTION: HOLD" in text_upper: return "HOLD"
+        return "HOLD"
+
+    def _determine_final_action(self, parsed_llm_predictions, candle_patterns):
+        if parsed_llm_predictions:
+            return {'action': list(parsed_llm_predictions.values())[0]['action']}
+        logging.warning("LLM failed. Falling back to rule-based pattern analysis.")
+        if candle_patterns:
+            strongest_pattern_type = candle_patterns[0].get('type', 'HOLD').upper()
+            action = 'HOLD'
+            if "BUY" in strongest_pattern_type: action = 'BUY'
+            elif "SELL" in strongest_pattern_type: action = 'SELL'
+            return {'action': action, 'reasoning': f"LLM FAILED. Fallback: {candle_patterns[0]['name']}"}
+        return {'action': 'HOLD', 'reasoning': 'LLM FAILED and no clear candlestick signal.'}
+
+    async def _get_multi_llm_consensus(self, ticker, autonomous_prompt):
+        logging.info(f"🔍[{ticker}] Getting LLM consensus using autonomous prompt.")
+        tasks = [self._query_groq(autonomous_prompt, ticker)] if 'groq' in self.llm_clients else []
+        raw_predictions = {}
+        if tasks:
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            if results and results[0] and not isinstance(results[0], Exception):
+                raw_predictions['groq'] = results[0]
+        logging.info(f"🔍[{ticker}] Received {len(raw_predictions)} LLM predictions.")
+        return raw_predictions
+
+    async def analyze_with_learning(self, ticker, existing_analysis, hist_data, market_context=None):
+        performance_summary = outcome_checker.get_performance_summary(days=30)
+        candle_patterns = self.candle_analyzer.identify_pattern(hist_data)
+        if ENHANCED_PATTERNS_ENABLED and enhanced_pattern_detector:
+            try:
+                enhanced_patterns = enhanced_pattern_detector.detect_all_patterns(hist_data)
+                for ep in enhanced_patterns: candle_patterns.append({'name': ep['name'], 'type': ep['type'], 'strength': 'very_strong' if ep['strength'] >= 90 else 'strong', 'description': ep['description'], 'enhanced': True, 'strength_score': ep['strength']})
+                if enhanced_patterns:
+                    strongest = enhanced_patterns[0]
+                    emoji = "🟢" if strongest['signal'] == 'BUY' else "🔴" if strongest['signal'] == 'SELL' else "⚪"
+                    logging.info(f"   🕯️ Enhanced: {strongest['name']} {emoji} ({strongest['signal']}, {strongest['strength']}%)")
+            except Exception as e: logging.debug(f"Enhanced pattern detection error for {ticker}: {e}")
+
+        pattern_success_rates = {p['name']: self.candle_analyzer.get_pattern_success_rate(p['name'], ticker) for p in candle_patterns}
+        current_data_for_prompt = {**existing_analysis, 'patterns': [p['name'] for p in candle_patterns], 'macro_score': market_context.get('overall_macro_score', 0) if market_context else 0, 'current_price': hist_data['Close'].iloc[-1]}
+        autonomous_prompt = learning_context_generator.generate_autonomous_context(stock=ticker, current_data=current_data_for_prompt, performance_summary=performance_summary)
+        raw_llm_predictions = await self._get_multi_llm_consensus(ticker, autonomous_prompt)
+        parsed_llm_predictions = {name: {'action': self._parse_llm_reasoning_for_action(pred['reasoning']), 'confidence': 50} for name, pred in raw_llm_predictions.items()}
+        confidence_result = self.confidence_scorer.calculate_confidence(parsed_llm_predictions, candle_patterns, pattern_success_rates, {'rsi': existing_analysis.get('rsi', 50), 'score': existing_analysis.get('score', 50)}, {'volume_ratio': existing_analysis.get('volume_ratio', 1.0)}, market_context)
+        final_prediction = self._determine_final_action(parsed_llm_predictions, candle_patterns)
+
+        if final_prediction:
+            llm_reasoning = " | ".join([pred.get('reasoning', 'N/A') for pred in raw_llm_predictions.values()]) if raw_llm_predictions else final_prediction.get('reasoning', "No LLM reasoning available.")
+            final_prediction['reasoning'] = llm_reasoning
+            pred_id = self.prediction_tracker.store_prediction(ticker=ticker, action=final_prediction['action'], confidence=confidence_result['score'], reasoning=llm_reasoning, candle_pattern=candle_patterns[0]['name'] if candle_patterns else None, indicators={'rsi': existing_analysis.get('rsi', 50)})
+            final_prediction['prediction_id'] = pred_id
+            learning_brain.record_prediction(stock=ticker, prediction=final_prediction['action'], confidence=confidence_result['score'], price=current_data_for_prompt['current_price'], llm_model='groq_autonomous', reasoning=llm_reasoning, indicators={'rsi': existing_analysis.get('rsi', 50)})
+            logging.info(f"💾 Saved {ticker} to learning database")
+
+        return {
+            **existing_analysis, 'candle_patterns': candle_patterns, 'pattern_success_rates': pattern_success_rates,
+            'llm_predictions': raw_llm_predictions, 'confidence': confidence_result,
+            'ai_prediction': final_prediction, 'learning_insights': self.learning_memory.get_recent_insights(3)
+        }
 # --- THIS BLOCK WAS MISSING. IT IS NOW RESTORED. ---
-analyzer_v2 = PortfolioAnalyzerV2()
+analyzer_v2 = PortfolioAnalyzerV2(
+    data_fetcher=data_fetcher,
+    pattern_recognizer=pattern_recognizer,
+    sentiment_analyzer=sentiment_analyzer,
+    macro_analyzer=macro_analyzer,
+    historical_analyzer=historical_analyzer
+)
+# Initialize intelligent prediction engine
+intelligent_engine = IntelligentPredictionEngine(analyzer_v2)
 prediction_tracker = analyzer_v2.prediction_tracker
 candle_analyzer = analyzer_v2.candle_analyzer
 learning_memory = analyzer_v2.learning_memory
@@ -2111,116 +2237,7 @@ class ConfidenceScorer:
             'action_advice': action_advice
         }
 
-# =================================================================================
-# THE FINAL, GUARANTEED-TO-WORK, RESILIENT INTELLIGENT PREDICTION ENGINE
-# =================================================================================
-class IntelligentPredictionEngine:
-    def __init__(self, analyzer_v2_instance):
-        self.analyzer_v2 = analyzer_v2_instance
-        self.prediction_tracker = self.analyzer_v2.prediction_tracker
-        self.candle_analyzer = self.analyzer_v2.candle_analyzer
-        self.learning_memory = self.analyzer_v2.learning_memory
-        self.confidence_scorer = self.analyzer_v2.confidence_scorer
-        self.llm_clients = {}
-        self.groq_model_priority = ["llama3-8b-8192", "gemma-7b-it", "llama3-70b-8192"]
-        self._setup_llm_clients()
 
-    def _setup_llm_clients(self):
-        if os.getenv("GROQ_API_KEY"):
-            try:
-                from groq import Groq
-                self.llm_clients['groq'] = Groq(api_key=os.getenv("GROQ_API_KEY"))
-                logging.info("✅ SUCCESS: Groq LLM client initialized.")
-            except Exception as e: logging.error(f"❌ FAILED: Groq initialization error: {e}")
-        logging.info(f"✅ LLM clients loaded: {list(self.llm_clients.keys())}")
-
-    async def _query_groq(self, prompt, ticker):
-        client = self.llm_clients.get('groq')
-        if not client: return None
-        for model in self.groq_model_priority:
-            try:
-                logging.info(f"Attempting Groq query for {ticker} with model: {model}")
-                response = await asyncio.to_thread(
-                    client.chat.completions.create,
-                    model=model, messages=[{"role": "user", "content": prompt}],
-                    temperature=0.2, max_tokens=350
-                )
-                logging.info(f"✅ Groq query successful for {ticker} with model: {model}")
-                return {'reasoning': response.choices[0].message.content}
-            except Exception as e:
-                if 'decommissioned' in str(e).lower():
-                    logging.warning(f"Groq model '{model}' is decommissioned. Trying next model...")
-                else:
-                    logging.warning(f"Groq query with model '{model}' failed for {ticker}: {e}")
-                continue
-        logging.error(f"❌ All Groq models failed for {ticker}.")
-        return None
-
-    def _parse_llm_reasoning_for_action(self, reasoning_text):
-        if not reasoning_text: return "HOLD"
-        text_upper = reasoning_text.upper()
-        if "ACTION: BUY" in text_upper or "PREDICTION: BUY" in text_upper: return "BUY"
-        if "ACTION: SELL" in text_upper or "PREDICTION: SELL" in text_upper: return "SELL"
-        if "ACTION: HOLD" in text_upper or "PREDICTION: HOLD" in text_upper: return "HOLD"
-        return "HOLD"
-
-    def _determine_final_action(self, parsed_llm_predictions, candle_patterns):
-        if parsed_llm_predictions:
-            return {'action': list(parsed_llm_predictions.values())[0]['action']}
-        logging.warning("LLM failed. Falling back to rule-based pattern analysis.")
-        if candle_patterns:
-            strongest_pattern_type = candle_patterns[0].get('type', 'HOLD').upper()
-            action = 'HOLD'
-            if "BUY" in strongest_pattern_type: action = 'BUY'
-            elif "SELL" in strongest_pattern_type: action = 'SELL'
-            return {'action': action, 'reasoning': f"LLM FAILED. Fallback: {candle_patterns[0]['name']}"}
-        return {'action': 'HOLD', 'reasoning': 'LLM FAILED and no clear candlestick signal.'}
-
-    async def _get_multi_llm_consensus(self, ticker, autonomous_prompt):
-        logging.info(f"🔍[{ticker}] Getting LLM consensus using autonomous prompt.")
-        tasks = [self._query_groq(autonomous_prompt, ticker)] if 'groq' in self.llm_clients else []
-        raw_predictions = {}
-        if tasks:
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-            if results and results[0] and not isinstance(results[0], Exception):
-                raw_predictions['groq'] = results[0]
-        logging.info(f"🔍[{ticker}] Received {len(raw_predictions)} LLM predictions.")
-        return raw_predictions
-
-    async def analyze_with_learning(self, ticker, existing_analysis, hist_data, market_context=None):
-        performance_summary = outcome_checker.get_performance_summary(days=30)
-        candle_patterns = self.candle_analyzer.identify_pattern(hist_data)
-        if ENHANCED_PATTERNS_ENABLED and enhanced_pattern_detector:
-            try:
-                enhanced_patterns = enhanced_pattern_detector.detect_all_patterns(hist_data)
-                for ep in enhanced_patterns: candle_patterns.append({'name': ep['name'], 'type': ep['type'], 'strength': 'very_strong' if ep['strength'] >= 90 else 'strong', 'description': ep['description'], 'enhanced': True, 'strength_score': ep['strength']})
-                if enhanced_patterns:
-                    strongest = enhanced_patterns[0]
-                    emoji = "🟢" if strongest['signal'] == 'BUY' else "🔴" if strongest['signal'] == 'SELL' else "⚪"
-                    logging.info(f"   🕯️ Enhanced: {strongest['name']} {emoji} ({strongest['signal']}, {strongest['strength']}%)")
-            except Exception as e: logging.debug(f"Enhanced pattern detection error for {ticker}: {e}")
-
-        pattern_success_rates = {p['name']: self.candle_analyzer.get_pattern_success_rate(p['name'], ticker) for p in candle_patterns}
-        current_data_for_prompt = {**existing_analysis, 'patterns': [p['name'] for p in candle_patterns], 'macro_score': market_context.get('overall_macro_score', 0) if market_context else 0, 'current_price': hist_data['Close'].iloc[-1]}
-        autonomous_prompt = learning_context_generator.generate_autonomous_context(stock=ticker, current_data=current_data_for_prompt, performance_summary=performance_summary)
-        raw_llm_predictions = await self._get_multi_llm_consensus(ticker, autonomous_prompt)
-        parsed_llm_predictions = {name: {'action': self._parse_llm_reasoning_for_action(pred['reasoning']), 'confidence': 50} for name, pred in raw_llm_predictions.items()}
-        confidence_result = self.confidence_scorer.calculate_confidence(parsed_llm_predictions, candle_patterns, pattern_success_rates, {'rsi': existing_analysis.get('rsi', 50), 'score': existing_analysis.get('score', 50)}, {'volume_ratio': existing_analysis.get('volume_ratio', 1.0)}, market_context)
-        final_prediction = self._determine_final_action(parsed_llm_predictions, candle_patterns)
-
-        if final_prediction:
-            llm_reasoning = " | ".join([pred.get('reasoning', 'N/A') for pred in raw_llm_predictions.values()]) if raw_llm_predictions else final_prediction.get('reasoning', "No LLM reasoning available.")
-            final_prediction['reasoning'] = llm_reasoning
-            pred_id = self.prediction_tracker.store_prediction(ticker=ticker, action=final_prediction['action'], confidence=confidence_result['score'], reasoning=llm_reasoning, candle_pattern=candle_patterns[0]['name'] if candle_patterns else None, indicators={'rsi': existing_analysis.get('rsi', 50)})
-            final_prediction['prediction_id'] = pred_id
-            learning_brain.record_prediction(stock=ticker, prediction=final_prediction['action'], confidence=confidence_result['score'], price=current_data_for_prompt['current_price'], llm_model='groq_autonomous', reasoning=llm_reasoning, indicators={'rsi': existing_analysis.get('rsi', 50)})
-            logging.info(f"💾 Saved {ticker} to learning database")
-
-        return {
-            **existing_analysis, 'candle_patterns': candle_patterns, 'pattern_success_rates': pattern_success_rates,
-            'llm_predictions': raw_llm_predictions, 'confidence': confidence_result,
-            'ai_prediction': final_prediction, 'learning_insights': self.learning_memory.get_recent_insights(3)
-        }
 
 async def analyze_portfolio_with_predictions(session, portfolio_file='portfolio.json', market_context=None):
     logging.info("=" * 60)
