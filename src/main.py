@@ -2174,25 +2174,44 @@ class IntelligentPredictionEngine:
         if "SELL" in text_upper: return "SELL"
         return "HOLD"
 
-    def _determine_final_action(self, parsed_llm_predictions, candle_patterns):
+        def _determine_final_action(self, parsed_llm_predictions, candle_patterns):
         """
-        This function now has a BULLETPROOF fallback. It will ALWAYS return a valid action.
+        THIS IS THE CORRECTED VERSION.
+        It now returns a complete dictionary with 'action', 'reasoning', and 'confidence'
+        to prevent the KeyError.
         """
         if parsed_llm_predictions:
             # If the LLM worked, use its parsed decision
-            return {'action': list(parsed_llm_predictions.values())[0]['action']}
+            parsed_action = list(parsed_llm_predictions.values())[0]['action']
+            return {
+                'action': parsed_action,
+                'reasoning': f"Final action derived from LLM's parsed decision: {parsed_action}",
+                'confidence': 50  # Default confidence, your scorer will override this
+            }
 
         # --- LLM FAILURE FALLBACK ---
-        logging.warning("LLM predictions failed. Falling back to rule-based pattern analysis.")
+        logging.warning("LLM failed. Falling back to rule-based pattern analysis.")
         if candle_patterns:
-            strongest_pattern_type = candle_patterns[0].get('type', 'HOLD').upper()
+            strongest_pattern = candle_patterns[0]
+            strongest_pattern_type = strongest_pattern.get('type', 'HOLD').upper()
+            
             # Ensure the output is ALWAYS one of the three valid actions
-            if "BUY" in strongest_pattern_type:
-                return {'action': 'BUY', 'reasoning': f"LLM FAILED. Fallback to pattern: {candle_patterns[0]['name']}"}
-            if "SELL" in strongest_pattern_type:
-                return {'action': 'SELL', 'reasoning': f"LLM FAILED. Fallback to pattern: {candle_patterns[0]['name']}"}
-        # If all else fails, default to the safest possible action
-        return {'action': 'HOLD', 'reasoning': 'LLM FAILED and no clear candlestick signal found.'}
+            action = 'HOLD' # Default
+            if "BUY" in strongest_pattern_type: action = 'BUY'
+            elif "SELL" in strongest_pattern_type: action = 'SELL'
+                
+            return {
+                'action': action,
+                'reasoning': f"LLM FAILED. Fallback to pattern: {strongest_pattern.get('name', 'Unknown')}",
+                'confidence': strongest_pattern.get('strength_score', 40) # Use pattern strength as confidence
+            }
+            
+        # If all else fails, return a safe default
+        return {
+            'action': 'HOLD',
+            'reasoning': 'LLM FAILED and no clear candlestick signal found.',
+            'confidence': 30
+        }
 
 
     async def _get_multi_llm_consensus(self, ticker, autonomous_prompt):
