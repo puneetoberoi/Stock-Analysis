@@ -2169,80 +2169,80 @@ class IntelligentPredictionEngine:
         # ============================================================
         # 1. GET PERFORMANCE DATA (NEW)
         # ============================================================
-        performance_summary = outcome_checker.get_performance_summary(days=30)
-
-        # ============================================================
-        # 2. GENERATE AUTONOMOUS CONTEXT (NEW)
-        # ============================================================
-        # Combine current analysis with market context for the prompt
-        current_data_for_prompt = {
-            **existing_analysis,
-            'patterns': [p['name'] for p in self.candle_analyzer.identify_pattern(hist_data)],
-            'macro_score': market_context.get('overall_macro_score', 0) if market_context else 0,
-            'current_price': hist_data['Close'].iloc[-1]
-        }
-        
-        # Generate the full autonomous prompt
-        autonomous_prompt = learning_context_generator.generate_autonomous_context(
-            stock=ticker,
-            current_data=current_data_for_prompt,
-            performance_summary=performance_summary
-        )
-
-        # ============================================================
-        # 3. GET PREDICTION FROM GROQ (USING NEW PROMPT)
-        # ============================================================
-        # We will only use Groq for now, as it's the only reliable one.
-        llm_predictions = {}
-        if 'groq' in self.llm_clients:
-            groq_response = await self._query_groq(autonomous_prompt, ticker)
-            if groq_response:
-                llm_predictions['groq'] = groq_response
-        
-        logging.info(f"🔍[{ticker}] Received {len(llm_predictions)} LLM predictions using autonomous context.")
-        
-        # ============================================================
-        # 4. DETERMINE FINAL ACTION & STORE
-        # ============================================================
-        if not llm_predictions:
-            logging.warning(f"⚠️ No LLM predictions for {ticker}, cannot proceed.")
-            return {**existing_analysis, 'ai_prediction': None}
-
-        # Use the first (and only) prediction from Groq
-        final_prediction_data = list(llm_predictions.values())[0]
-        
-        # We'll use the LLM's self-assessed confidence directly
-        final_action = final_prediction_data.get('action', 'HOLD')
-        confidence_score = final_prediction_data.get('confidence', 50)
-        llm_reasoning = final_prediction_data.get('reasoning', 'No reasoning provided.')
-
-        # Store the prediction in the database
-        try:
-            learning_brain.record_prediction(
-                stock=ticker,
-                prediction=final_action,
-                confidence=confidence_score,
-                price=current_data_for_prompt['current_price'],
-                llm_model='groq_autonomous',
-                reasoning=llm_reasoning,
-                indicators={
-                    'rsi': existing_analysis.get('rsi', 50),
-                    'volume_ratio': existing_analysis.get('volume_ratio', 1.0)
-                }
-            )
-            logging.info(f"💾 Saved {ticker} to learning database")
-        except Exception as e:
-            logging.error(f"❌ Failed to save {ticker} to database: {e}")
-
-        # Return the enhanced data for the email
-        return {
-            **existing_analysis,
-            'ai_prediction': {
-                'action': final_action,
-                'confidence': confidence_score,
-                'reasoning': llm_reasoning
+            performance_summary = outcome_checker.get_performance_summary(days=30)
+    
+            # ============================================================
+            # 2. GENERATE AUTONOMOUS CONTEXT (NEW)
+            # ============================================================
+            # Combine current analysis with market context for the prompt
+            current_data_for_prompt = {
+                **existing_analysis,
+                'patterns': [p['name'] for p in self.candle_analyzer.identify_pattern(hist_data)],
+                'macro_score': market_context.get('overall_macro_score', 0) if market_context else 0,
+                'current_price': hist_data['Close'].iloc[-1]
             }
-        }
+            
+            # Generate the full autonomous prompt
+            autonomous_prompt = learning_context_generator.generate_autonomous_context(
+                stock=ticker,
+                current_data=current_data_for_prompt,
+                performance_summary=performance_summary
+            )
+    
+            # ============================================================
+            # 3. GET PREDICTION FROM GROQ (USING NEW PROMPT)
+            # ============================================================
+            # We will only use Groq for now, as it's the only reliable one.
+            llm_predictions = {}
+            if 'groq' in self.llm_clients:
+                groq_response = await self._query_groq(autonomous_prompt, ticker)
+                if groq_response:
+                    llm_predictions['groq'] = groq_response
+            
+            logging.info(f"🔍[{ticker}] Received {len(llm_predictions)} LLM predictions using autonomous context.")
+            
+            # ============================================================
+            # 4. DETERMINE FINAL ACTION & STORE
+            # ============================================================
+            if not llm_predictions:
+                logging.warning(f"⚠️ No LLM predictions for {ticker}, cannot proceed.")
+                return {**existing_analysis, 'ai_prediction': None}
+    
+            # Use the first (and only) prediction from Groq
+            final_prediction_data = list(llm_predictions.values())[0]
+            
+            # We'll use the LLM's self-assessed confidence directly
+            final_action = final_prediction_data.get('action', 'HOLD')
+            confidence_score = final_prediction_data.get('confidence', 50)
+            llm_reasoning = final_prediction_data.get('reasoning', 'No reasoning provided.')
+    
+            # Store the prediction in the database
+            try:
+                learning_brain.record_prediction(
+                    stock=ticker,
+                    prediction=final_action,
+                    confidence=confidence_score,
+                    price=current_data_for_prompt['current_price'],
+                    llm_model='groq_autonomous',
+                    reasoning=llm_reasoning,
+                    indicators={
+                        'rsi': existing_analysis.get('rsi', 50),
+                        'volume_ratio': existing_analysis.get('volume_ratio', 1.0)
+                    }
+                )
+                logging.info(f"💾 Saved {ticker} to learning database")
+            except Exception as e:
+                logging.error(f"❌ Failed to save {ticker} to database: {e}")
+    
+            # Return the enhanced data for the email
+            return {
+                **existing_analysis,
+                'ai_prediction': {
+                    'action': final_action,
+                    'confidence': confidence_score,
+                    'reasoning': llm_reasoning
+                }
+            }
         
     async def _get_multi_llm_consensus(self, ticker, existing_analysis, candle_patterns, pattern_success_rates, market_context):
         logging.info(f"🔍[{ticker}] Getting LLM consensus. Available models: {list(self.llm_clients.keys())}")
