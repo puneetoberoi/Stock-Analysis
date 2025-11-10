@@ -3,7 +3,7 @@ name: Evening Outcome Check
 on:
   schedule:
     - cron: '0 22 * * 1-5'  # 10pm UTC = 6pm EST, Mon-Fri
-  workflow_dispatch:  # Enables manual "Run workflow" button
+  workflow_dispatch:  # Manual trigger button
 
 jobs:
   check-outcomes:
@@ -12,6 +12,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
       
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -22,8 +24,27 @@ jobs:
         run: |
           pip install yfinance pandas numpy requests
       
-      - name: Run evening check
+      - name: Debug - Check file structure
         run: |
+          echo "📂 Current directory:"
+          pwd
+          echo ""
+          echo "📂 Directory structure:"
+          ls -la
+          echo ""
+          echo "📂 src/ contents:"
+          ls -la src/ || echo "No src directory"
+          echo ""
+          echo "📂 src/modules/ contents:"
+          ls -la src/modules/ || echo "No src/modules directory"
+          echo ""
+          echo "📂 Database file:"
+          ls -la learning.db || echo "No learning.db found"
+      
+      - name: Set Python path and run evening check
+        run: |
+          export PYTHONPATH="${PYTHONPATH}:${PWD}/src:${PWD}"
+          echo "PYTHONPATH: $PYTHONPATH"
           python src/modules/evening_check.py
         continue-on-error: true
       
@@ -33,4 +54,4 @@ jobs:
           git config user.email "action@github.com"
           git add learning.db || true
           git diff --staged --quiet || git commit -m "📊 Evening outcomes [skip ci]"
-          git push || true
+          git push || echo "No changes to push"
