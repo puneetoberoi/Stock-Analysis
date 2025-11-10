@@ -34,7 +34,7 @@ jobs:
       - name: 🌅 Run Evening Outcome Check
         run: |
           echo "🔍 Checking prediction outcomes..."
-          python src/evening_check.py
+          python src/modules/evening_check.py
         continue-on-error: true
         
       - name: 💾 Commit updated database
