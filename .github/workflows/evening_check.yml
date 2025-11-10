@@ -1,52 +1,36 @@
-name: 🌅 Evening Outcome Check
+name: Evening Outcome Check
 
 on:
   schedule:
-    - cron: '0 22 * * 1-5'  # 6pm EST (10pm UTC) Mon-Fri
-  workflow_dispatch:  # Manual testing
+    - cron: '0 22 * * 1-5'  # 10pm UTC = 6pm EST, Mon-Fri
+  workflow_dispatch:  # Enables manual "Run workflow" button
 
 jobs:
-  evening-check:
+  check-outcomes:
     runs-on: ubuntu-latest
     
     steps:
-      - name: 📥 Checkout code
+      - name: Checkout code
         uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
       
-      - name: 🐍 Set up Python
+      - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
       
-      - name: 📦 Install dependencies
+      - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install yfinance pandas numpy requests google-generativeai
+          pip install yfinance pandas numpy requests
       
-      - name: 🧪 Test Learning System (Optional)
+      - name: Run evening check
         run: |
-          echo "🧪 Running learning system tests..."
-          python src/modules/test_learning_manually.py || echo "Tests not critical"
-        continue-on-error: true
-        
-      - name: 🌅 Run Evening Outcome Check
-        run: |
-          echo "🔍 Checking prediction outcomes..."
           python src/modules/evening_check.py
         continue-on-error: true
-        
-      - name: 💾 Commit updated database
+      
+      - name: Commit database changes
         run: |
-          git config --global user.name "Learning Bot"
-          git config --global user.email "action@github.com"
+          git config user.name "Learning Bot"
+          git config user.email "action@github.com"
           git add learning.db || true
-          
-          if git diff --staged --quiet; then
-            echo "✅ No changes to commit"
-          else
-            git commit -m "📊 Evening outcomes checked [skip ci]"
-            git push
-            echo "✅ Database updated"
-          fi
+          git diff --staged --quiet || git commit -m "📊 Evening outcomes [skip ci]"
+          git push || true
