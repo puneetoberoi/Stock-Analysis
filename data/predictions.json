@@ -11987,5 +11987,170 @@
     "price_at_prediction": 26.6200008392334,
     "outcome": null,
     "was_correct": null
+  },
+  "94731018": {
+    "id": "94731018",
+    "timestamp": "2025-11-11T00:50:12.416168",
+    "ticker": "AAPL",
+    "action": "HOLD",
+    "confidence": 95,
+    "reasoning": "groq: The presence of indecision candlestick patterns and average volume, combined with a neutral RSI value, suggests a pause in the stock's movement, warranting a cautious hold approach.",
+    "candle_pattern": "doji",
+    "indicators": {
+      "rsi": 64.93748806282164
+    },
+    "price_at_prediction": 269.42999267578125,
+    "outcome": null,
+    "was_correct": null
+  },
+  "ea35df6d": {
+    "id": "ea35df6d",
+    "timestamp": "2025-11-11T00:50:13.737428",
+    "ticker": "MSFT",
+    "action": "HOLD",
+    "confidence": 80,
+    "reasoning": "groq: The presence of a morning star candlestick pattern, a bullish reversal indicator, is somewhat offset by the low macro score and moderate RSI, leading to a cautious hold recommendation.",
+    "candle_pattern": "morning_star",
+    "indicators": {
+      "rsi": 42.74607959945274
+    },
+    "price_at_prediction": 506.0,
+    "outcome": null,
+    "was_correct": null
+  },
+  "0b5770ef": {
+    "id": "0b5770ef",
+    "timestamp": "2025-11-11T00:50:15.131704",
+    "ticker": "NVDA",
+    "action": "SELL",
+    "confidence": 95,
+    "reasoning": "groq: The presence of a downtrend candlestick pattern and a low Macro Score of -15 suggests a bearish outlook for NVDA.",
+    "candle_pattern": "swing_highs_lows",
+    "indicators": {
+      "rsi": 57.529512223278104
+    },
+    "price_at_prediction": 199.0500030517578,
+    "outcome": null,
+    "was_correct": null
+  },
+  "9112345b": {
+    "id": "9112345b",
+    "timestamp": "2025-11-11T00:50:16.473759",
+    "ticker": "TSLA",
+    "action": "HOLD",
+    "confidence": 100,
+    "reasoning": "groq: The presence of a bullish continuation cup_and_handle pattern is offset by the downtrend swing_highs_lows pattern and a negative Macro Score, resulting in a neutral outlook.",
+    "candle_pattern": "cup_and_handle",
+    "indicators": {
+      "rsi": 51.568441091522566
+    },
+    "price_at_prediction": 445.2300109863281,
+    "outcome": null,
+    "was_correct": null
+  },
+  "2193718a": {
+    "id": "2193718a",
+    "timestamp": "2025-11-11T00:50:17.825865",
+    "ticker": "GOOGL",
+    "action": "SELL",
+    "confidence": 90,
+    "reasoning": "groq: The high RSI value and presence of a downtrend pattern outweigh the potential bullish reversal signal, suggesting a sell recommendation.",
+    "candle_pattern": "double_bottom",
+    "indicators": {
+      "rsi": 71.56877543193433
+    },
+    "price_at_prediction": 290.1000061035156,
+    "outcome": null,
+    "was_correct": null
+  },
+  "7b74d64b": {
+    "id": "7b74d64b",
+    "timestamp": "2025-11-11T00:50:19.020231",
+    "ticker": "TSM",
+    "action": "HOLD",
+    "confidence": 85,
+    "reasoning": "groq: The stock's neutral RSI and indecisive candlestick patterns, combined with a low macro score, suggest a lack of clear direction, making a hold position the most prudent choice.",
+    "candle_pattern": "spinning_top",
+    "indicators": {
+      "rsi": 52.63957774886392
+    },
+    "price_at_prediction": 295.2699890136719,
+    "outcome": null,
+    "was_correct": null
+  },
+  "e6b18e8f": {
+    "id": "e6b18e8f",
+    "timestamp": "2025-11-11T00:50:20.205516",
+    "ticker": "AMD",
+    "action": "SELL",
+    "confidence": 100,
+    "reasoning": "groq: The presence of a double_top bearish reversal pattern with 100% historical success, combined with a downtrend swing highs and lows pattern, suggests a strong likelihood of a price decline.",
+    "candle_pattern": "spinning_top",
+    "indicators": {
+      "rsi": 56.150155213855186
+    },
+    "price_at_prediction": 243.97999572753906,
+    "outcome": null,
+    "was_correct": null
+  },
+  "5b52364b": {
+    "id": "5b52364b",
+    "timestamp": "2025-11-11T00:50:21.514289",
+    "ticker": "TD.TO",
+    "action": "SELL",
+    "confidence": 100,
+    "reasoning": "groq: The presence of a spinning top and swing highs lows indicating indecision and downtrend, combined with a negative Macro Score, suggests a bearish outlook for TD.TO.",
+    "candle_pattern": "spinning_top",
+    "indicators": {
+      "rsi": 57.86467051446736
+    },
+    "price_at_prediction": 113.72000122070312,
+    "outcome": null,
+    "was_correct": null
+  },
+  "eed4644c": {
+    "id": "eed4644c",
+    "timestamp": "2025-11-11T00:50:22.754826",
+    "ticker": "AMZN",
+    "action": "HOLD",
+    "confidence": 100,
+    "reasoning": "groq: The presence of indecision candlestick patterns, such as doji and long_legged_doji, combined with a neutral RSI and below-average volume, suggests a cautious approach, warranting a hold rather than a buy or sell.",
+    "candle_pattern": "doji",
+    "indicators": {
+      "rsi": 63.4044408660354
+    },
+    "price_at_prediction": 248.39999389648438,
+    "outcome": null,
+    "was_correct": null
+  },
+  "d6c58207": {
+    "id": "d6c58207",
+    "timestamp": "2025-11-11T00:50:24.154570",
+    "ticker": "CGL-C.TO",
+    "action": "HOLD",
+    "confidence": 100,
+    "reasoning": "groq: The presence of bullish reversal candlestick patterns, such as morning star and double bottom, is offset by the low volume and negative macro score, leading to a neutral hold recommendation.",
+    "candle_pattern": "morning_star",
+    "indicators": {
+      "rsi": 59.140869483035736
+    },
+    "price_at_prediction": 48.34000015258789,
+    "outcome": null,
+    "was_correct": null
+  },
+  "ab65d441": {
+    "id": "ab65d441",
+    "timestamp": "2025-11-11T00:50:25.417616",
+    "ticker": "SVR-C.TO",
+    "action": "HOLD",
+    "confidence": 100,
+    "reasoning": "groq: The presence of bullish reversal candlestick patterns, such as morning star and double bottom, is somewhat offset by the negative macro score and neutral technical indicators, warranting a cautious hold stance.",
+    "candle_pattern": "morning_star",
+    "indicators": {
+      "rsi": 59.01276968006883
+    },
+    "price_at_prediction": 26.6200008392334,
+    "outcome": null,
+    "was_correct": null
   }
 }
