@@ -13,7 +13,7 @@ class LearningEngine:
         cursor = conn.cursor()
         
         # Get unchecked predictions from 7+ days ago
-        week_ago = datetime.now() - timedelta(days=7)
+        week_ago = datetime.now() - timedelta(days=1)
         
         cursor.execute("""
             SELECT id, stock, prediction, entry_price, target_date, llm_model
