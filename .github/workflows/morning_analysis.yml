@@ -29,6 +29,16 @@ jobs:
         # ✅ FIXED: All packages in one block, including groq and cohere
         pip install ddgs scipy
         pip install pandas ta yfinance requests numpy aiohttp beautifulsoup4 lxml matplotlib seaborn pytrends requests-html nest_asyncio spacy textblob transformers wikipedia-api markdown vaderSentiment asyncio-throttle python-dateutil PyYAML google-generativeai groq cohere ddgs
+
+    - name: Ensure database exists
+      run: |
+        if [ ! -f "learning.db" ]; then
+          echo "Creating learning.db..."
+          sqlite3 learning.db < schemas.sql
+        fi
+        # Also ensure src/modules/data/ exists for the copy
+        mkdir -p src/modules/data/
+        cp learning.db src/modules/data/learning.db 2>/dev/null || true
     
     - name: Run market analysis with predictions
       env:
