@@ -49,7 +49,7 @@ jobs:
         sqlite3 src/modules/data/learning.db "SELECT stock, prediction, confidence, datetime(timestamp) FROM predictions ORDER BY timestamp DESC LIMIT 5;" || echo "No data"
     - name: Check Accuracy
       run: |
-          cho "=== Checking Predictions ==="
+          echo "=== Checking Predictions ==="
           sqlite3 src/modules/data/learning.db "SELECT COUNT(*) as total FROM predictions;" || echo "No predictions table"
           
           echo "=== Recent Predictions ==="
