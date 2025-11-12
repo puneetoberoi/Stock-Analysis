@@ -1,4 +1,4 @@
-name: Morning Market Analysis with Learning
+name: Autonomous Learning Script
 
 on:
   schedule:
