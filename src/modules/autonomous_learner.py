@@ -1,39 +1,46 @@
+# src/modules/autonomous_learner.py
 import sqlite3
 import json
 from datetime import datetime, timedelta
 import os
-import yfinance as yf
 import logging
 
-# --- New: Absolute Path Setup ---
+try:
+    import yfinance as yf
+except ImportError:
+    print("Warning: yfinance not found. Please run 'pip install yfinance'")
+    yf = None
+
+# --- Absolute Path Setup ---
 # This makes the script work from any directory
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(SCRIPT_DIR, 'data', 'learning.db')
 LEARNING_FILE_PATH = os.path.join(SCRIPT_DIR, 'learning_insights.json')
-# ---
 
+# Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 class AutonomousLearner:
     def __init__(self):
-        # Use the absolute paths
         self.db_path = DB_PATH
         self.learning_file = LEARNING_FILE_PATH
-        logging.info(f"Database path: {self.db_path}")
-        logging.info(f"Learning file path: {self.learning_file}")
+        logging.info(f"DB Path: {self.db_path}")
+        logging.info(f"Learnings Path: {self.learning_file}")
 
-    def check_yesterdays_predictions(self):
-        """Check all predictions from at least 1 day ago."""
+    def check_past_predictions(self):
+        """Checks all verifiable predictions made at least one day ago."""
+        if not yf:
+            logging.error("yfinance is not installed. Skipping prediction checks.")
+            return 0
         if not os.path.exists(self.db_path):
             logging.error(f"Database not found at {self.db_path}. Cannot check predictions.")
             return 0
-            
+
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
-        # Check predictions from yesterday or older
         one_day_ago = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
-        
+
         cursor.execute("""
             SELECT id, stock, prediction, entry_price, llm_model
             FROM predictions
@@ -44,58 +51,136 @@ class AutonomousLearner:
         """, (one_day_ago,))
         
         unchecked = cursor.fetchall()
-        logging.info(f"\n🔍 Found {len(unchecked)} unchecked predictions to verify...")
+        logging.info(f"\n🔍 Found {len(unchecked)} unchecked predictions to grade...")
         
         checked_count = 0
         for pred_id, stock, action, entry_price, llm_model in unchecked:
             try:
                 ticker_data = yf.Ticker(stock)
-                hist = ticker_data.history(start=datetime.now() - timedelta(days=5), end=datetime.now())
-                
+                # Fetch data for the day after the prediction was made
+                target_check_date = datetime.strptime(one_day_ago, '%Y-%m-%d') + timedelta(days=1)
+                hist = ticker_data.history(start=target_check_date, period='1d')
+
                 if hist.empty:
-                    logging.warning(f"  - {stock}: No recent price data found to check outcome.")
+                    logging.warning(f"  - {stock}: No price data found for {target_check_date.date()} to check outcome.")
                     continue
                     
                 current_price = hist['Close'].iloc[-1]
-                price_change_pct = ((current_price - entry_price) / entry_price) * 100 if entry_price != 0 else 0
+                price_change_pct = ((current_price - entry_price) / entry_price) * 100
                 
-                # Aggressive 1% threshold
-                if action == 'BUY': success = price_change_pct > 1
-                elif action == 'SELL': success = price_change_pct < -1
-                else: success = abs(price_change_pct) <= 1
+                # Aggressive 1% threshold for success
+                if action == 'BUY': success = price_change_pct > 1.0
+                elif action == 'SELL': success = price_change_pct < -1.0
+                else: success = abs(price_change_pct) <= 1.0
                 
                 cursor.execute("""
-                    INSERT INTO outcomes (prediction_id, actual_price, actual_move_pct, success)
-                    VALUES (?, ?, ?, ?)
-                """, (pred_id, current_price, price_change_pct, 1 if success else 0))
+                    INSERT INTO outcomes (prediction_id, check_date, actual_price, actual_move_pct, success)
+                    VALUES (?, ?, ?, ?, ?)
+                """, (pred_id, datetime.now().date(), current_price, price_change_pct, 1 if success else 0))
                 
                 checked_count += 1
                 status = '✅ CORRECT' if success else '❌ WRONG'
                 logging.info(f"  -> Graded {stock}: Predicted {action}, outcome was {status} (Move: {price_change_pct:+.1f}%)")
                 
             except Exception as e:
-                logging.warning(f"  - Error checking {stock} (ID: {pred_id}): {e}")
+                logging.error(f"  - Error checking {stock} (ID: {pred_id}): {e}", exc_info=False)
                 continue
         
         conn.commit()
         conn.close()
         logging.info(f"✅ Graded {checked_count} predictions.")
         return checked_count
-    
-    # ... (The rest of the AutonomousLearner class remains the same) ...
-    # The analyze_mistakes, save_learnings, and get_learning_prompt functions are good.
 
+    def analyze_mistakes(self):
+        """Finds patterns in mistakes and generates learning insights."""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT 
+                p.stock, p.prediction, p.reasoning, p.rsi, p.patterns, o.actual_move_pct
+            FROM predictions p
+            JOIN outcomes o ON p.id = o.prediction_id
+            WHERE o.success = 0 AND p.reasoning NOT LIKE 'Test prediction%'
+            ORDER BY o.check_date DESC, ABS(o.actual_move_pct) DESC
+            LIMIT 30
+        """)
+        
+        mistakes = cursor.fetchall()
+        learnings = {}
+        logging.info(f"\n🔍 Analyzing {len(mistakes)} mistakes to find patterns...")
+
+        for stock, pred, reasoning, rsi, patterns, actual_move in mistakes:
+            rsi_val = rsi if rsi else 50
+            if pred == "SELL" and actual_move > 1:
+                mistake_type = "sold_too_early"
+                learning = f"On {stock}, a SELL call was wrong (stock went up {actual_move:.1f}%). Re-evaluate bearish signals like {patterns} when RSI is around {rsi_val:.0f}."
+            elif pred == "HOLD" and abs(actual_move) > 3:
+                mistake_type = "missed_big_move"
+                learning = f"On {stock}, a HOLD call missed a {actual_move:.1f}% move. Be more decisive with patterns like {patterns}, even with neutral RSI ({rsi_val:.0f})."
+            elif pred == "BUY" and actual_move < -1:
+                mistake_type = "bought_at_peak"
+                learning = f"On {stock}, a BUY call was wrong (stock went down {actual_move:.1f}%). {patterns} might be a false signal when RSI is {rsi_val:.0f}."
+            else:
+                continue
+            
+            if mistake_type not in learnings: learnings[mistake_type] = []
+            learnings[mistake_type].append(learning)
+        
+        conn.close()
+        
+        if learnings: self.save_learnings(learnings)
+        return learnings
+
+    def save_learnings(self, learnings):
+        """Saves learning insights to a JSON file."""
+        # Use a simpler, non-nested structure
+        flat_learnings = []
+        for category, items in learnings.items():
+            flat_learnings.extend(items)
+
+        # Keep only the most recent 10 unique learnings
+        unique_learnings = list(dict.fromkeys(flat_learnings))[:10]
+
+        with open(self.learning_file, 'w') as f:
+            json.dump({'insights': unique_learnings}, f, indent=2)
+        
+        logging.info("\n🧠 AUTONOMOUS LEARNING COMPLETE")
+        logging.info("=" * 50)
+        for insight in unique_learnings:
+            logging.info(f"  📝 {insight}")
+
+    def get_learning_prompt(self):
+        """Gets learning context for LLM prompts."""
+        if not os.path.exists(self.learning_file):
+            return ""
+        
+        try:
+            with open(self.learning_file, 'r') as f:
+                data = json.load(f)
+            
+            insights = data.get('insights', [])
+            if not insights: return ""
+            
+            prompt = "\n🚨 CRITICAL LEARNINGS FROM PAST MISTAKES - ADJUST YOUR STRATEGY:\n"
+            for insight in insights:
+                prompt += f"- {insight}\n"
+            prompt += "Apply these learnings to the new data. Be more decisive and avoid repeating these errors.\n"
+            return prompt
+        except (json.JSONDecodeError, FileNotFoundError):
+            return ""
+
+# Main execution block
 if __name__ == "__main__":
     learner = AutonomousLearner()
-    checked_count = learner.check_yesterdays_predictions()
+    checked_count = learner.check_past_predictions()
     
     if checked_count > 0:
         learnings = learner.analyze_mistakes()
         if learnings:
             total_insights = sum(len(v) for v in learnings.values())
-            print(f"\n✅ Identified {total_insights} new learning patterns!")
-            print("📚 These insights will be used in the next analysis.")
+            logging.info(f"✅ Generated {total_insights} new learning insights.")
         else:
-            print("\n✅ All checked predictions were correct! No new mistakes to learn from.")
+            logging.info("✅ All checked predictions were correct! No new mistakes found.")
     else:
-        print("\n⏳ No new predictions were old enough to be checked today.")
+        logging.info("⏳ No new predictions were old enough to be graded today.")
