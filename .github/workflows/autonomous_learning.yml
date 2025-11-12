@@ -1,0 +1,34 @@
+name: Autonomous Learning System
+
+on:
+  schedule:
+    - cron: '0 21 * * *'  # 4 PM EST daily
+  workflow_dispatch:
+
+jobs:
+  learn:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        pip install yfinance pandas
+    
+    - name: Run Autonomous Learning
+      run: |
+        python src/modules/autonomous_learner.py
+    
+    - name: Commit learnings
+      run: |
+        git config --global user.email "action@github.com"
+        git config --global user.name "GitHub Action"
+        git add src/modules/learning_insights.json || true
+        git commit -m "🧠 Autonomous learning insights updated [skip ci]" || true
+        git push || true
