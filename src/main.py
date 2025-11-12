@@ -789,14 +789,14 @@ async def generate_ai_oracle_analysis(market_data, portfolio_data, pattern_data)
             "max_output_tokens": 1024,
         }
         
-        # Use gemini-1.0-pro - the only model that works now
+        # Use gemini-pro - the only model that works now
         model = None
         try:
             model = genai.GenerativeModel(
-                'gemini-1.0-pro',  # ← FIXED: Use gemini-1.0-pro
+                'gemini-pro',  # ← FIXED: Use gemini-pro
                 generation_config=generation_config
             )
-            logging.info(f"✅ Successfully loaded Gemini model for Oracle: gemini-1.0-pro")
+            logging.info(f"✅ Successfully loaded Gemini model for Oracle: gemini-pro")
         except Exception as e:
             logging.warning(f"Failed to load Gemini model: {e}")
         
@@ -2167,7 +2167,7 @@ class IntelligentPredictionEngine:
             try:
                 import google.generativeai as genai
                 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-                self.llm_clients['gemini'] = genai.GenerativeModel('gemini-2.5-flash') 
+                self.llm_clients['gemini'] = genai.GenerativeModel('gemini-pro') 
                 logging.info("✅ SUCCESS: Gemini LLM client initialized.")
             except Exception as e:
                 logging.error(f"❌ FAILED: Gemini initialization error: {e}")
@@ -2336,7 +2336,7 @@ REASON: [One sentence]"""
                 import google.generativeai as genai
                 genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
                 self.gemini_model = genai.GenerativeModel(
-                    'gemini-1.0-pro',  # ← FIXED: Use gemini-1.0-pro
+                    'gemini-pro',  # ← FIXED: Use gemini-pro
                     generation_config=generation_config
                 )
             
