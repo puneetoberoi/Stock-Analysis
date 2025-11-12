@@ -796,7 +796,7 @@ async def generate_ai_oracle_analysis(market_data, portfolio_data, pattern_data)
             {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
         ]
         
-        models_to_try = ['gemini-1.5-flash', 'gemini-pro']  # Try multiple models
+        models_to_try = ['gemini-1.5-pro', 'gemini-pro']  # Try multiple models
         model = None
         
         for model_name in models_to_try:
@@ -2340,7 +2340,7 @@ REASON: [One sentence]"""
                 import google.generativeai as genai
                 genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
                 self.gemini_safe_model = genai.GenerativeModel(
-                    'gemini-1.5-flash',
+                    'gemini-1.5-pro',
                     generation_config=generation_config,
                     safety_settings=safety_settings
                 )
