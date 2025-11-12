@@ -66,6 +66,40 @@ try:
 except ImportError:
     COHERE_AVAILABLE = False
 
+# Add this function after your imports but before any class definitions
+def save_prediction_to_db(ticker, action, confidence, reasoning, indicators, patterns, llm_model="groq"):
+    """Save prediction to SQLite database"""
+    try:
+        conn = sqlite3.connect('learning.db')
+        cursor = conn.cursor()
+        
+        # Save to predictions table
+        cursor.execute("""
+            INSERT INTO predictions 
+            (timestamp, stock, prediction, confidence, target_date, entry_price, 
+             llm_model, reasoning, rsi, macd, volume_ratio, patterns)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            datetime.now(),
+            ticker,
+            action,
+            confidence,
+            datetime.now().date() + timedelta(days=7),  # 7-day target
+            indicators.get('current_price', 0),
+            llm_model,
+            reasoning,
+            indicators.get('rsi', 0),
+            indicators.get('macd', 0),
+            indicators.get('volume_ratio', 1.0),
+            str(patterns) if patterns else ''
+        ))
+        
+        conn.commit()
+        conn.close()
+        print(f"✅ Saved {ticker} prediction to DB")
+    except Exception as e:
+        print(f"❌ Failed to save to DB: {e}")
+
 
 # Add this after your imports, before any other functions:
 class DateTimeEncoder(json.JSONEncoder):
