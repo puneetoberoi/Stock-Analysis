@@ -2318,9 +2318,18 @@ REASON: [One sentence]"""
             logging.warning(f"Groq query failed for {ticker}: {e}")
             return None
 
+import time
+
     async def _query_gemini(self, prompt, ticker):
         try:
-            # ✅ ADD SAFETY SETTINGS
+            # Rate limit protection (10 requests per minute for free tier)
+            if not hasattr(self, 'gemini_last_call'):
+                self.gemini_last_call = 0
+            
+            time_since_last = time.time() - self.gemini_last_call
+            if time_since_last < 6:  # 6 seconds between calls = max 10/minute
+                time.sleep(6 - time_since_last)
+            
             generation_config = {
                 'temperature': 0.3,
                 'max_output_tokens': 150,
@@ -2335,22 +2344,22 @@ REASON: [One sentence]"""
                 {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
             ]
             
-            # If model isn't initialized with safety settings, reinitialize
             if not hasattr(self, 'gemini_safe_model'):
                 import google.generativeai as genai
                 genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
                 self.gemini_safe_model = genai.GenerativeModel(
-                    'gemini-pro',
+                    'gemini-pro',  # ← Use gemini-pro
                     generation_config=generation_config,
                     safety_settings=safety_settings
                 )
             
-            # ✅ Use synchronous call (not async for this model)
             response = self.gemini_safe_model.generate_content(
                 prompt,
                 generation_config=generation_config,
                 safety_settings=safety_settings
             )
+            
+            self.gemini_last_call = time.time()  # Update last call time
             
             # Check if response was blocked
             if hasattr(response, 'prompt_feedback'):
