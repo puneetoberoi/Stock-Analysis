@@ -2318,8 +2318,7 @@ REASON: [One sentence]"""
             logging.warning(f"Groq query failed for {ticker}: {e}")
             return None
 
-import time
-
+    import time
     async def _query_gemini(self, prompt, ticker):
         try:
             # Rate limit protection (10 requests per minute for free tier)
