@@ -3,7 +3,8 @@ from datetime import datetime, timedelta
 
 def check_prediction_accuracy():
     """Check how our predictions performed"""
-    conn = sqlite3.connect('learning.db')
+    # Use correct database path
+    conn = sqlite3.connect('src/modules/data/learning.db')
     cursor = conn.cursor()
     
     # Get predictions from 7 days ago
