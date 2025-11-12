@@ -48,41 +48,50 @@ jobs:
         echo "=== Recent Predictions ==="
         sqlite3 src/modules/data/learning.db "SELECT stock, prediction, confidence, datetime(timestamp) FROM predictions ORDER BY timestamp DESC LIMIT 5;" || echo "No data"
         
-    - name: Check Accuracy
-      run: |
-        cat > check_accuracy.py << 'EOF'
-        import sqlite3
-        import json
-        from datetime import datetime, timedelta
-        
-        # Check JSON predictions
-        try:
-            with open('predictions.json', 'r') as f:
-                preds = json.load(f)
-                correct = sum(1 for p in preds.values() if p.get('was_correct'))
-                total = len(preds)
-                accuracy = (correct/total*100) if total else 0
-                print('JSON Accuracy: {:.1f}% ({}/{})'.format(accuracy, correct, total))
-        except:
-            print('No predictions.json found')
-        
-        # Check SQLite predictions
-        try:
-            conn = sqlite3.connect('src/modules/data/learning.db')
-            cursor = conn.cursor()
-            cursor.execute('SELECT COUNT(*) FROM predictions')
-            total_db = cursor.fetchone()[0]
-            print('SQLite Total Predictions: {}'.format(total_db))
-            
-            # Show some recent predictions
-            cursor.execute('SELECT stock, prediction, confidence FROM predictions ORDER BY timestamp DESC LIMIT 3')
-            recent = cursor.fetchall()
-            if recent:
-                print('Recent predictions:')
-                for stock, pred, conf in recent:
-                    print('  - {}: {} ({}%)'.format(stock, pred, conf))
-            conn.close()
-        except Exception as e:
-            print('SQLite Error: {}'.format(e))
-        EOF
-        python check_accuracy.py
+        - name: Check Accuracy
+        run: |
+          cat > check_accuracy.py << 'EOF'
+          import sqlite3
+          import json
+          from datetime import datetime, timedelta
+          
+          # Check JSON predictions - FIXED PATH
+          try:
+              with open('data/predictions.json', 'r') as f:
+                  preds = json.load(f)
+                  correct = sum(1 for p in preds.values() if p.get('was_correct'))
+                  total = len(preds)
+                  accuracy = (correct/total*100) if total else 0
+                  print('JSON Accuracy: {:.1f}% ({}/{})'.format(accuracy, correct, total))
+          except Exception as e:
+              print('Error reading predictions.json: {}'.format(e))
+          
+          # Check SQLite predictions
+          try:
+              conn = sqlite3.connect('src/modules/data/learning.db')
+              cursor = conn.cursor()
+              cursor.execute('SELECT COUNT(*) FROM predictions')
+              total_db = cursor.fetchone()[0]
+              print('SQLite Total Predictions: {}'.format(total_db))
+              
+              # Check accuracy of past predictions
+              cursor.execute('''
+                  SELECT COUNT(*) as total,
+                         SUM(CASE WHEN p.prediction = 'BUY' AND o.actual_move_pct > 2 THEN 1
+                                  WHEN p.prediction = 'SELL' AND o.actual_move_pct < -2 THEN 1
+                                  WHEN p.prediction = 'HOLD' AND ABS(o.actual_move_pct) <= 2 THEN 1
+                                  ELSE 0 END) as correct
+                  FROM predictions p
+                  LEFT JOIN outcomes o ON p.id = o.prediction_id
+                  WHERE o.id IS NOT NULL
+              ''')
+              result = cursor.fetchone()
+              if result and result[0] > 0:
+                  db_accuracy = (result[1]/result[0]*100) if result[0] else 0
+                  print('SQLite Accuracy: {:.1f}% ({}/{})'.format(db_accuracy, result[1], result[0]))
+              
+              conn.close()
+          except Exception as e:
+              print('SQLite Error: {}'.format(e))
+          EOF
+          python check_accuracy.py
