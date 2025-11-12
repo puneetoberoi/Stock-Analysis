@@ -1313,6 +1313,22 @@ class PredictionTracker:
         
         self.predictions[prediction_id] = prediction
         self._save_predictions()
+
+         # ✅ ADD THIS SECTION - Save to SQLite as well
+        try:
+            save_prediction_to_db(
+                ticker=ticker,
+                action=action,
+                confidence=confidence,
+                reasoning=reasoning,
+                indicators=indicators or {},
+                patterns=candle_pattern,
+                llm_model="consensus"  # Since you're using multiple LLMs
+            )
+
+        except Exception as e:
+            logging.warning(f"Failed to save to SQLite: {e}")
+        
         logging.info(f"📝 Stored prediction {prediction_id}: {ticker} - {action} (confidence: {confidence}%)")
         return prediction_id
     
