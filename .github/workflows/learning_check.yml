@@ -1,0 +1,51 @@
+name: Daily Learning Check
+
+on:
+  schedule:
+    - cron: '0 21 * * *'  # 4 PM EST - after market close
+  workflow_dispatch:
+
+jobs:
+  learning:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        pip install yfinance pandas
+    
+    - name: Run Learning Engine
+      run: |
+        python src/modules/learning_engine.py
+    
+    - name: Show Learning Stats
+      run: |
+        sqlite3 src/modules/data/learning.db << 'EOF'
+        .headers on
+        .mode column
+        
+        SELECT 
+          llm_model,
+          COUNT(*) as total,
+          SUM(CASE WHEN o.success = 1 THEN 1 ELSE 0 END) as correct,
+          ROUND(100.0 * SUM(CASE WHEN o.success = 1 THEN 1 ELSE 0 END) / COUNT(*), 1) as accuracy
+        FROM predictions p
+        LEFT JOIN outcomes o ON p.id = o.prediction_id
+        WHERE o.id IS NOT NULL
+        GROUP BY llm_model;
+        EOF
+    
+    - name: Commit learning results
+      run: |
+        git config --global user.email "action@github.com"
+        git config --global user.name "GitHub Action"
+        git add src/modules/data/learning.db
+        git commit -m "🧠 Learning check completed [skip ci]" || true
+        git push || true
