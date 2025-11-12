@@ -47,12 +47,11 @@ jobs:
         
         echo "=== Recent Predictions ==="
         sqlite3 src/modules/data/learning.db "SELECT stock, prediction, confidence, datetime(timestamp) FROM predictions ORDER BY timestamp DESC LIMIT 5;" || echo "No data"
-        
-        - name: Check Accuracy
-        run: |
+    - name: Check Accuracy
+      run: |
           cho "=== Checking Predictions ==="
-        sqlite3 src/modules/data/learning.db "SELECT COUNT(*) as total FROM predictions;" || echo "No predictions table"
-        
-        echo "=== Recent Predictions ==="
-        sqlite3 src/modules/data/learning.db "SELECT stock, prediction, confidence, datetime(timestamp) FROM predictions ORDER BY timestamp DESC LIMIT 5;" || echo "No data"
-        python check_accuracy.py
+          sqlite3 src/modules/data/learning.db "SELECT COUNT(*) as total FROM predictions;" || echo "No predictions table"
+          
+          echo "=== Recent Predictions ==="
+          sqlite3 src/modules/data/learning.db "SELECT stock, prediction, confidence, datetime(timestamp) FROM predictions ORDER BY timestamp DESC LIMIT 5;" || echo "No data"
+          python check_accuracy.py
