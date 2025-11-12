@@ -1,0 +1,43 @@
+name: Learn and Improve
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 21 * * 1-5'
+
+permissions:
+  contents: write
+
+jobs:
+  learn:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Dependencies
+        run: python -m pip install --upgrade pip yfinance pandas
+
+      - name: Run Learning Script
+        run: python src/modules/autonomous_learner.py
+
+      - name: Commit and Push Learnings
+        run: |
+          git config --global user.name 'GitHub Action'
+          git config --global user.email 'action@github.com'
+          git add src/modules/data/learning.db src/modules/learning_insights.json
+          if ! git diff --staged --quiet; then
+            echo "✅ Found new learnings. Committing to repository."
+            git commit -m "🧠 Autonomous Learning: Updated insights" -m "[skip ci]"
+            git push
+          else
+            echo "✅ No new learnings to commit."
+          fi
