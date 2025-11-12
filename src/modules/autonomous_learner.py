@@ -116,8 +116,60 @@ class AutonomousLearner:
         prompt += "\nAdjust your analysis based on these learnings!\n"
         return prompt
 
+def check_recent_predictions(self):
+    """Check predictions from 3+ days ago (not just 7)"""
+    conn = sqlite3.connect(self.db_path)
+    cursor = conn.cursor()
+    
+    from datetime import datetime, timedelta
+    import yfinance as yf
+    
+    # Check predictions from 3+ days ago
+    days_ago = datetime.now() - timedelta(days=3)
+    
+    cursor.execute("""
+        SELECT id, stock, prediction, entry_price
+        FROM predictions
+        WHERE DATE(timestamp) <= DATE(?)
+        AND id NOT IN (SELECT prediction_id FROM outcomes)
+        AND reasoning NOT LIKE '%Test%'
+        LIMIT 20
+    """, (days_ago,))
+    
+    unchecked = cursor.fetchall()
+    print(f"\n🔍 Found {len(unchecked)} unchecked predictions to verify...")
+    
+    for pred_id, stock, action, entry_price in unchecked:
+        try:
+            ticker = yf.Ticker(stock)
+            current_price = ticker.history(period='1d')['Close'].iloc[-1]
+            price_change_pct = ((current_price - entry_price) / entry_price) * 100
+            
+            # Determine success
+            if action == 'BUY':
+                success = price_change_pct > 2
+            elif action == 'SELL':
+                success = price_change_pct < -2
+            else:
+                success = abs(price_change_pct) <= 2
+            
+            # Store outcome
+            cursor.execute("""
+                INSERT INTO outcomes (prediction_id, actual_price, actual_move_pct, success)
+                VALUES (?, ?, ?, ?)
+            """, (pred_id, current_price, price_change_pct, 1 if success else 0))
+            
+            print(f"  {stock}: {action} - {'✅ CORRECT' if success else '❌ WRONG'} ({price_change_pct:.1f}%)")
+        except Exception as e:
+            print(f"  Error: {e}")
+    
+    conn.commit()
+    conn.close()
+
+
 if __name__ == "__main__":
     learner = AutonomousLearner()
+    learner.check_recent_predictions()
     learnings = learner.analyze_mistakes()
     
     if learnings:
