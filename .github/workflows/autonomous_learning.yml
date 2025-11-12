@@ -1,4 +1,4 @@
-name: Autonomous Learning
+name: XAutonomous Learning
 
 on:
   workflow_dispatch:
