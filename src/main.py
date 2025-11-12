@@ -2255,20 +2255,22 @@ class IntelligentPredictionEngine:
         """Gathers predictions from multiple LLMs, including learning context."""
         logging.info(f"🔍[{ticker}] Getting LLM consensus. Available models: {list(self.llm_clients.keys())}")
     
-        # --- THIS IS THE CORRECTED LOGIC ---
-        
-        # 1. Get learning context first
+        # --- THIS IS THE CORRECTED LEARNING LOGIC ---
         learning_context = ""
         try:
-            # This import path works when main.py is in the root `src` directory
+            # This import path is now reliable because we will run it from the root
             from modules.autonomous_learner import AutonomousLearner
             learner = AutonomousLearner()
             learning_context = learner.get_learning_prompt()
             if learning_context:
-                # This is the log message you were looking for!
-                logging.info(f"🧠 For {ticker}, loaded past learnings to guide new predictions.")
+                # THIS IS THE LOG MESSAGE YOU WERE MISSING!
+                logging.info(f"🧠 Loaded past learnings to guide new predictions for {ticker}.")
+            else:
+                logging.info(f"~ No past learnings found for {ticker}.")
+                
         except Exception as e:
-            logging.warning(f"Could not load learning insights for {ticker}: {e}")
+            logging.warning(f"⚠️ Could not load learning insights for {ticker}: {e}")
+        # --- END OF FIX ---
     
         # 2. Build the prompt
         pattern_text = "\n".join([f"- {p['name']} ({p['type']}, {pattern_success_rates.get(p['name'], 50):.0f}% success)" for p in candle_patterns[:3]]) if candle_patterns else "No clear patterns."
