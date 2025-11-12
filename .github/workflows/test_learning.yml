@@ -25,25 +25,28 @@ jobs:
     - name: Check Database Status
       run: |
         echo "=== Database Status ==="
-        if [ -f "learning.db" ]; then
+        if [ -f "src/modules/data/learning.db" ]; then
           echo "✅ learning.db exists"
-          echo "Size: $(ls -lh learning.db | awk '{print $5}')"
+          echo "Size: $(ls -lh src/modules/data/learning.db | awk '{print $5}')"
         else
           echo "❌ learning.db not found - creating it"
-          sqlite3 learning.db < src/modules/schemas.sql
+          mkdir -p src/modules/data
+          sqlite3 src/modules/data/learning.db < src/modules/schemas.sql
         fi
         
     - name: Run Learning Check
       run: |
+        # Update check_learning.py to use correct path
+        sed -i "s|'learning.db'|'src/modules/data/learning.db'|g" src/modules/check_learning.py
         python src/modules/check_learning.py
         
     - name: Check Predictions Count
       run: |
         echo "=== Checking Predictions ==="
-        sqlite3 learning.db "SELECT COUNT(*) as total FROM predictions;" || echo "No predictions table"
+        sqlite3 src/modules/data/learning.db "SELECT COUNT(*) as total FROM predictions;" || echo "No predictions table"
         
         echo "=== Recent Predictions ==="
-        sqlite3 learning.db "SELECT stock, prediction, confidence, datetime(timestamp) FROM predictions ORDER BY timestamp DESC LIMIT 5;" || echo "No data"
+        sqlite3 src/modules/data/learning.db "SELECT stock, prediction, confidence, datetime(timestamp) FROM predictions ORDER BY timestamp DESC LIMIT 5;" || echo "No data"
         
     - name: Check Accuracy
       run: |
@@ -65,11 +68,19 @@ jobs:
         
         # Check SQLite predictions
         try:
-            conn = sqlite3.connect('learning.db')
+            conn = sqlite3.connect('src/modules/data/learning.db')
             cursor = conn.cursor()
             cursor.execute('SELECT COUNT(*) FROM predictions')
             total_db = cursor.fetchone()[0]
             print('SQLite Total Predictions: {}'.format(total_db))
+            
+            # Show some recent predictions
+            cursor.execute('SELECT stock, prediction, confidence FROM predictions ORDER BY timestamp DESC LIMIT 3')
+            recent = cursor.fetchall()
+            if recent:
+                print('Recent predictions:')
+                for stock, pred, conf in recent:
+                    print('  - {}: {} ({}%)'.format(stock, pred, conf))
             conn.close()
         except Exception as e:
             print('SQLite Error: {}'.format(e))
