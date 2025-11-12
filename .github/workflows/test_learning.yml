@@ -1,0 +1,77 @@
+name: Test Learning System
+
+on:
+  workflow_dispatch:  # Manual trigger for testing
+  schedule:
+    - cron: '0 22 * * *'  # 5 PM EST - after market close
+
+jobs:
+  test_learning:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install yfinance pandas
+    
+    - name: Check Database Status
+      run: |
+        echo "=== Database Status ==="
+        if [ -f "learning.db" ]; then
+          echo "✅ learning.db exists"
+          echo "Size: $(ls -lh learning.db | awk '{print $5}')"
+        else
+          echo "❌ learning.db not found - creating it"
+          sqlite3 learning.db < schemas.sql
+        fi
+        
+    - name: Run Learning Check
+      run: |
+        python src/modules/check_learning.py
+        
+    - name: Check Predictions Count
+      run: |
+        echo "=== Checking Predictions ==="
+        sqlite3 learning.db "SELECT COUNT(*) as total FROM predictions;" || echo "No predictions table"
+        
+        echo "=== Recent Predictions ==="
+        sqlite3 learning.db "SELECT stock, prediction, confidence, datetime(timestamp) FROM predictions ORDER BY timestamp DESC LIMIT 5;" || echo "No data"
+        
+    - name: Check Accuracy
+      run: |
+        echo "=== Accuracy Check ==="
+        python -c "
+import sqlite3
+import json
+from datetime import datetime, timedelta
+
+# Check JSON predictions
+try:
+    with open('predictions.json', 'r') as f:
+        preds = json.load(f)
+        correct = sum(1 for p in preds.values() if p.get('was_correct'))
+        total = len(preds)
+        accuracy = (correct/total*100) if total else 0
+        print(f'JSON Accuracy: {accuracy:.1f}% ({correct}/{total})')
+except:
+    print('No predictions.json found')
+
+# Check SQLite predictions
+try:
+    conn = sqlite3.connect('learning.db')
+    cursor = conn.cursor()
+    cursor.execute('SELECT COUNT(*) FROM predictions')
+    total_db = cursor.fetchone()[0]
+    print(f'SQLite Total Predictions: {total_db}')
+    conn.close()
+except Exception as e:
+    print(f'SQLite Error: {e}')
+"
