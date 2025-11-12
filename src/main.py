@@ -2255,15 +2255,23 @@ class IntelligentPredictionEngine:
         logging.info(f"🔍[{ticker}] Getting LLM consensus. Available models: {list(self.llm_clients.keys())}")
         pattern_text = "\n".join([f"{p['name']} ({p['type']}, {pattern_success_rates.get(p['name'], 50):.0f}% historical success)" for p in candle_patterns[:3]]) if candle_patterns else "No clear patterns identified"
         # ✅ ADD LEARNING CONTEXT HERE
-        learning_context = ""
+            learning_context = ""
+    try:
+        # This makes the import work whether run from root or from src/
+        from modules.autonomous_learner import AutonomousLearner
+        learner = AutonomousLearner()
+        learning_context = learner.get_learning_prompt()
+        if learning_context:
+            logging.info("🧠 Loaded past learnings to guide new predictions.")
+    except (ImportError, FileNotFoundError):
         try:
-            import sys
-            sys.path.insert(0, 'src/modules')
             from autonomous_learner import AutonomousLearner
             learner = AutonomousLearner()
             learning_context = learner.get_learning_prompt()
+            if learning_context:
+                logging.info("🧠 Loaded past learnings to guide new predictions.")
         except Exception as e:
-            logging.debug(f"Could not load learnings: {e}")
+            logging.warning(f"Could not load learning insights: {e}")
         context = f"""Analyze {ticker} and provide BUY/HOLD/SELL recommendation.
 TECHNICAL DATA:
 - Score: {existing_analysis.get('score', 'N/A')}/100
