@@ -102,7 +102,57 @@ class LearningEngine:
         
         conn.close()
 
+def show_learning_summary(self):
+    """Show what we've learned so far"""
+    conn = sqlite3.connect(self.db_path)
+    cursor = conn.cursor()
+    
+    print("\n📊 LEARNING SUMMARY")
+    print("=" * 50)
+    
+    # Overall accuracy by action type
+    cursor.execute("""
+        SELECT 
+            p.prediction as action,
+            COUNT(*) as total,
+            SUM(CASE WHEN o.success = 1 THEN 1 ELSE 0 END) as correct,
+            ROUND(100.0 * SUM(CASE WHEN o.success = 1 THEN 1 ELSE 0 END) / COUNT(*), 1) as accuracy
+        FROM predictions p
+        JOIN outcomes o ON p.id = o.prediction_id
+        GROUP BY p.prediction
+    """)
+    
+    results = cursor.fetchall()
+    print("\n📈 Accuracy by Action Type:")
+    for action, total, correct, accuracy in results:
+        print(f"  {action}: {accuracy}% ({correct}/{total})")
+    
+    # Best performing stocks
+    cursor.execute("""
+        SELECT 
+            p.stock,
+            COUNT(*) as predictions,
+            ROUND(AVG(o.actual_move_pct), 1) as avg_move,
+            SUM(CASE WHEN o.success = 1 THEN 1 ELSE 0 END) as correct
+        FROM predictions p
+        JOIN outcomes o ON p.id = o.prediction_id
+        GROUP BY p.stock
+        HAVING predictions >= 5
+        ORDER BY avg_move DESC
+        LIMIT 5
+    """)
+    
+    results = cursor.fetchall()
+    print("\n🏆 Top Performing Stocks:")
+    for stock, preds, avg_move, correct in results:
+        accuracy = (correct/preds*100) if preds else 0
+        print(f"  {stock}: {avg_move}% avg move, {accuracy:.0f}% accuracy")
+    
+    conn.close()
+
+# Add to main execution
 if __name__ == "__main__":
     engine = LearningEngine()
     engine.check_past_predictions()
     engine.generate_learning_insights()
+    engine.show_learning_summary()  # ← ADD THIS
