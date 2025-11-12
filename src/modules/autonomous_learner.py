@@ -2,18 +2,72 @@ import sqlite3
 import json
 from datetime import datetime, timedelta
 import os
+import yfinance as yf
 
 class AutonomousLearner:
     def __init__(self):
         self.db_path = 'src/modules/data/learning.db'
         self.learning_file = 'src/modules/learning_insights.json'
+    
+    def check_yesterdays_predictions(self):
+        """Check ALL predictions from yesterday - aggressive learning!"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
         
+        # Get ALL predictions at least 1 day old
+        yesterday = datetime.now() - timedelta(days=1)
+        
+        cursor.execute("""
+            SELECT id, stock, prediction, entry_price, llm_model
+            FROM predictions
+            WHERE DATE(timestamp) <= DATE(?)
+            AND id NOT IN (SELECT prediction_id FROM outcomes)
+            AND entry_price > 0
+            LIMIT 100
+        """, (yesterday,))
+        
+        unchecked = cursor.fetchall()
+        print(f"\n🔍 Checking {len(unchecked)} predictions from yesterday...")
+        
+        checked_count = 0
+        for pred_id, stock, action, entry_price, llm_model in unchecked:
+            try:
+                ticker = yf.Ticker(stock)
+                current_price = ticker.history(period='1d')['Close'].iloc[-1]
+                price_change_pct = ((current_price - entry_price) / entry_price) * 100
+                
+                # Quick aggressive thresholds (1% instead of 2%)
+                if action == 'BUY':
+                    success = price_change_pct > 1  # ← More aggressive
+                elif action == 'SELL':
+                    success = price_change_pct < -1  # ← More aggressive  
+                else:  # HOLD
+                    success = abs(price_change_pct) <= 1
+                
+                # Store outcome
+                cursor.execute("""
+                    INSERT INTO outcomes (prediction_id, actual_price, actual_move_pct, success)
+                    VALUES (?, ?, ?, ?)
+                """, (pred_id, current_price, price_change_pct, 1 if success else 0))
+                
+                checked_count += 1
+                status = '✅' if success else '❌'
+                print(f"  {stock}: {action} was {status} (moved {price_change_pct:.1f}%)")
+                
+            except Exception as e:
+                continue  # Skip errors silently
+        
+        conn.commit()
+        conn.close()
+        
+        return checked_count
+    
     def analyze_mistakes(self):
         """Analyze what went wrong and create learning rules"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
-        # Get all wrong predictions with details
+        # Get ALL wrong predictions (not just recent)
         cursor.execute("""
             SELECT 
                 p.stock, 
@@ -25,9 +79,8 @@ class AutonomousLearner:
             FROM predictions p
             JOIN outcomes o ON p.id = o.prediction_id
             WHERE o.success = 0
-            AND p.reasoning NOT LIKE '%Test prediction%'
-            ORDER BY ABS(o.actual_move_pct) DESC
-            LIMIT 20
+            ORDER BY o.check_date DESC
+            LIMIT 50
         """)
         
         mistakes = cursor.fetchall()
@@ -37,16 +90,16 @@ class AutonomousLearner:
         print("=" * 50)
         
         for stock, pred, reasoning, rsi, patterns, actual_move in mistakes:
-            # Identify the mistake pattern
-            if pred == "SELL" and actual_move > 10:
+            # More aggressive learning patterns
+            if pred == "SELL" and actual_move > 1:
                 mistake_type = "sold_before_rally"
-                learning = f"When RSI={rsi:.0f} and pattern={patterns}, stock rallied {actual_move:.1f}% - should have been BUY not SELL"
-            elif pred == "HOLD" and abs(actual_move) > 15:
+                learning = f"When RSI={rsi:.0f}, stock rallied {actual_move:.1f}% - should BUY not SELL"
+            elif pred == "HOLD" and abs(actual_move) > 3:
                 mistake_type = "missed_big_move"
-                learning = f"Stock moved {actual_move:.1f}% - pattern {patterns} needs decisive action (BUY/SELL) not HOLD"
-            elif pred == "BUY" and actual_move < -10:
+                learning = f"Stock moved {actual_move:.1f}% - be decisive, not HOLD"
+            elif pred == "BUY" and actual_move < -1:
                 mistake_type = "bought_before_drop"
-                learning = f"Stock dropped {actual_move:.1f}% - pattern {patterns} with RSI={rsi:.0f} was bearish not bullish"
+                learning = f"Stock dropped {actual_move:.1f}% - was bearish signal"
             else:
                 continue
                 
@@ -55,18 +108,18 @@ class AutonomousLearner:
             learnings[mistake_type].append({
                 'stock': stock,
                 'learning': learning,
-                'actual_move': actual_move,
-                'original_reasoning': reasoning[:100]
+                'actual_move': actual_move
             })
         
         conn.close()
         
         # Save learnings
-        self.save_learnings(learnings)
+        if learnings:
+            self.save_learnings(learnings)
         return learnings
     
     def save_learnings(self, learnings):
-        """Save learning insights for LLMs to use tomorrow"""
+        """Save learning insights for tomorrow's predictions"""
         if os.path.exists(self.learning_file):
             with open(self.learning_file, 'r') as f:
                 existing = json.load(f)
@@ -75,10 +128,10 @@ class AutonomousLearner:
         
         existing[datetime.now().isoformat()] = learnings
         
-        # Keep only last 7 days of learnings
+        # Keep only last 3 days (more aggressive rotation)
         dates = sorted(existing.keys())
-        if len(dates) > 7:
-            for old_date in dates[:-7]:
+        if len(dates) > 3:
+            for old_date in dates[:-3]:
                 del existing[old_date]
         
         with open(self.learning_file, 'w') as f:
@@ -88,11 +141,11 @@ class AutonomousLearner:
         print("=" * 50)
         for mistake_type, lessons in learnings.items():
             print(f"\n❌ Pattern: {mistake_type.replace('_', ' ').upper()}")
-            for lesson in lessons[:3]:  # Top 3 lessons
+            for lesson in lessons[:3]:
                 print(f"  📝 {lesson['learning']}")
     
     def get_learning_prompt(self):
-        """Get learning context for LLMs to improve"""
+        """Get aggressive learning prompts for LLMs"""
         if not os.path.exists(self.learning_file):
             return ""
         
@@ -102,78 +155,30 @@ class AutonomousLearner:
         if not learnings:
             return ""
             
-        # Get most recent learnings
-        latest_date = sorted(learnings.keys())[-1]
-        latest = learnings[latest_date]
+        # Get ALL recent learnings (not just latest)
+        prompt = "\n🚨 CRITICAL LEARNINGS - ADJUST YOUR STRATEGY:\n"
+        for date in sorted(learnings.keys())[-2:]:  # Last 2 days
+            for mistake_type, lessons in learnings[date].items():
+                if lessons:
+                    prompt += f"- {lessons[0]['learning']}\n"
         
-        prompt = "\nIMPORTANT LEARNINGS FROM PAST MISTAKES:\n"
-        for mistake_type, lessons in latest.items():
-            if lessons:
-                prompt += f"- {mistake_type.replace('_', ' ').upper()}: "
-                prompt += lessons[0]['learning']
-                prompt += "\n"
-        
-        prompt += "\nAdjust your analysis based on these learnings!\n"
+        prompt += "BE MORE AGGRESSIVE - ACT ON THESE LEARNINGS!\n"
         return prompt
-
-def check_recent_predictions(self):
-    """Check predictions from 3+ days ago (not just 7)"""
-    conn = sqlite3.connect(self.db_path)
-    cursor = conn.cursor()
-    
-    from datetime import datetime, timedelta
-    import yfinance as yf
-    
-    # Check predictions from 3+ days ago
-    days_ago = datetime.now() - timedelta(days=3)
-    
-    cursor.execute("""
-        SELECT id, stock, prediction, entry_price
-        FROM predictions
-        WHERE DATE(timestamp) <= DATE(?)
-        AND id NOT IN (SELECT prediction_id FROM outcomes)
-        AND reasoning NOT LIKE '%Test%'
-        LIMIT 20
-    """, (days_ago,))
-    
-    unchecked = cursor.fetchall()
-    print(f"\n🔍 Found {len(unchecked)} unchecked predictions to verify...")
-    
-    for pred_id, stock, action, entry_price in unchecked:
-        try:
-            ticker = yf.Ticker(stock)
-            current_price = ticker.history(period='1d')['Close'].iloc[-1]
-            price_change_pct = ((current_price - entry_price) / entry_price) * 100
-            
-            # Determine success
-            if action == 'BUY':
-                success = price_change_pct > 2
-            elif action == 'SELL':
-                success = price_change_pct < -2
-            else:
-                success = abs(price_change_pct) <= 2
-            
-            # Store outcome
-            cursor.execute("""
-                INSERT INTO outcomes (prediction_id, actual_price, actual_move_pct, success)
-                VALUES (?, ?, ?, ?)
-            """, (pred_id, current_price, price_change_pct, 1 if success else 0))
-            
-            print(f"  {stock}: {action} - {'✅ CORRECT' if success else '❌ WRONG'} ({price_change_pct:.1f}%)")
-        except Exception as e:
-            print(f"  Error: {e}")
-    
-    conn.commit()
-    conn.close()
-
 
 if __name__ == "__main__":
     learner = AutonomousLearner()
-    learner.check_recent_predictions()
-    learnings = learner.analyze_mistakes()
     
-    if learnings:
-        print(f"\n✅ Identified {sum(len(v) for v in learnings.values())} learning opportunities")
-        print("📚 These insights will improve tomorrow's predictions!")
+    # First check yesterday's predictions
+    checked = learner.check_yesterdays_predictions()
+    
+    if checked > 0:
+        # Now analyze mistakes
+        learnings = learner.analyze_mistakes()
+        
+        if learnings:
+            print(f"\n✅ Identified {sum(len(v) for v in learnings.values())} learning opportunities")
+            print("📚 These insights will improve tomorrow's predictions!")
+        else:
+            print("\n✅ No mistakes found - system is learning!")
     else:
-        print("\n📊 No significant mistakes to learn from yet.")
+        print("\n⏳ No predictions old enough to check yet (need 24 hours)")
