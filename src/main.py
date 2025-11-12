@@ -2256,56 +2256,56 @@ async def _get_multi_llm_consensus(self, ticker, existing_analysis, candle_patte
         pattern_text = "\n".join([f"{p['name']} ({p['type']}, {pattern_success_rates.get(p['name'], 50):.0f}% historical success)" for p in candle_patterns[:3]]) if candle_patterns else "No clear patterns identified"
         # ✅ ADD LEARNING CONTEXT HERE
         learning_context = ""
-    try:
-        # This makes the import work whether run from root or from src/
-        from modules.autonomous_learner import AutonomousLearner
-        learner = AutonomousLearner()
-        learning_context = learner.get_learning_prompt()
-        if learning_context:
-            logging.info("🧠 Loaded past learnings to guide new predictions.")
-    except (ImportError, FileNotFoundError):
         try:
-            from autonomous_learner import AutonomousLearner
+            # This makes the import work whether run from root or from src/
+            from modules.autonomous_learner import AutonomousLearner
             learner = AutonomousLearner()
             learning_context = learner.get_learning_prompt()
             if learning_context:
                 logging.info("🧠 Loaded past learnings to guide new predictions.")
-        except Exception as e:
-            logging.warning(f"Could not load learning insights: {e}")
-        context = f"""Analyze {ticker} and provide BUY/HOLD/SELL recommendation.
-TECHNICAL DATA:
-- Score: {existing_analysis.get('score', 'N/A')}/100
-- RSI: {existing_analysis.get('rsi', 'N/A')}
-- Volume: {existing_analysis.get('volume_ratio', 1.0):.1f}x average
-CANDLESTICK PATTERNS (Today):
-{pattern_text}
-MARKET CONTEXT:
-{f"Macro Score: {market_context.get('overall_macro_score', 0):.0f}" if market_context else "Not available"}
-Respond with ONLY:
-ACTION: [BUY/HOLD/SELL]
-CONFIDENCE: [0-100]
-REASON: [One sentence]"""
-        
-        tasks, llm_names = [], []
-        if 'groq' in self.llm_clients:
-            tasks.append(self._query_groq(context, ticker))
-            llm_names.append('groq')
-        if 'gemini' in self.llm_clients:
-            tasks.append(self._query_gemini(context, ticker))
-            llm_names.append('gemini')
-        if 'cohere' in self.llm_clients:
-            tasks.append(self._query_cohere(context, ticker))
-            llm_names.append('cohere')
-        
-        predictions = {}
-        if tasks:
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-            for llm_name, result in zip(llm_names, results):
-                if not isinstance(result, Exception) and result:
-                    predictions[llm_name] = result
-        
-        logging.info(f"🔍[{ticker}] Received {len(predictions)} LLM predictions.")
-        return predictions
+        except (ImportError, FileNotFoundError):
+            try:
+                from autonomous_learner import AutonomousLearner
+                learner = AutonomousLearner()
+                learning_context = learner.get_learning_prompt()
+                if learning_context:
+                    logging.info("🧠 Loaded past learnings to guide new predictions.")
+            except Exception as e:
+                logging.warning(f"Could not load learning insights: {e}")
+            context = f"""Analyze {ticker} and provide BUY/HOLD/SELL recommendation.
+    TECHNICAL DATA:
+    - Score: {existing_analysis.get('score', 'N/A')}/100
+    - RSI: {existing_analysis.get('rsi', 'N/A')}
+    - Volume: {existing_analysis.get('volume_ratio', 1.0):.1f}x average
+    CANDLESTICK PATTERNS (Today):
+    {pattern_text}
+    MARKET CONTEXT:
+    {f"Macro Score: {market_context.get('overall_macro_score', 0):.0f}" if market_context else "Not available"}
+    Respond with ONLY:
+    ACTION: [BUY/HOLD/SELL]
+    CONFIDENCE: [0-100]
+    REASON: [One sentence]"""
+            
+            tasks, llm_names = [], []
+            if 'groq' in self.llm_clients:
+                tasks.append(self._query_groq(context, ticker))
+                llm_names.append('groq')
+            if 'gemini' in self.llm_clients:
+                tasks.append(self._query_gemini(context, ticker))
+                llm_names.append('gemini')
+            if 'cohere' in self.llm_clients:
+                tasks.append(self._query_cohere(context, ticker))
+                llm_names.append('cohere')
+            
+            predictions = {}
+            if tasks:
+                results = await asyncio.gather(*tasks, return_exceptions=True)
+                for llm_name, result in zip(llm_names, results):
+                    if not isinstance(result, Exception) and result:
+                        predictions[llm_name] = result
+            
+            logging.info(f"🔍[{ticker}] Received {len(predictions)} LLM predictions.")
+            return predictions
 
     async def _query_groq(self, prompt, ticker):
         try:
