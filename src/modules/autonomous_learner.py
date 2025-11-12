@@ -11,11 +11,16 @@ except ImportError:
     print("Warning: yfinance not found. Please run 'pip install yfinance'")
     yf = None
 
-# --- Absolute Path Setup ---
-# This makes the script work from any directory
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(SCRIPT_DIR, 'data', 'learning.db')
-LEARNING_FILE_PATH = os.path.join(SCRIPT_DIR, 'learning_insights.json')
+# --- ABSOLUTE PATH LOGIC (The Fix) ---
+# This figures out the root directory of your project
+# __file__ is the current file: /.../Stock-Analysis/src/modules/autonomous_learner.py
+# os.path.dirname(__file__) is its directory: /.../Stock-Analysis/src/modules
+# os.path.dirname(os.path.dirname(...)) is the parent: /.../Stock-Analysis/src
+# os.path.dirname(os.path.dirname(os.path.dirname(...))) is the project root: /.../Stock-Analysis/
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+DB_PATH = os.path.join(PROJECT_ROOT, 'src', 'modules', 'data', 'learning.db')
+LEARNING_FILE_PATH = os.path.join(PROJECT_ROOT, 'src', 'modules', 'learning_insights.json')
+# --- END OF FIX ---
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
