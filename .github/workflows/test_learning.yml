@@ -49,9 +49,39 @@ jobs:
         sqlite3 src/modules/data/learning.db "SELECT stock, prediction, confidence, datetime(timestamp) FROM predictions ORDER BY timestamp DESC LIMIT 5;" || echo "No data"
     - name: Check Accuracy
       run: |
-          echo "=== Checking Predictions ==="
-          sqlite3 src/modules/data/learning.db "SELECT COUNT(*) as total FROM predictions;" || echo "No predictions table"
-          
-          echo "=== Recent Predictions ==="
-          sqlite3 src/modules/data/learning.db "SELECT stock, prediction, confidence, datetime(timestamp) FROM predictions ORDER BY timestamp DESC LIMIT 5;" || echo "No data"
-          python check_accuracy.py
+        cat > check_accuracy.py << 'EOF'
+        import sqlite3
+        import json
+        from datetime import datetime, timedelta
+        
+        # Check JSON predictions
+        try:
+            with open('data/predictions.json', 'r') as f:  # ← Fixed path
+                preds = json.load(f)
+                correct = sum(1 for p in preds.values() if p.get('was_correct'))
+                total = len(preds)
+                accuracy = (correct/total*100) if total else 0
+                print('JSON Accuracy: {:.1f}% ({}/{})'.format(accuracy, correct, total))
+        except Exception as e:
+            print('Error reading predictions.json: {}'.format(e))
+        
+        # Check SQLite predictions
+        try:
+            conn = sqlite3.connect('src/modules/data/learning.db')
+            cursor = conn.cursor()
+            cursor.execute('SELECT COUNT(*) FROM predictions')
+            total_db = cursor.fetchone()[0]
+            print('SQLite Total Predictions: {}'.format(total_db))
+            
+            # Show some recent predictions
+            cursor.execute('SELECT stock, prediction, confidence FROM predictions ORDER BY timestamp DESC LIMIT 3')
+            recent = cursor.fetchall()
+            if recent:
+                print('Recent predictions:')
+                for stock, pred, conf in recent:
+                    print('  - {}: {} ({}%)'.format(stock, pred, conf))
+            conn.close()
+        except Exception as e:
+            print('SQLite Error: {}'.format(e))
+        EOF
+        python check_accuracy.py
