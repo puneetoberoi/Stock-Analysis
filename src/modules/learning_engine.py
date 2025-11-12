@@ -16,7 +16,7 @@ class LearningEngine:
         week_ago = datetime.now() - timedelta(days=7)
         
         cursor.execute("""
-            SELECT id, stock, prediction, entry_price, target_date
+            SELECT id, stock, prediction, entry_price, target_date, llm_model
             FROM predictions
             WHERE DATE(timestamp) <= DATE(?)
             AND id NOT IN (SELECT prediction_id FROM outcomes)
@@ -25,7 +25,7 @@ class LearningEngine:
         unchecked = cursor.fetchall()
         print(f"🔍 Checking {len(unchecked)} predictions...")
         
-        for pred_id, stock, action, entry_price, target_date in unchecked:
+        for pred_id, stock, action, entry_price, target_date, llm_model in unchecked:
             try:
                 # Get current price
                 ticker = yf.Ticker(stock)
@@ -46,12 +46,30 @@ class LearningEngine:
                 cursor.execute("""
                     INSERT INTO outcomes (prediction_id, actual_price, actual_move_pct, success)
                     VALUES (?, ?, ?, ?)
-                """, (pred_id, current_price, price_change_pct, success))
+                """, (pred_id, current_price, price_change_pct, 1 if success else 0))
+                
+                # Update accuracy tracking
+                cursor.execute("""
+                    INSERT OR REPLACE INTO accuracy_tracking (stock, llm_model, total_predictions, correct_predictions, accuracy_pct)
+                    VALUES (
+                        ?, ?, 
+                        COALESCE((SELECT total_predictions FROM accuracy_tracking WHERE stock=? AND llm_model=?), 0) + 1,
+                        COALESCE((SELECT correct_predictions FROM accuracy_tracking WHERE stock=? AND llm_model=?), 0) + ?,
+                        0
+                    )
+                """, (stock, llm_model, stock, llm_model, stock, llm_model, 1 if success else 0))
                 
                 print(f"  {stock}: {action} was {'✅ CORRECT' if success else '❌ WRONG'} (moved {price_change_pct:.1f}%)")
                 
             except Exception as e:
                 print(f"  Error checking {stock}: {e}")
+        
+        # Update accuracy percentages
+        cursor.execute("""
+            UPDATE accuracy_tracking 
+            SET accuracy_pct = ROUND(100.0 * correct_predictions / total_predictions, 1)
+            WHERE total_predictions > 0
+        """)
         
         conn.commit()
         conn.close()
