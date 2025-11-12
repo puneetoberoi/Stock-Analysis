@@ -70,20 +70,13 @@ except ImportError:
 def save_prediction_to_db(ticker, action, confidence, reasoning, indicators, patterns, llm_model="groq"):
     """Save prediction to SQLite database"""
     try:
-        # Try multiple possible database locations
         import os
-        db_paths = ['learning.db', 'src/modules/data/learning.db', 'data/learning.db']
-        db_path = None
+        # Use the actual database location
+        db_path = 'src/modules/data/learning.db'
         
-        for path in db_paths:
-            if os.path.exists(path):
-                db_path = path
-                break
+        # Ensure directory exists
+        os.makedirs(os.path.dirname(db_path), exist_ok=True)
         
-        if not db_path:
-            # Create in default location
-            db_path = 'learning.db'
-            
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
         
@@ -110,7 +103,7 @@ def save_prediction_to_db(ticker, action, confidence, reasoning, indicators, pat
         
         conn.commit()
         conn.close()
-        print(f"✅ Saved {ticker} prediction to DB at {db_path}")
+        print(f"✅ Saved {ticker} prediction to DB")
     except Exception as e:
         print(f"❌ Failed to save to DB: {e}")
 
