@@ -1,41 +1,41 @@
-name: Autonomous Learning
+name: Morning Market Analysis with Learning
 
 on:
-  workflow_dispatch: # Allows manual running
   schedule:
-    - cron: '0 21 * * 1-5' # Runs at 4 PM EST on weekdays
+    - cron: '0 11 * * *'  # 6 AM EST
+  workflow_dispatch:
 
 permissions:
-  contents: write # IMPORTANT: This allows the action to commit files
+  contents: write  # ✅ ADD THIS LINE
 
 jobs:
-  learn-and-commit:
+  analyze:
     runs-on: ubuntu-latest
+    
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-        with:
-          # We need a token to be able to push changes
-          token: ${{ secrets.GITHUB_TOKEN }}
+    - uses: actions/checkout@v3
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        fetch-depth: 0
 
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
 
-      - name: Install Python Dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install yfinance pandas
+    - name: Install Python Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install yfinance pandas
 
-      - name: Run the Learning Engine
-        run: python src/modules/autonomous_learner.py
+    - name: Run the Learning Engine
+      run: python src/modules/autonomous_learner.py
 
-      - name: Commit and Push Changes
-        run: |
-          git config --global user.name 'GitHub Action'
-          git config --global user.email 'action@github.com'
-          git add src/modules/data/learning.db src/modules/learning_insights.json
-          # Only commit if there are changes
-          git diff --staged --quiet || git commit -m "🧠 Daily learning cycle completed [skip ci]"
-          git push
+    - name: Commit and Push Changes
+      run: |
+        git config --global user.name 'GitHub Action'
+        git config --global user.email 'action@github.com'
+        git add src/modules/data/learning.db src/modules/learning_insights.json
+        # Only commit if there are changes
+        git diff --staged --quiet || git commit -m "🧠 Daily learning cycle completed [skip ci]"
+        git push
