@@ -1,51 +1,43 @@
 name: Learn and Improve
 
 on:
-  workflow_dispatch: # Allows manual running
+  workflow_dispatch:
   schedule:
-    # Runs every weekday at 5 PM EST (21:00 UTC)
     - cron: '0 21 * * 1-5'
 
 permissions:
-  contents: write # CRUCIAL: Allows the action to commit files
+  contents: write
 
 jobs:
   learn:
     runs-on: ubuntu-latest
     steps:
-      - name: 1. Checkout Repository
+      - name: Checkout Repository
         uses: actions/checkout@v4
         with:
-          # We need a token to push changes back to the repo
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 2. Set up Python 3.11
+      - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
-          cache: 'pip' # Speeds up future runs
+          cache: 'pip'
 
-      - name: 3. Install Dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install yfinance pandas
+      - name: Install Dependencies
+        run: python -m pip install --upgrade pip yfinance pandas
 
-      - name: 4. Run the Learning Script
+      - name: Run Learning Script
         run: python src/modules/autonomous_learner.py
 
-      - name: 5. Commit and Push Learnings
+      - name: Commit and Push Learnings
         run: |
           git config --global user.name 'GitHub Action'
           git config --global user.email 'action@github.com'
-          # Stage the two files that the learning script modifies
-          git add src/modules/data/learning.db
-          git add src/modules/learning_insights.json
-          
-          # Check if there are any staged changes
+          git add src/modules/data/learning.db src/modules/learning_insights.json
           if ! git diff --staged --quiet; then
-            echo "✅ Found new learnings. Committing to the repository."
-            git commit -m "🧠 Autonomous Learning: Updated insights and outcomes" -m "[skip ci]"
+            echo "✅ Found new learnings. Committing to repository."
+            git commit -m "🧠 Autonomous Learning: Updated insights" -m "[skip ci]"
             git push
           else
-            echo "✅ No new learnings or outcomes to commit. Database is up-to-date."
+            echo "✅ No new learnings to commit."
           fi
