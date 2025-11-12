@@ -778,14 +778,34 @@ def generate_fallback_analysis(market_data, portfolio_data, pattern_data):
 # ✅ COMPLETE FIXED FUNCTION
 async def generate_ai_oracle_analysis(market_data, portfolio_data, pattern_data):
     """AI-powered market analysis using Gemini with model fallback"""
-    # ... (the rest of the function is the same, just ensure this part is correct)
     try:
         genai.configure(api_key=GEMINI_API_KEY)
-        models_to_try = ['gemini-2.5-flash'] # ✅ Use 'gemini-pro' as primary
+        
+        # ✅ ADD SAFETY SETTINGS
+        generation_config = {
+            "temperature": 0.7,
+            "top_p": 0.95,
+            "top_k": 40,
+            "max_output_tokens": 1024,
+        }
+        
+        safety_settings = [
+            {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
+        ]
+        
+        models_to_try = ['gemini-1.5-flash', 'gemini-pro']  # Try multiple models
         model = None
+        
         for model_name in models_to_try:
             try:
-                model = genai.GenerativeModel(model_name)
+                model = genai.GenerativeModel(
+                    model_name,
+                    generation_config=generation_config,
+                    safety_settings=safety_settings  # ✅ KEY ADDITION
+                )
                 logging.info(f"✅ Successfully loaded Gemini model for Oracle: {model_name}")
                 break
             except Exception as e:
@@ -795,57 +815,48 @@ async def generate_ai_oracle_analysis(market_data, portfolio_data, pattern_data)
             logging.error("❌ Oracle: All Gemini models failed to load. Using fallback.")
             return generate_fallback_analysis(market_data, portfolio_data, pattern_data)
         
-        # ... rest of the prompt and generate_content call ...
-        prompt = f"..." # Your existing prompt
+        prompt = f"""You are an elite hedge fund analyst. Analyze this market data and provide sharp, actionable intelligence.
+
+Market Context:
+- Macro Score: {market_data.get('macro_score', 'N/A')}
+- Geopolitical Risk: {market_data.get('geo_risk', 'N/A')}/100
+- Trade Risk: {market_data.get('trade_risk', 'N/A')}/100
+
+Portfolio Performance:
+- Top Gainer: {portfolio_data.get('top_gainer', 'N/A')}
+- Top Loser: {portfolio_data.get('top_loser', 'N/A')}
+
+Pattern Recognition:
+- Historical Match Confidence: {pattern_data.get('confidence', 'N/A')}%
+- Expected 3-Month Return: {pattern_data.get('expected_return', 'N/A')}%
+
+Provide a 2-3 sentence analysis focusing on:
+1. The single most important opportunity or risk
+2. One specific action to take today
+3. Key level to watch
+
+Be direct and specific. No fluff."""
+
+        # ✅ FIXED: Pass safety settings to generate_content
         response = await asyncio.to_thread(
             model.generate_content,
             prompt,
-            # ... your existing generation_config
+            generation_config=generation_config,
+            safety_settings=safety_settings  # ✅ KEY ADDITION
         )
+        
+        # Check if response was blocked
+        if hasattr(response, 'prompt_feedback'):
+            if hasattr(response.prompt_feedback, 'block_reason'):
+                if response.prompt_feedback.block_reason:
+                    logging.warning(f"Gemini blocked response: {response.prompt_feedback.block_reason}")
+                    return generate_fallback_analysis(market_data, portfolio_data, pattern_data)
         
         logging.info("✅ Gemini AI Oracle analysis generated successfully")
         return {'analysis': response.text, 'generated_at': datetime.now().isoformat()}
         
     except Exception as e:
         logging.error(f"Gemini API Oracle error: {e}")
-        return generate_fallback_analysis(market_data, portfolio_data, pattern_data)
-        
-        prompt = f"""You are an elite hedge fund analyst. Analyze this market data and provide sharp, actionable intelligence.
-
-CURRENT MARKET:
-- Geopolitical Risk: {market_data['macro']['geopolitical_risk']}/100
-- Trade Risk: {market_data['macro']['trade_risk']}/100
-- Economic Sentiment: {market_data['macro']['economic_sentiment']:.2f}
-- Top Stock: {market_data['top_stock'].get('name', 'N/A')} - Score: {market_data['top_stock'].get('score', 'N/A')}
-
-PORTFOLIO HIGHLIGHTS:
-{json.dumps([{'ticker': s['ticker'], 'rsi': round(s['rsi'], 1), 'monthly_change': round(s['monthly_change'], 1)} for s in portfolio_data['stocks'][:4]], indent=2) if portfolio_data else 'N/A'}
-
-HISTORICAL PATTERN:
-{json.dumps(pattern_data.get('interpretation', [])[:2], indent=2) if pattern_data else 'N/A'}
-
-Provide concise, actionable insights in 5 sections:
-1. IMMEDIATE OPPORTUNITIES: Specific stocks/sectors to buy now and why.
-2. CRITICAL RISKS: What could hurt portfolios in the next 2 weeks.
-3. CONTRARIAN PLAY: One against-the-crowd idea.
-4. SECTOR ROTATION: Where smart money is likely moving.
-5. PORTFOLIO ACTIONS: Specific buy/sell/hold for my portfolio stocks.
-
-Focus on AI, geopolitical plays, and hidden opportunities. Be specific with price targets and timeframes. Be decisive. Keep it under 400 words."""
-        
-        response = model.generate_content(
-            prompt,
-            generation_config=genai.types.GenerationConfig(
-                temperature=0.7,
-                max_output_tokens=800,
-            )
-        )
-        
-        logging.info("✅ Gemini AI analysis generated successfully")
-        return {'analysis': response.text, 'generated_at': datetime.now().isoformat()}  # FIXED: datetime.now()
-        
-    except Exception as e:
-        logging.error(f"Gemini API error: {str(e)[:200]}")
         return generate_fallback_analysis(market_data, portfolio_data, pattern_data)
 
 # ========================================
@@ -2309,13 +2320,47 @@ REASON: [One sentence]"""
 
     async def _query_gemini(self, prompt, ticker):
         try:
-            model = self.llm_clients['gemini']
-            # ✅ FIXED: Switched to async call for better performance
-            response = await model.generate_content_async(
+            # ✅ ADD SAFETY SETTINGS
+            generation_config = {
+                'temperature': 0.3,
+                'max_output_tokens': 150,
+                'top_p': 0.95,
+                'top_k': 40,
+            }
+            
+            safety_settings = [
+                {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+                {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+                {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+                {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
+            ]
+            
+            # If model isn't initialized with safety settings, reinitialize
+            if not hasattr(self, 'gemini_safe_model'):
+                import google.generativeai as genai
+                genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
+                self.gemini_safe_model = genai.GenerativeModel(
+                    'gemini-1.5-flash',
+                    generation_config=generation_config,
+                    safety_settings=safety_settings
+                )
+            
+            # ✅ Use synchronous call (not async for this model)
+            response = self.gemini_safe_model.generate_content(
                 prompt,
-                generation_config={'temperature': 0.3, 'max_output_tokens': 150}
+                generation_config=generation_config,
+                safety_settings=safety_settings
             )
+            
+            # Check if response was blocked
+            if hasattr(response, 'prompt_feedback'):
+                if hasattr(response.prompt_feedback, 'block_reason'):
+                    if response.prompt_feedback.block_reason:
+                        logging.warning(f"Gemini blocked for {ticker}: {response.prompt_feedback.block_reason}")
+                        return None
+            
             return self._parse_llm_response(response.text, 'gemini')
+            
         except Exception as e:
             logging.warning(f"Gemini query failed for {ticker}: {e}")
             return None
