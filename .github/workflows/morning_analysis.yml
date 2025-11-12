@@ -32,13 +32,14 @@ jobs:
 
     - name: Ensure database exists
       run: |
-        if [ ! -f "learning.db" ]; then
+        # Database is at src/modules/data/learning.db
+        if [ ! -f "src/modules/data/learning.db" ]; then
           echo "Creating learning.db..."
-          sqlite3 learning.db < schemas.sql
+          mkdir -p src/modules/data
+          sqlite3 src/modules/data/learning.db < src/modules/schemas.sql
+        else
+          echo "✅ Database already exists at src/modules/data/learning.db"
         fi
-        # Also ensure src/modules/data/ exists for the copy
-        mkdir -p src/modules/data/
-        cp learning.db src/modules/data/learning.db 2>/dev/null || true
     
     - name: Run market analysis with predictions
       env:
