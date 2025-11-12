@@ -2305,36 +2305,36 @@ REASON: [One sentence]"""
 
     import time
     async def _query_gemini(self, prompt, ticker):
-    try:
-        generation_config = {
-            'temperature': 0.3,
-            'max_output_tokens': 150,
-            'top_p': 0.95,
-            'top_k': 40,
-        }
-        
-        # Initialize model if needed
-        if not hasattr(self, 'gemini_model'):
-            import google.generativeai as genai
-            genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
-            self.gemini_model = genai.GenerativeModel(
-                'gemini-1.0-pro',  # ← FIXED: Use gemini-1.0-pro
-                generation_config=generation_config
-            )
-        
-        # Simple generate without safety settings
-        response = self.gemini_model.generate_content(prompt)
-        
-        # Check if we got text
-        if hasattr(response, 'text') and response.text:
-            return self._parse_llm_response(response.text, 'gemini')
-        else:
-            logging.warning(f"Gemini returned empty response for {ticker}")
+        try:
+            generation_config = {
+                'temperature': 0.3,
+                'max_output_tokens': 150,
+                'top_p': 0.95,
+                'top_k': 40,
+            }
+            
+            # Initialize model if needed
+            if not hasattr(self, 'gemini_model'):
+                import google.generativeai as genai
+                genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
+                self.gemini_model = genai.GenerativeModel(
+                    'gemini-1.0-pro',  # ← FIXED: Use gemini-1.0-pro
+                    generation_config=generation_config
+                )
+            
+            # Simple generate without safety settings
+            response = self.gemini_model.generate_content(prompt)
+            
+            # Check if we got text
+            if hasattr(response, 'text') and response.text:
+                return self._parse_llm_response(response.text, 'gemini')
+            else:
+                logging.warning(f"Gemini returned empty response for {ticker}")
+                return None
+            
+        except Exception as e:
+            logging.warning(f"Gemini query failed for {ticker}: {e}")
             return None
-        
-    except Exception as e:
-        logging.warning(f"Gemini query failed for {ticker}: {e}")
-        return None
 
     async def _query_cohere(self, prompt, ticker):
         try:
