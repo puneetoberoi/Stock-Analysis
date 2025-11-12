@@ -30,7 +30,7 @@ jobs:
           echo "Size: $(ls -lh learning.db | awk '{print $5}')"
         else
           echo "❌ learning.db not found - creating it"
-          sqlite3 learning.db < schemas.sql
+          sqlite3 learning.db < src/modules/schemas.sql
         fi
         
     - name: Run Learning Check
@@ -47,31 +47,31 @@ jobs:
         
     - name: Check Accuracy
       run: |
-        echo "=== Accuracy Check ==="
-        python -c "
+        cat > check_accuracy.py << 'EOF'
         import sqlite3
         import json
         from datetime import datetime, timedelta
-
-# Check JSON predictions
-try:
-    with open('predictions.json', 'r') as f:
-        preds = json.load(f)
-        correct = sum(1 for p in preds.values() if p.get('was_correct'))
-        total = len(preds)
-        accuracy = (correct/total*100) if total else 0
-        print(f'JSON Accuracy: {accuracy:.1f}% ({correct}/{total})')
-except:
-    print('No predictions.json found')
-
-# Check SQLite predictions
-try:
-    conn = sqlite3.connect('learning.db')
-    cursor = conn.cursor()
-    cursor.execute('SELECT COUNT(*) FROM predictions')
-    total_db = cursor.fetchone()[0]
-    print(f'SQLite Total Predictions: {total_db}')
-    conn.close()
-except Exception as e:
-    print(f'SQLite Error: {e}')
-"
+        
+        # Check JSON predictions
+        try:
+            with open('predictions.json', 'r') as f:
+                preds = json.load(f)
+                correct = sum(1 for p in preds.values() if p.get('was_correct'))
+                total = len(preds)
+                accuracy = (correct/total*100) if total else 0
+                print(f'JSON Accuracy: {accuracy:.1f}% ({correct}/{total})')
+        except:
+            print('No predictions.json found')
+        
+        # Check SQLite predictions
+        try:
+            conn = sqlite3.connect('learning.db')
+            cursor = conn.cursor()
+            cursor.execute('SELECT COUNT(*) FROM predictions')
+            total_db = cursor.fetchone()[0]
+            print(f'SQLite Total Predictions: {total_db}')
+            conn.close()
+        except Exception as e:
+            print(f'SQLite Error: {e}')
+        EOF
+        python check_accuracy.py
