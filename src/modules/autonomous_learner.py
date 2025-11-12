@@ -2,7 +2,12 @@ import sqlite3
 import json
 from datetime import datetime, timedelta
 import os
-import yfinance as yf
+
+try:
+    import yfinance as yf
+except ImportError:
+    print("⚠️ yfinance not installed. Install with: pip install yfinance")
+    yf = None
 
 class AutonomousLearner:
     def __init__(self):
@@ -10,11 +15,14 @@ class AutonomousLearner:
         self.learning_file = 'src/modules/learning_insights.json'
     
     def check_yesterdays_predictions(self):
-        """Check ALL predictions from yesterday - aggressive learning!"""
+        """Check predictions from yesterday - aggressive daily learning"""
+        if not yf:
+            print("❌ Cannot check predictions without yfinance")
+            return 0
+            
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
-        # Get ALL predictions at least 1 day old
         yesterday = datetime.now() - timedelta(days=1)
         
         cursor.execute("""
@@ -27,24 +35,27 @@ class AutonomousLearner:
         """, (yesterday,))
         
         unchecked = cursor.fetchall()
-        print(f"\n🔍 Checking {len(unchecked)} predictions from yesterday...")
+        print(f"\n🔍 Checking {len(unchecked)} predictions...")
         
         checked_count = 0
         for pred_id, stock, action, entry_price, llm_model in unchecked:
             try:
                 ticker = yf.Ticker(stock)
-                current_price = ticker.history(period='1d')['Close'].iloc[-1]
+                hist = ticker.history(period='1d')
+                if hist.empty:
+                    continue
+                    
+                current_price = hist['Close'].iloc[-1]
                 price_change_pct = ((current_price - entry_price) / entry_price) * 100
                 
-                # Quick aggressive thresholds (1% instead of 2%)
+                # Aggressive 1% threshold
                 if action == 'BUY':
-                    success = price_change_pct > 1  # ← More aggressive
+                    success = price_change_pct > 1
                 elif action == 'SELL':
-                    success = price_change_pct < -1  # ← More aggressive  
-                else:  # HOLD
+                    success = price_change_pct < -1
+                else:
                     success = abs(price_change_pct) <= 1
                 
-                # Store outcome
                 cursor.execute("""
                     INSERT INTO outcomes (prediction_id, actual_price, actual_move_pct, success)
                     VALUES (?, ?, ?, ?)
@@ -52,10 +63,11 @@ class AutonomousLearner:
                 
                 checked_count += 1
                 status = '✅' if success else '❌'
-                print(f"  {stock}: {action} was {status} (moved {price_change_pct:.1f}%)")
+                print(f"  {stock}: {action} {status} ({price_change_pct:+.1f}%)")
                 
             except Exception as e:
-                continue  # Skip errors silently
+                print(f"  ⚠️ {stock}: {e}")
+                continue
         
         conn.commit()
         conn.close()
@@ -63,43 +75,36 @@ class AutonomousLearner:
         return checked_count
     
     def analyze_mistakes(self):
-        """Analyze what went wrong and create learning rules"""
+        """Find patterns in mistakes"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
-        # Get ALL wrong predictions (not just recent)
         cursor.execute("""
             SELECT 
-                p.stock, 
-                p.prediction, 
-                p.reasoning,
-                p.rsi,
-                p.patterns,
-                o.actual_move_pct
+                p.stock, p.prediction, p.reasoning, p.rsi, p.patterns, o.actual_move_pct
             FROM predictions p
             JOIN outcomes o ON p.id = o.prediction_id
             WHERE o.success = 0
-            ORDER BY o.check_date DESC
-            LIMIT 50
+            ORDER BY ABS(o.actual_move_pct) DESC
+            LIMIT 30
         """)
         
         mistakes = cursor.fetchall()
         learnings = {}
         
-        print("\n🔍 ANALYZING MISTAKES TO LEARN")
+        print("\n🔍 ANALYZING MISTAKES")
         print("=" * 50)
         
         for stock, pred, reasoning, rsi, patterns, actual_move in mistakes:
-            # More aggressive learning patterns
             if pred == "SELL" and actual_move > 1:
                 mistake_type = "sold_before_rally"
-                learning = f"When RSI={rsi:.0f}, stock rallied {actual_move:.1f}% - should BUY not SELL"
+                learning = f"RSI {rsi:.0f}: rallied {actual_move:.1f}% - should BUY not SELL"
             elif pred == "HOLD" and abs(actual_move) > 3:
                 mistake_type = "missed_big_move"
-                learning = f"Stock moved {actual_move:.1f}% - be decisive, not HOLD"
+                learning = f"Moved {actual_move:.1f}% - be decisive!"
             elif pred == "BUY" and actual_move < -1:
                 mistake_type = "bought_before_drop"
-                learning = f"Stock dropped {actual_move:.1f}% - was bearish signal"
+                learning = f"Dropped {actual_move:.1f}% - bearish signal missed"
             else:
                 continue
                 
@@ -108,18 +113,18 @@ class AutonomousLearner:
             learnings[mistake_type].append({
                 'stock': stock,
                 'learning': learning,
-                'actual_move': actual_move
+                'move': actual_move
             })
         
         conn.close()
         
-        # Save learnings
         if learnings:
             self.save_learnings(learnings)
+            
         return learnings
     
     def save_learnings(self, learnings):
-        """Save learning insights for tomorrow's predictions"""
+        """Save for tomorrow's predictions"""
         if os.path.exists(self.learning_file):
             with open(self.learning_file, 'r') as f:
                 existing = json.load(f)
@@ -128,7 +133,7 @@ class AutonomousLearner:
         
         existing[datetime.now().isoformat()] = learnings
         
-        # Keep only last 3 days (more aggressive rotation)
+        # Keep last 3 days
         dates = sorted(existing.keys())
         if len(dates) > 3:
             for old_date in dates[:-3]:
@@ -137,15 +142,15 @@ class AutonomousLearner:
         with open(self.learning_file, 'w') as f:
             json.dump(existing, f, indent=2)
         
-        print("\n🧠 AUTONOMOUS LEARNING COMPLETE")
+        print("\n🧠 LEARNING COMPLETE")
         print("=" * 50)
         for mistake_type, lessons in learnings.items():
-            print(f"\n❌ Pattern: {mistake_type.replace('_', ' ').upper()}")
-            for lesson in lessons[:3]:
+            print(f"\n❌ {mistake_type.upper()}: {len(lessons)} cases")
+            for lesson in lessons[:2]:
                 print(f"  📝 {lesson['learning']}")
     
     def get_learning_prompt(self):
-        """Get aggressive learning prompts for LLMs"""
+        """Get learnings for LLM prompts"""
         if not os.path.exists(self.learning_file):
             return ""
         
@@ -154,31 +159,27 @@ class AutonomousLearner:
         
         if not learnings:
             return ""
-            
-        # Get ALL recent learnings (not just latest)
-        prompt = "\n🚨 CRITICAL LEARNINGS - ADJUST YOUR STRATEGY:\n"
-        for date in sorted(learnings.keys())[-2:]:  # Last 2 days
+        
+        prompt = "\n🚨 LEARN FROM PAST MISTAKES:\n"
+        for date in sorted(learnings.keys())[-2:]:
             for mistake_type, lessons in learnings[date].items():
                 if lessons:
                     prompt += f"- {lessons[0]['learning']}\n"
         
-        prompt += "BE MORE AGGRESSIVE - ACT ON THESE LEARNINGS!\n"
         return prompt
 
 if __name__ == "__main__":
     learner = AutonomousLearner()
     
-    # First check yesterday's predictions
     checked = learner.check_yesterdays_predictions()
     
     if checked > 0:
-        # Now analyze mistakes
         learnings = learner.analyze_mistakes()
         
         if learnings:
-            print(f"\n✅ Identified {sum(len(v) for v in learnings.values())} learning opportunities")
-            print("📚 These insights will improve tomorrow's predictions!")
+            total = sum(len(v) for v in learnings.values())
+            print(f"\n✅ Found {total} learning patterns!")
         else:
-            print("\n✅ No mistakes found - system is learning!")
+            print("\n✅ All predictions were correct!")
     else:
-        print("\n⏳ No predictions old enough to check yet (need 24 hours)")
+        print("\n⏳ No predictions ready to check yet")
