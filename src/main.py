@@ -2255,7 +2255,7 @@ class IntelligentPredictionEngine:
         logging.info(f"🔍[{ticker}] Getting LLM consensus. Available models: {list(self.llm_clients.keys())}")
         pattern_text = "\n".join([f"{p['name']} ({p['type']}, {pattern_success_rates.get(p['name'], 50):.0f}% historical success)" for p in candle_patterns[:3]]) if candle_patterns else "No clear patterns identified"
         # ✅ ADD LEARNING CONTEXT HERE
-            learning_context = ""
+        learning_context = ""
     try:
         # This makes the import work whether run from root or from src/
         from modules.autonomous_learner import AutonomousLearner
