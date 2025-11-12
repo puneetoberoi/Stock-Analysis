@@ -27,25 +27,32 @@ jobs:
     
     - name: Show Learning Stats
       run: |
+        echo "=== OVERALL ACCURACY ==="
         sqlite3 src/modules/data/learning.db << 'EOF'
         .headers on
         .mode column
         
         SELECT 
           llm_model,
-          COUNT(*) as total,
-          SUM(CASE WHEN o.success = 1 THEN 1 ELSE 0 END) as correct,
-          ROUND(100.0 * SUM(CASE WHEN o.success = 1 THEN 1 ELSE 0 END) / COUNT(*), 1) as accuracy
-        FROM predictions p
-        LEFT JOIN outcomes o ON p.id = o.prediction_id
-        WHERE o.id IS NOT NULL
+          SUM(total_predictions) as total,
+          SUM(correct_predictions) as correct,
+          ROUND(100.0 * SUM(correct_predictions) / SUM(total_predictions), 1) as accuracy
+        FROM accuracy_tracking
         GROUP BY llm_model;
         EOF
-    
-    - name: Commit learning results
-      run: |
-        git config --global user.email "action@github.com"
-        git config --global user.name "GitHub Action"
-        git add src/modules/data/learning.db
-        git commit -m "🧠 Learning check completed [skip ci]" || true
-        git push || true
+        
+        echo -e "\n=== TOP PERFORMING STOCKS ==="
+        sqlite3 src/modules/data/learning.db << 'EOF'
+        .headers on
+        .mode column
+        
+        SELECT 
+          stock,
+          total_predictions as predictions,
+          correct_predictions as correct,
+          accuracy_pct
+        FROM accuracy_tracking
+        WHERE total_predictions >= 5
+        ORDER BY accuracy_pct DESC
+        LIMIT 10;
+        EOF
