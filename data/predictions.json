@@ -12152,5 +12152,170 @@
     "price_at_prediction": 26.6200008392334,
     "outcome": null,
     "was_correct": null
+  },
+  "a2ec9416": {
+    "id": "a2ec9416",
+    "timestamp": "2025-11-12T02:55:50.252637",
+    "ticker": "AAPL",
+    "action": "SELL",
+    "confidence": 90,
+    "reasoning": "groq: The high RSI value of 71.68 indicates overbought conditions, which, combined with a negative Macro Score, outweighs the bullish candlestick patterns.",
+    "candle_pattern": "morning_star",
+    "indicators": {
+      "rsi": 71.67690869194092
+    },
+    "price_at_prediction": 275.25,
+    "outcome": null,
+    "was_correct": null
+  },
+  "cbfc7720": {
+    "id": "cbfc7720",
+    "timestamp": "2025-11-12T02:55:51.717994",
+    "ticker": "MSFT",
+    "action": "HOLD",
+    "confidence": 80,
+    "reasoning": "groq: The stock's neutral RSI and low volume, combined with a consolidation candlestick pattern and a negative macro score, suggest a hold position until more bullish signals emerge.",
+    "candle_pattern": "swing_highs_lows",
+    "indicators": {
+      "rsi": 45.04663644103891
+    },
+    "price_at_prediction": 508.67999267578125,
+    "outcome": null,
+    "was_correct": null
+  },
+  "7701b2ce": {
+    "id": "7701b2ce",
+    "timestamp": "2025-11-12T02:55:53.029671",
+    "ticker": "NVDA",
+    "action": "SELL",
+    "confidence": 95,
+    "reasoning": "groq: The presence of a downtrend candlestick pattern and a low Macro Score, combined with a neutral RSI, suggest a bearish outlook for NVDA.",
+    "candle_pattern": "swing_highs_lows",
+    "indicators": {
+      "rsi": 51.9533246385419
+    },
+    "price_at_prediction": 193.16000366210938,
+    "outcome": null,
+    "was_correct": null
+  },
+  "7b1f4e89": {
+    "id": "7b1f4e89",
+    "timestamp": "2025-11-12T02:55:54.355108",
+    "ticker": "TSLA",
+    "action": "HOLD",
+    "confidence": 100,
+    "reasoning": "groq: The presence of a doji pattern indicating indecision and a relatively neutral RSI value suggests a hold position until a clearer trend emerges.",
+    "candle_pattern": "doji",
+    "indicators": {
+      "rsi": 49.95022876190527
+    },
+    "price_at_prediction": 439.6199951171875,
+    "outcome": null,
+    "was_correct": null
+  },
+  "d72472e2": {
+    "id": "d72472e2",
+    "timestamp": "2025-11-12T02:55:55.726894",
+    "ticker": "GOOGL",
+    "action": "SELL",
+    "confidence": 90,
+    "reasoning": "groq: The high RSI value and presence of a downtrend pattern outweigh the potential bullish reversal signal, suggesting a sell recommendation.",
+    "candle_pattern": "double_bottom",
+    "indicators": {
+      "rsi": 72.15563489381422
+    },
+    "price_at_prediction": 291.30999755859375,
+    "outcome": null,
+    "was_correct": null
+  },
+  "acb3fb1a": {
+    "id": "acb3fb1a",
+    "timestamp": "2025-11-12T02:55:57.033497",
+    "ticker": "TSM",
+    "action": "SELL",
+    "confidence": 100,
+    "reasoning": "groq: The presence of downtrend indicators, such as the swing_highs_lows pattern and a negative Macro Score, outweigh the indecision signals, suggesting a bearish outlook.",
+    "candle_pattern": "spinning_top",
+    "indicators": {
+      "rsi": 49.57056213397772
+    },
+    "price_at_prediction": 291.1700134277344,
+    "outcome": null,
+    "was_correct": null
+  },
+  "a5cc5a72": {
+    "id": "a5cc5a72",
+    "timestamp": "2025-11-12T02:55:58.273946",
+    "ticker": "AMD",
+    "action": "SELL",
+    "confidence": 100,
+    "reasoning": "groq: The presence of multiple bearish reversal candlestick patterns, including a double top and tweezer top, suggests a high likelihood of a downward price movement.",
+    "candle_pattern": "double_top",
+    "indicators": {
+      "rsi": 52.638648365350456
+    },
+    "price_at_prediction": 237.52000427246094,
+    "outcome": null,
+    "was_correct": null
+  },
+  "454a284a": {
+    "id": "454a284a",
+    "timestamp": "2025-11-12T02:55:59.635204",
+    "ticker": "TD.TO",
+    "action": "BUY",
+    "confidence": 100,
+    "reasoning": "groq: The presence of multiple bullish reversal candlestick patterns, including a piercing line with 100% historical success, suggests a potential upside movement for TD.TO.",
+    "candle_pattern": "bullish_engulfing",
+    "indicators": {
+      "rsi": 60.856834495371636
+    },
+    "price_at_prediction": 114.3499984741211,
+    "outcome": null,
+    "was_correct": null
+  },
+  "0ddf4d56": {
+    "id": "0ddf4d56",
+    "timestamp": "2025-11-12T02:56:00.945382",
+    "ticker": "AMZN",
+    "action": "HOLD",
+    "confidence": 85,
+    "reasoning": "groq: The presence of a bullish continuation pattern like three_white_soldiers is countered by bearish market context and indecision patterns, leading to a cautious hold recommendation.",
+    "candle_pattern": "three_white_soldiers",
+    "indicators": {
+      "rsi": 63.839536431649606
+    },
+    "price_at_prediction": 249.10000610351562,
+    "outcome": null,
+    "was_correct": null
+  },
+  "3a82e765": {
+    "id": "3a82e765",
+    "timestamp": "2025-11-12T02:56:02.252702",
+    "ticker": "CGL-C.TO",
+    "action": "HOLD",
+    "confidence": 95,
+    "reasoning": "groq: The stock's RSI indicates a neutral position and the presence of a double bottom pattern suggests a potential bullish reversal, but the low volume and negative macro score warrant caution.",
+    "candle_pattern": "double_bottom",
+    "indicators": {
+      "rsi": 59.58411716152017
+    },
+    "price_at_prediction": 48.43000030517578,
+    "outcome": null,
+    "was_correct": null
+  },
+  "0dc4b06b": {
+    "id": "0dc4b06b",
+    "timestamp": "2025-11-12T02:56:03.663641",
+    "ticker": "SVR-C.TO",
+    "action": "HOLD",
+    "confidence": 100,
+    "reasoning": "groq: The stock's RSI indicates a neutral position, and while a bullish reversal pattern is present, the low historical success rates and negative macro score warrant caution.",
+    "candle_pattern": "double_bottom",
+    "indicators": {
+      "rsi": 61.93689625959434
+    },
+    "price_at_prediction": 27.1299991607666,
+    "outcome": null,
+    "was_correct": null
   }
 }
