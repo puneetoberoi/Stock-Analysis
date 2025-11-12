@@ -13967,5 +13967,170 @@
     "price_at_prediction": 28.25,
     "outcome": null,
     "was_correct": null
+  },
+  "b3f27e34": {
+    "id": "b3f27e34",
+    "timestamp": "2025-11-12T23:33:30.832024",
+    "ticker": "AAPL",
+    "action": "SELL",
+    "confidence": 100,
+    "reasoning": "groq: The presence of a bearish reversal tweezer_top pattern with 100% success rate, combined with a negative overall macro score, outweighs the uptrend and consolidation signals, suggesting a potential short-term decline in AAPL's stock price.",
+    "candle_pattern": "tweezer_top",
+    "indicators": {
+      "rsi": 67.570136400293
+    },
+    "price_at_prediction": 273.4700012207031,
+    "outcome": null,
+    "was_correct": null
+  },
+  "e65e2947": {
+    "id": "e65e2947",
+    "timestamp": "2025-11-12T23:33:31.411534",
+    "ticker": "MSFT",
+    "action": "HOLD",
+    "confidence": 75,
+    "reasoning": "groq: The presence of both bullish and bearish candlestick patterns, combined with a neutral RSI and negative macro score, suggests a balanced outlook, making a hold position the most prudent choice for the next week.",
+    "candle_pattern": "hammer",
+    "indicators": {
+      "rsi": 47.14603724509538
+    },
+    "price_at_prediction": 511.1400146484375,
+    "outcome": null,
+    "was_correct": null
+  },
+  "7e4a6b7c": {
+    "id": "7e4a6b7c",
+    "timestamp": "2025-11-12T23:33:31.993398",
+    "ticker": "NVDA",
+    "action": "SELL",
+    "confidence": 100,
+    "reasoning": "groq: The presence of a downtrend swing highs and lows pattern, combined with a negative overall macro score, suggests a bearish outlook for NVDA in the short term.",
+    "candle_pattern": "swing_highs_lows",
+    "indicators": {
+      "rsi": 52.49216599443544
+    },
+    "price_at_prediction": 193.8000030517578,
+    "outcome": null,
+    "was_correct": null
+  },
+  "885297f1": {
+    "id": "885297f1",
+    "timestamp": "2025-11-12T23:33:32.356556",
+    "ticker": "TSLA",
+    "action": "SELL",
+    "confidence": 100,
+    "reasoning": "groq: The presence of multiple bearish reversal candlestick patterns, combined with a low RSI and negative overall macro score, suggests a high likelihood of a downward price movement in the short term.",
+    "candle_pattern": "bearish_engulfing",
+    "indicators": {
+      "rsi": 47.37605973875986
+    },
+    "price_at_prediction": 430.6000061035156,
+    "outcome": null,
+    "was_correct": null
+  },
+  "9b485d94": {
+    "id": "9b485d94",
+    "timestamp": "2025-11-12T23:33:32.767833",
+    "ticker": "GOOGL",
+    "action": "SELL",
+    "confidence": 100,
+    "reasoning": "groq: The presence of multiple bearish reversal candlestick patterns, combined with a negative overall macro score, suggests a high likelihood of a downward price movement for GOOGL in the near term.",
+    "candle_pattern": "bearish_engulfing",
+    "indicators": {
+      "rsi": 66.53304108772338
+    },
+    "price_at_prediction": 286.7099914550781,
+    "outcome": null,
+    "was_correct": null
+  },
+  "ed3cf4cb": {
+    "id": "ed3cf4cb",
+    "timestamp": "2025-11-12T23:33:33.177357",
+    "ticker": "TSM",
+    "action": "SELL",
+    "confidence": 100,
+    "reasoning": "groq: The presence of a bearish evening star candlestick pattern, a downtrend indicated by swing highs and lows, and a negative overall macro score suggest a potential short-term decline for TSM.",
+    "candle_pattern": "evening_star",
+    "indicators": {
+      "rsi": 49.1565163916179
+    },
+    "price_at_prediction": 290.6199951171875,
+    "outcome": null,
+    "was_correct": null
+  },
+  "09ca5dd4": {
+    "id": "09ca5dd4",
+    "timestamp": "2025-11-12T23:33:33.764223",
+    "ticker": "AMD",
+    "action": "SELL",
+    "confidence": 100,
+    "reasoning": "groq: The presence of a downtrend swing highs and lows pattern, combined with a negative overall macro score, outweighs the mildly bullish RSI and volume indicators, suggesting a potential short-term decline for AMD.",
+    "candle_pattern": "vcp",
+    "indicators": {
+      "rsi": 61.26786662824235
+    },
+    "price_at_prediction": 258.8900146484375,
+    "outcome": null,
+    "was_correct": null
+  },
+  "5d8db98d": {
+    "id": "5d8db98d",
+    "timestamp": "2025-11-12T23:33:34.382232",
+    "ticker": "TD.TO",
+    "action": "HOLD",
+    "confidence": 100,
+    "reasoning": "groq: The stock's RSI indicates a slightly overbought condition, but the presence of a three_outside_up bullish reversal pattern and low volume suggest a cautious approach is warranted given the mixed technical signals and negative macro context.",
+    "candle_pattern": "three_outside_up",
+    "indicators": {
+      "rsi": 67.02182753762898
+    },
+    "price_at_prediction": 115.88999938964844,
+    "outcome": null,
+    "was_correct": null
+  },
+  "0e768a63": {
+    "id": "0e768a63",
+    "timestamp": "2025-11-12T23:33:34.838234",
+    "ticker": "AMZN",
+    "action": "SELL",
+    "confidence": 100,
+    "reasoning": "groq: The presence of multiple bearish reversal candlestick patterns, combined with a negative overall macro score, suggests a high likelihood of a downward price movement in the short term.",
+    "candle_pattern": "bearish_engulfing",
+    "indicators": {
+      "rsi": 58.58850449572991
+    },
+    "price_at_prediction": 244.1999969482422,
+    "outcome": null,
+    "was_correct": null
+  },
+  "1df3696f": {
+    "id": "1df3696f",
+    "timestamp": "2025-11-12T23:33:35.214380",
+    "ticker": "CGL-C.TO",
+    "action": "HOLD",
+    "confidence": 100,
+    "reasoning": "groq: The presence of a double bottom pattern suggests a potential bullish reversal, but the low volume and overall negative macro score temper the outlook, leading to a cautious hold stance.",
+    "candle_pattern": "double_bottom",
+    "indicators": {
+      "rsi": 63.42930658013113
+    },
+    "price_at_prediction": 49.2400016784668,
+    "outcome": null,
+    "was_correct": null
+  },
+  "e1b1b23e": {
+    "id": "e1b1b23e",
+    "timestamp": "2025-11-12T23:33:35.726967",
+    "ticker": "SVR-C.TO",
+    "action": "HOLD",
+    "confidence": 100,
+    "reasoning": "groq: The stock's technical indicators, such as a moderately high RSI and increased volume, suggest a potential continuation of the bullish trend, but the low overall macro score and mixed candlestick pattern success rates warrant caution.",
+    "candle_pattern": "three_white_soldiers",
+    "indicators": {
+      "rsi": 67.43196832427373
+    },
+    "price_at_prediction": 28.25,
+    "outcome": null,
+    "was_correct": null
   }
 }
