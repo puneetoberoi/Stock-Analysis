@@ -1,17 +1,22 @@
 name: Autonomous Learning
 
 on:
+  workflow_dispatch:
   schedule:
-    - cron: '0 21 * * *'  # 4 PM EST
-  workflow_dispatch:  # Manual trigger
+    - cron: '0 21 * * *'
+
+permissions:
+  contents: write
 
 jobs:
   learn:
     runs-on: ubuntu-latest
     
     steps:
-    - uses: actions/checkout@v3
+    - name: Checkout code
+      uses: actions/checkout@v3
       with:
+        token: ${{ secrets.GITHUB_TOKEN }}
         fetch-depth: 0
     
     - name: Set up Python
@@ -24,25 +29,30 @@ jobs:
         python -m pip install --upgrade pip
         pip install yfinance pandas
     
+    - name: Verify files exist
+      run: |
+        echo "Checking for required files..."
+        ls -la src/modules/
+        test -f src/modules/autonomous_learner.py && echo "✅ autonomous_learner.py found" || echo "❌ autonomous_learner.py missing"
+        test -f src/modules/data/learning.db && echo "✅ learning.db found" || echo "❌ learning.db missing"
+    
     - name: Run Autonomous Learning
       run: |
-        python src/modules/autonomous_learner.py
+        cd src/modules
+        python autonomous_learner.py
     
-    - name: Show Learning Summary
+    - name: Show results
       run: |
-        echo "=== Learning Completed ==="
         if [ -f "src/modules/learning_insights.json" ]; then
-          echo "✅ Learning insights generated"
+          echo "✅ Learning file created"
           cat src/modules/learning_insights.json
-        else
-          echo "⚠️ No insights file created yet"
         fi
     
     - name: Commit learnings
       run: |
-        git config --global user.email "action@github.com"
-        git config --global user.name "GitHub Action"
+        git config user.email "action@github.com"
+        git config user.name "GitHub Action"
         git add src/modules/learning_insights.json || true
-        git diff --quiet && git diff --staged --quiet || git commit -m "🧠 Autonomous learning insights [skip ci]"
+        git commit -m "🧠 Learning insights [skip ci]" || true
         git push || true
       continue-on-error: true
