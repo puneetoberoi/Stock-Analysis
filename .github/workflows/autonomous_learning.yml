@@ -2,8 +2,8 @@ name: Autonomous Learning
 
 on:
   schedule:
-    - cron: '0 21 * * *'  # 4 PM EST daily
-  workflow_dispatch:
+    - cron: '0 21 * * *'  # 4 PM EST
+  workflow_dispatch:  # Manual trigger
 
 jobs:
   learn:
@@ -11,6 +11,8 @@ jobs:
     
     steps:
     - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
     
     - name: Set up Python
       uses: actions/setup-python@v4
@@ -19,16 +21,28 @@ jobs:
     
     - name: Install dependencies
       run: |
+        python -m pip install --upgrade pip
         pip install yfinance pandas
     
     - name: Run Autonomous Learning
       run: |
         python src/modules/autonomous_learner.py
     
+    - name: Show Learning Summary
+      run: |
+        echo "=== Learning Completed ==="
+        if [ -f "src/modules/learning_insights.json" ]; then
+          echo "✅ Learning insights generated"
+          cat src/modules/learning_insights.json
+        else
+          echo "⚠️ No insights file created yet"
+        fi
+    
     - name: Commit learnings
       run: |
         git config --global user.email "action@github.com"
         git config --global user.name "GitHub Action"
         git add src/modules/learning_insights.json || true
-        git commit -m "🧠 Autonomous learning insights [skip ci]" || true
+        git diff --quiet && git diff --staged --quiet || git commit -m "🧠 Autonomous learning insights [skip ci]"
         git push || true
+      continue-on-error: true
