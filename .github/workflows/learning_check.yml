@@ -2,7 +2,7 @@ name: Daily Learning Check
 
 on:
   schedule:
-    - cron: '0 21 * * *'  # 4 PM EST - after market close
+    - cron: '0 22 * * *'  # 5 PM EST daily
   workflow_dispatch:
 
 jobs:
@@ -25,34 +25,25 @@ jobs:
       run: |
         python src/modules/learning_engine.py
     
-    - name: Show Learning Stats
+    - name: Show Stats
       run: |
-        echo "=== OVERALL ACCURACY ==="
+        echo "=== LEARNING STATS ==="
         sqlite3 src/modules/data/learning.db << 'EOF'
         .headers on
         .mode column
         
         SELECT 
-          llm_model,
-          SUM(total_predictions) as total,
-          SUM(correct_predictions) as correct,
-          ROUND(100.0 * SUM(correct_predictions) / SUM(total_predictions), 1) as accuracy
-        FROM accuracy_tracking
-        GROUP BY llm_model;
+          COUNT(*) as total_predictions,
+          SUM(CASE WHEN id IN (SELECT prediction_id FROM outcomes) THEN 1 ELSE 0 END) as checked,
+          SUM(CASE WHEN id IN (SELECT prediction_id FROM outcomes WHERE success = 1) THEN 1 ELSE 0 END) as correct
+        FROM predictions;
         EOF
-        
-        echo -e "\n=== TOP PERFORMING STOCKS ==="
-        sqlite3 src/modules/data/learning.db << 'EOF'
-        .headers on
-        .mode column
-        
-        SELECT 
-          stock,
-          total_predictions as predictions,
-          correct_predictions as correct,
-          accuracy_pct
-        FROM accuracy_tracking
-        WHERE total_predictions >= 5
-        ORDER BY accuracy_pct DESC
-        LIMIT 10;
-        EOF
+    
+    - name: Commit database
+      run: |
+        git config user.name "GitHub Action"
+        git config user.email "action@github.com"
+        git add src/modules/data/learning.db
+        git commit -m "📊 Daily learning check [skip ci]" || true
+        git push || true
+      continue-on-error: true
