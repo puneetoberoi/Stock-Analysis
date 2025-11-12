@@ -781,7 +781,7 @@ async def generate_ai_oracle_analysis(market_data, portfolio_data, pattern_data)
     try:
         genai.configure(api_key=GEMINI_API_KEY)
         
-        # ✅ ADD SAFETY SETTINGS
+        # Use simple generation config without safety settings
         generation_config = {
             "temperature": 0.7,
             "top_p": 0.95,
@@ -789,30 +789,19 @@ async def generate_ai_oracle_analysis(market_data, portfolio_data, pattern_data)
             "max_output_tokens": 1024,
         }
         
-        safety_settings = [
-            {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
-            {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
-            {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
-            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
-        ]
-        
-        models_to_try = ['gemini-pro']  # Try multiple models
+        # Use gemini-1.0-pro - the only model that works now
         model = None
-        
-        for model_name in models_to_try:
-            try:
-                model = genai.GenerativeModel(
-                    model_name,
-                    generation_config=generation_config,
-                    safety_settings=safety_settings  # ✅ KEY ADDITION
-                )
-                logging.info(f"✅ Successfully loaded Gemini model for Oracle: {model_name}")
-                break
-            except Exception as e:
-                logging.warning(f"Failed to load Gemini model {model_name}: {e}")
+        try:
+            model = genai.GenerativeModel(
+                'gemini-1.0-pro',  # ← FIXED: Use gemini-1.0-pro
+                generation_config=generation_config
+            )
+            logging.info(f"✅ Successfully loaded Gemini model for Oracle: gemini-1.0-pro")
+        except Exception as e:
+            logging.warning(f"Failed to load Gemini model: {e}")
         
         if not model:
-            logging.error("❌ Oracle: All Gemini models failed to load. Using fallback.")
+            logging.error("❌ Oracle: Gemini model failed to load. Using fallback.")
             return generate_fallback_analysis(market_data, portfolio_data, pattern_data)
         
         prompt = f"""You are an elite hedge fund analyst. Analyze this market data and provide sharp, actionable intelligence.
@@ -837,23 +826,19 @@ Provide a 2-3 sentence analysis focusing on:
 
 Be direct and specific. No fluff."""
 
-        # ✅ FIXED: Pass safety settings to generate_content
+        # Simple generate without safety settings
         response = await asyncio.to_thread(
             model.generate_content,
-            prompt,
-            generation_config=generation_config,
-            safety_settings=safety_settings  # ✅ KEY ADDITION
+            prompt
         )
         
-        # Check if response was blocked
-        if hasattr(response, 'prompt_feedback'):
-            if hasattr(response.prompt_feedback, 'block_reason'):
-                if response.prompt_feedback.block_reason:
-                    logging.warning(f"Gemini blocked response: {response.prompt_feedback.block_reason}")
-                    return generate_fallback_analysis(market_data, portfolio_data, pattern_data)
-        
-        logging.info("✅ Gemini AI Oracle analysis generated successfully")
-        return {'analysis': response.text, 'generated_at': datetime.now().isoformat()}
+        # Check if we got a valid response
+        if hasattr(response, 'text') and response.text:
+            logging.info("✅ Gemini AI Oracle analysis generated successfully")
+            return {'analysis': response.text, 'generated_at': datetime.now().isoformat()}
+        else:
+            logging.warning("Gemini response was empty, using fallback")
+            return generate_fallback_analysis(market_data, portfolio_data, pattern_data)
         
     except Exception as e:
         logging.error(f"Gemini API Oracle error: {e}")
@@ -2320,58 +2305,36 @@ REASON: [One sentence]"""
 
     import time
     async def _query_gemini(self, prompt, ticker):
-        try:
-            # Rate limit protection (10 requests per minute for free tier)
-            if not hasattr(self, 'gemini_last_call'):
-                self.gemini_last_call = 0
-            
-            time_since_last = time.time() - self.gemini_last_call
-            if time_since_last < 6:  # 6 seconds between calls = max 10/minute
-                time.sleep(6 - time_since_last)
-            
-            generation_config = {
-                'temperature': 0.3,
-                'max_output_tokens': 150,
-                'top_p': 0.95,
-                'top_k': 40,
-            }
-            
-            safety_settings = [
-                {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
-                {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
-                {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
-                {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
-            ]
-            
-            if not hasattr(self, 'gemini_safe_model'):
-                import google.generativeai as genai
-                genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
-                self.gemini_safe_model = genai.GenerativeModel(
-                    'gemini-pro',  # ← Use gemini-pro
-                    generation_config=generation_config,
-                    safety_settings=safety_settings
-                )
-            
-            response = self.gemini_safe_model.generate_content(
-                prompt,
-                generation_config=generation_config,
-                safety_settings=safety_settings
+    try:
+        generation_config = {
+            'temperature': 0.3,
+            'max_output_tokens': 150,
+            'top_p': 0.95,
+            'top_k': 40,
+        }
+        
+        # Initialize model if needed
+        if not hasattr(self, 'gemini_model'):
+            import google.generativeai as genai
+            genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
+            self.gemini_model = genai.GenerativeModel(
+                'gemini-1.0-pro',  # ← FIXED: Use gemini-1.0-pro
+                generation_config=generation_config
             )
-            
-            self.gemini_last_call = time.time()  # Update last call time
-            
-            # Check if response was blocked
-            if hasattr(response, 'prompt_feedback'):
-                if hasattr(response.prompt_feedback, 'block_reason'):
-                    if response.prompt_feedback.block_reason:
-                        logging.warning(f"Gemini blocked for {ticker}: {response.prompt_feedback.block_reason}")
-                        return None
-            
+        
+        # Simple generate without safety settings
+        response = self.gemini_model.generate_content(prompt)
+        
+        # Check if we got text
+        if hasattr(response, 'text') and response.text:
             return self._parse_llm_response(response.text, 'gemini')
-            
-        except Exception as e:
-            logging.warning(f"Gemini query failed for {ticker}: {e}")
+        else:
+            logging.warning(f"Gemini returned empty response for {ticker}")
             return None
+        
+    except Exception as e:
+        logging.warning(f"Gemini query failed for {ticker}: {e}")
+        return None
 
     async def _query_cohere(self, prompt, ticker):
         try:
