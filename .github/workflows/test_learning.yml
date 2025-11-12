@@ -49,9 +49,9 @@ jobs:
       run: |
         echo "=== Accuracy Check ==="
         python -c "
-import sqlite3
-import json
-from datetime import datetime, timedelta
+        import sqlite3
+        import json
+        from datetime import datetime, timedelta
 
 # Check JSON predictions
 try:
