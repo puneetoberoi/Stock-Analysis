@@ -1,0 +1,48 @@
+name: Autonomous Learning
+
+on:
+  workflow_dispatch: # Allows you to run it manually from the Actions tab
+  schedule:
+    # Runs every weekday at 5 PM EST (21:00 UTC)
+    - cron: '0 21 * * 1-5'
+
+permissions:
+  contents: write # This is CRUCIAL for letting the action commit files
+
+jobs:
+  learn-and-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          # We need a special token to be able to push changes back to the repo
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install Python Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install yfinance pandas
+
+      - name: Run the Learning Engine
+        id: learning_step # Give this step an ID to check its output
+        run: python src/modules/autonomous_learner.py
+
+      - name: Commit and Push Changes
+        run: |
+          git config --global user.name 'GitHub Action'
+          git config --global user.email 'action@github.com'
+          # Add both the database (with new outcomes) and the learning insights file
+          git add src/modules/data/learning.db src/modules/learning_insights.json
+          # Check if there are any changes to commit
+          if ! git diff --staged --quiet; then
+            git commit -m "🧠 Autonomous Learning: Updated insights and outcomes" -m "[skip ci]"
+            git push
+          else
+            echo "No new learnings or outcomes to commit."
+          fi
