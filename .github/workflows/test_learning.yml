@@ -59,7 +59,7 @@ jobs:
                 correct = sum(1 for p in preds.values() if p.get('was_correct'))
                 total = len(preds)
                 accuracy = (correct/total*100) if total else 0
-                print(f'JSON Accuracy: {accuracy:.1f}% ({correct}/{total})')
+                print('JSON Accuracy: {:.1f}% ({}/{})'.format(accuracy, correct, total))
         except:
             print('No predictions.json found')
         
@@ -69,9 +69,9 @@ jobs:
             cursor = conn.cursor()
             cursor.execute('SELECT COUNT(*) FROM predictions')
             total_db = cursor.fetchone()[0]
-            print(f'SQLite Total Predictions: {total_db}')
+            print('SQLite Total Predictions: {}'.format(total_db))
             conn.close()
         except Exception as e:
-            print(f'SQLite Error: {e}')
+            print('SQLite Error: {}'.format(e))
         EOF
         python check_accuracy.py
