@@ -2254,25 +2254,28 @@ class IntelligentPredictionEngine:
     async def _get_multi_llm_consensus(self, ticker, existing_analysis, candle_patterns, pattern_success_rates, market_context):
         """Gathers predictions from multiple LLMs, including learning context."""
         logging.info(f"🔍[{ticker}] Getting LLM consensus. Available models: {list(self.llm_clients.keys())}")
-        
-        # --- This entire block of code belongs INSIDE the function ---
     
-        # Get learning context first
+        # --- THIS IS THE CORRECTED LOGIC ---
+        
+        # 1. Get learning context first
         learning_context = ""
         try:
+            # This import path works when main.py is in the root `src` directory
             from modules.autonomous_learner import AutonomousLearner
             learner = AutonomousLearner()
             learning_context = learner.get_learning_prompt()
             if learning_context:
+                # This is the log message you were looking for!
                 logging.info(f"🧠 For {ticker}, loaded past learnings to guide new predictions.")
         except Exception as e:
             logging.warning(f"Could not load learning insights for {ticker}: {e}")
     
-        # Now, build the prompt using the learning_context
+        # 2. Build the prompt
         pattern_text = "\n".join([f"- {p['name']} ({p['type']}, {pattern_success_rates.get(p['name'], 50):.0f}% success)" for p in candle_patterns[:3]]) if candle_patterns else "No clear patterns."
         
+        # The learning_context variable is now correctly included here
         context = f"""{learning_context}
-    You are a stock analyst. Analyze the following data for {ticker}.
+    You are a stock analyst. Your goal is to improve prediction accuracy above 90%. Analyze the following data for {ticker}.
     
     **Technical Data:**
     - RSI (14 day): {existing_analysis.get('rsi', 'N/A'):.2f}
@@ -2285,12 +2288,13 @@ class IntelligentPredictionEngine:
     **Market Context:**
     - Overall Macro Score: {market_context.get('overall_macro_score', 0):.0f}/30
     
-    Based on all this information, especially the critical learnings, provide a one-week forecast.
+    Based on all this information, especially the critical learnings from your past mistakes, provide a one-week forecast.
     Respond with ONLY the following format:
     ACTION: [BUY/SELL/HOLD]
     CONFIDENCE: [0-100]
     REASON: [Your concise, one-sentence reasoning.]"""
         
+        # 3. Call the LLMs (rest of the function is the same)
         tasks, llm_names = [], []
         if 'groq' in self.llm_clients:
             tasks.append(self._query_groq(context, ticker))
@@ -2299,7 +2303,6 @@ class IntelligentPredictionEngine:
             tasks.append(self._query_gemini(context, ticker))
             llm_names.append('gemini')
         if 'cohere' in self.llm_clients:
-            # Rate limit Cohere for now since it's on a trial key
             if len(self.llm_clients) > 1:
                  logging.info("Skipping Cohere due to rate limits (multiple LLMs active).")
             else:
@@ -2308,7 +2311,6 @@ class IntelligentPredictionEngine:
         
         predictions = {}
         if tasks:
-            # This 'await' is now correctly inside the async function
             results = await asyncio.gather(*tasks, return_exceptions=True)
             for llm_name, result in zip(llm_names, results):
                 if not isinstance(result, Exception) and result:
@@ -2333,35 +2335,43 @@ class IntelligentPredictionEngine:
 
     import time
     async def _query_gemini(self, prompt, ticker):
-        try:
-            generation_config = {
-                'temperature': 0.3,
-                'max_output_tokens': 150,
-                'top_p': 0.95,
-                'top_k': 40,
+        """Queries the Gemini API using a direct HTTP request to avoid library issues."""
+        api_key = os.getenv('GEMINI_API_KEY')
+        if not api_key:
+            logging.warning("GEMINI_API_KEY not found.")
+            return None
+    
+        # The correct URL format for gemini-pro
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={api_key}"
+        
+        headers = {'Content-Type': 'application/json'}
+        
+        data = {
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {
+                "temperature": 0.3,
+                "maxOutputTokens": 150
             }
-            
-            # Initialize model if needed
-            if not hasattr(self, 'gemini_model'):
-                import google.generativeai as genai
-                genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
-                self.gemini_model = genai.GenerativeModel(
-                    'gemini-pro',  # ← FIXED: Use gemini-pro
-                    generation_config=generation_config
-                )
-            
-            # Simple generate without safety settings
-            response = self.gemini_model.generate_content(prompt)
-            
-            # Check if we got text
-            if hasattr(response, 'text') and response.text:
-                return self._parse_llm_response(response.text, 'gemini')
-            else:
-                logging.warning(f"Gemini returned empty response for {ticker}")
-                return None
-            
+        }
+    
+        try:
+            # Use httpx for async requests, which should already be in your environment
+            async with self.http_session.post(url, headers=headers, json=data, timeout=30) as response:
+                if response.status == 200:
+                    result = await response.json()
+                    # Safely extract text
+                    content = result.get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text', '')
+                    if content:
+                        return self._parse_llm_response(content, 'gemini')
+                    else:
+                        logging.warning(f"Gemini response for {ticker} was empty. Full response: {result}")
+                        return None
+                else:
+                    error_text = await response.text()
+                    logging.warning(f"Gemini HTTP query failed for {ticker}: Status {response.status} - {error_text}")
+                    return None
         except Exception as e:
-            logging.warning(f"Gemini query failed for {ticker}: {e}")
+            logging.error(f"Exception during Gemini query for {ticker}: {e}")
             return None
 
     async def _query_cohere(self, prompt, ticker):
