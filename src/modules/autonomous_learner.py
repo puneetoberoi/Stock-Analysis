@@ -40,12 +40,12 @@ class AutonomousLearner:
         if not os.path.exists(self.db_path):
             logging.error(f"Database not found at {self.db_path}. Cannot check predictions.")
             return 0
-
+        
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
         one_day_ago = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
-
+        
         cursor.execute("""
             SELECT id, stock, prediction, entry_price, llm_model
             FROM predictions
@@ -62,14 +62,14 @@ class AutonomousLearner:
         for pred_id, stock, action, entry_price, llm_model in unchecked:
             try:
                 ticker_data = yf.Ticker(stock)
-                # Fetch data for the day after the prediction was made
-                target_check_date = datetime.strptime(one_day_ago, '%Y-%m-%d') + timedelta(days=1)
-                hist = ticker_data.history(start=target_check_date, period='1d')
-
+                # FIXED: Get the most recent trading day's data instead of future data
+                hist = ticker_data.history(period='5d')  # Get last 5 days to ensure we have data
+                
                 if hist.empty:
-                    logging.warning(f"  - {stock}: No price data found for {target_check_date.date()} to check outcome.")
+                    logging.warning(f"  - {stock}: No recent price data found.")
                     continue
-                    
+                
+                # Use the most recent available closing price
                 current_price = hist['Close'].iloc[-1]
                 price_change_pct = ((current_price - entry_price) / entry_price) * 100
                 
