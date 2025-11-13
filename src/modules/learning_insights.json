@@ -1,14 +1,14 @@
 {
   "insights": [
+    "On SVR-C.TO, a SELL call was wrong (stock went up 10.8%). Re-evaluate bearish signals like  when RSI is around 51.",
+    "On AMD, a SELL call was wrong (stock went up 7.0%). Re-evaluate bearish signals like  when RSI is around 56.",
+    "On TD.TO, a SELL call was wrong (stock went up 2.4%). Re-evaluate bearish signals like  when RSI is around 55.",
+    "On NVDA, a SELL call was wrong (stock went up 2.4%). Re-evaluate bearish signals like  when RSI is around 49.",
+    "On GOOGL, a SELL call was wrong (stock went up 1.3%). Re-evaluate bearish signals like  when RSI is around 72.",
     "On SVR-C.TO, a HOLD call missed a 10.4% move. Be more decisive with patterns like , even with neutral RSI (52).",
     "On SVR-C.TO, a HOLD call missed a 9.9% move. Be more decisive with patterns like , even with neutral RSI (53).",
     "On TSLA, a HOLD call missed a -6.8% move. Be more decisive with patterns like , even with neutral RSI (57).",
     "On TSLA, a HOLD call missed a -5.0% move. Be more decisive with patterns like , even with neutral RSI (55).",
-    "On CGL-C.TO, a HOLD call missed a 4.6% move. Be more decisive with patterns like , even with neutral RSI (52).",
-    "On CGL-C.TO, a HOLD call missed a 4.5% move. Be more decisive with patterns like , even with neutral RSI (53).",
-    "On NVDA, a HOLD call missed a -3.8% move. Be more decisive with patterns like , even with neutral RSI (61).",
-    "On NVDA, a HOLD call missed a -3.7% move. Be more decisive with patterns like , even with neutral RSI (61).",
-    "On AMD, a SELL call was wrong (stock went up 7.0%). Re-evaluate bearish signals like  when RSI is around 56.",
-    "On TD.TO, a SELL call was wrong (stock went up 2.4%). Re-evaluate bearish signals like  when RSI is around 55."
+    "On CGL-C.TO, a HOLD call missed a 4.6% move. Be more decisive with patterns like , even with neutral RSI (52)."
   ]
 }
