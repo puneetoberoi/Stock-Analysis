@@ -2257,25 +2257,19 @@ async def _get_multi_llm_consensus(self, ticker, existing_analysis, candle_patte
     """Gathers predictions from multiple LLMs, including learning context."""
     logging.info(f"🔍[{ticker}] Getting LLM consensus. Available models: {list(self.llm_clients.keys())}")
 
-    # --- START: LEARNING CONTEXT LOADER ---
+    # --- START: ADD THIS CODE AT THE TOP OF THE FUNCTION ---
     learning_context = ""
     try:
-        # We will import it locally inside the function to guarantee it's found
         from modules.autonomous_learner import AutonomousLearner
-        
         learner = AutonomousLearner()
         learning_context = learner.get_learning_prompt()
-        
         if learning_context:
-            logging.info(f"🧠 Loaded past learnings to guide new predictions for {ticker}.")
+            logging.info(f"🧠 Loaded past learnings to guide predictions for {ticker}.")
         else:
             logging.info(f"~ No past learnings file found for {ticker}.")
-            
-    except ImportError:
-        logging.warning(f"⚠️ 'autonomous_learner.py' not found in modules. Skipping learning context.")
     except Exception as e:
         logging.warning(f"⚠️ Could not load learning insights for {ticker}: {e}")
-    # --- END: LEARNING CONTEXT LOADER ---
+    # --- END OF ADDITION ---
 
     pattern_text = "\n".join([f"- {p['name']} ({p['type']}, {pattern_success_rates.get(p['name'], 50):.0f}% success)" for p in candle_patterns[:3]]) if candle_patterns else "No clear patterns."
     
