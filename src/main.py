@@ -66,6 +66,8 @@ try:
 except ImportError:
     COHERE_AVAILABLE = False
 
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
 # Add this function after your imports but before any class definitions
 def save_prediction_to_db(ticker, action, confidence, reasoning, indicators, patterns, llm_model="groq"):
     """Save prediction to SQLite database"""
@@ -2147,6 +2149,15 @@ class IntelligentPredictionEngine:
         self.prediction_tracker = prediction_tracker
         self.candle_analyzer = candle_analyzer
         self.learning_memory = learning_memory
+         # --- START: LEARNING LOOP FIX ---
+        # Initialize the learner and get the learning context one time.
+        self.learner = AutonomousLearner()
+        self.learning_prompt_context = self.learner.get_learning_prompt()
+        if self.learning_prompt_context:
+            logging.info("🧠 SUCCESSFULLY INITIALIZED WITH PAST LEARNINGS.")
+        else:
+            logging.info("~ No past learnings found at initialization. Will learn after next cycle.")
+        # --- END: LEARNING LOOP FIX ---
         self.confidence_scorer = ConfidenceScorer()
         self.llm_clients = {}
         self._setup_llm_clients()
@@ -2252,37 +2263,14 @@ class IntelligentPredictionEngine:
         return {**existing_analysis, 'candle_patterns': candle_patterns, 'pattern_success_rates': pattern_success_rates, 'llm_predictions': llm_predictions, 'confidence': confidence_result, 'ai_prediction': final_prediction, 'learning_insights': self.learning_memory.get_recent_insights(3)}
 
     async def _get_multi_llm_consensus(self, ticker, existing_analysis, candle_patterns, pattern_success_rates, market_context):
-        """Gathers predictions from multiple LLMs, including learning context."""
+        """Gathers predictions from multiple LLMs, using pre-loaded learning context."""
         logging.info(f"🔍[{ticker}] Getting LLM consensus. Available models: {list(self.llm_clients.keys())}")
     
-            # --- THIS IS THE CORRECTED LEARNING LOGIC ---
-        learning_context = ""
-        try:
-            # Get the directory of the current script (main.py)
-            current_dir = os.path.dirname(os.path.abspath(__file__))
-            # Add the 'modules' directory to the system path
-            sys.path.insert(0, os.path.join(current_dir, 'modules'))
-            
-            from autonomous_learner import AutonomousLearner
-            learner = AutonomousLearner()
-            learning_context = learner.get_learning_prompt()
-            
-            if learning_context:
-                logging.info(f"🧠 Loaded past learnings to guide new predictions for {ticker}.")
-            else:
-                # This can happen if the learning file is empty or doesn't exist yet
-                logging.info(f"~ No past learnings found for {ticker}.")
-                
-        except Exception as e:
-            logging.warning(f"⚠️ Could not load learning insights for {ticker}: {e}")
-        # --- END OF FIX ---
-    
-        # 2. Build the prompt
         pattern_text = "\n".join([f"- {p['name']} ({p['type']}, {pattern_success_rates.get(p['name'], 50):.0f}% success)" for p in candle_patterns[:3]]) if candle_patterns else "No clear patterns."
         
-        # The learning_context variable is now correctly included here
-        context = f"""{learning_context}
-    You are a stock analyst. Your goal is to improve prediction accuracy above 90%. Analyze the following data for {ticker}.
+        # We now simply use the context we loaded during initialization. No more try/except here.
+        context = f"""{self.learning_prompt_context} 
+    You are an expert stock analyst. Your goal is to improve prediction accuracy to over 90%. Analyze the following data for {ticker}.
     
     **Technical Data:**
     - RSI (14 day): {existing_analysis.get('rsi', 'N/A'):.2f}
@@ -2295,27 +2283,19 @@ class IntelligentPredictionEngine:
     **Market Context:**
     - Overall Macro Score: {market_context.get('overall_macro_score', 0):.0f}/30
     
-    Based on all this information, especially the critical learnings from your past mistakes, provide a one-week forecast.
+    Based on ALL this information, especially the critical learnings, provide a one-week forecast.
     Respond with ONLY the following format:
     ACTION: [BUY/SELL/HOLD]
     CONFIDENCE: [0-100]
     REASON: [Your concise, one-sentence reasoning.]"""
         
-        # 3. Call the LLMs (rest of the function is the same)
         tasks, llm_names = [], []
+        # We are only using Groq for now, but the structure is ready for more
         if 'groq' in self.llm_clients:
             tasks.append(self._query_groq(context, ticker))
             llm_names.append('groq')
-        if 'gemini' in self.llm_clients:
-            tasks.append(self._query_gemini(context, ticker))
-            llm_names.append('gemini')
-        if 'cohere' in self.llm_clients:
-            if len(self.llm_clients) > 1:
-                 logging.info("Skipping Cohere due to rate limits (multiple LLMs active).")
-            else:
-                tasks.append(self._query_cohere(context, ticker))
-                llm_names.append('cohere')
         
+        # This part remains the same, but will only process the Groq task
         predictions = {}
         if tasks:
             results = await asyncio.gather(*tasks, return_exceptions=True)
