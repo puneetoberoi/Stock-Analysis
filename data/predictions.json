@@ -15452,5 +15452,170 @@
     "price_at_prediction": 28.25,
     "outcome": null,
     "was_correct": null
+  },
+  "4c53263e": {
+    "id": "4c53263e",
+    "timestamp": "2025-11-13T06:32:58.718259",
+    "ticker": "AAPL",
+    "action": "SELL",
+    "confidence": 100,
+    "reasoning": "groq: The presence of a tweezer_top bearish reversal pattern with 100% success rate, combined with a relatively high RSI and a negative overall macro score, suggests a potential downward move for AAPL.",
+    "candle_pattern": "tweezer_top",
+    "indicators": {
+      "rsi": 67.57013660891799
+    },
+    "price_at_prediction": 273.4700012207031,
+    "outcome": null,
+    "was_correct": null
+  },
+  "607ea0fa": {
+    "id": "607ea0fa",
+    "timestamp": "2025-11-13T06:32:59.406142",
+    "ticker": "MSFT",
+    "action": "BUY",
+    "confidence": 85,
+    "reasoning": "groq: The presence of a hammer and three_white_soldiers candlestick patterns, indicating bullish reversal and continuation, outweighs the hanging_man pattern given the relatively low RSI and the learnings from past mistakes to be more decisive with bullish patterns.",
+    "candle_pattern": "hammer",
+    "indicators": {
+      "rsi": 47.14603724509514
+    },
+    "price_at_prediction": 511.1400146484375,
+    "outcome": null,
+    "was_correct": null
+  },
+  "b52dc353": {
+    "id": "b52dc353",
+    "timestamp": "2025-11-13T06:32:59.977790",
+    "ticker": "NVDA",
+    "action": "HOLD",
+    "confidence": 100,
+    "reasoning": "groq: The neutral RSI and lack of Bollinger Squeeze, combined with a relatively low-volume trading day and a downtrend pattern with moderate success rate, suggest a cautious approach, but the overall macro score and past learnings advise against a decisive SELL call.",
+    "candle_pattern": "swing_highs_lows",
+    "indicators": {
+      "rsi": 52.492165994308145
+    },
+    "price_at_prediction": 193.8000030517578,
+    "outcome": null,
+    "was_correct": null
+  },
+  "9cf459cc": {
+    "id": "9cf459cc",
+    "timestamp": "2025-11-13T06:33:00.482216",
+    "ticker": "TSLA",
+    "action": "SELL",
+    "confidence": 100,
+    "reasoning": "groq: The presence of multiple bearish reversal candlestick patterns, including a 100% success rate tweezer_top, combined with a low RSI and negative macro score, suggests a high likelihood of a downward move.",
+    "candle_pattern": "bearish_engulfing",
+    "indicators": {
+      "rsi": 47.37605973875986
+    },
+    "price_at_prediction": 430.6000061035156,
+    "outcome": null,
+    "was_correct": null
+  },
+  "e594cb91": {
+    "id": "e594cb91",
+    "timestamp": "2025-11-13T06:33:01.286305",
+    "ticker": "GOOGL",
+    "action": "SELL",
+    "confidence": 100,
+    "reasoning": "groq: The presence of multiple bearish reversal patterns, including bearish_engulfing and tweezer_top, combined with a relatively high RSI and negative macro score, suggests a high likelihood of a downward move.",
+    "candle_pattern": "bearish_engulfing",
+    "indicators": {
+      "rsi": 66.53304108772349
+    },
+    "price_at_prediction": 286.7099914550781,
+    "outcome": null,
+    "was_correct": null
+  },
+  "d760170c": {
+    "id": "d760170c",
+    "timestamp": "2025-11-13T06:33:01.896837",
+    "ticker": "TSM",
+    "action": "SELL",
+    "confidence": 100,
+    "reasoning": "groq: The presence of a bearish evening_star candlestick pattern and a downtrend indicated by swing_highs_lows, combined with a relatively low RSI, suggests a potential downward move, warranting a cautious sell call.",
+    "candle_pattern": "evening_star",
+    "indicators": {
+      "rsi": 49.15651639188549
+    },
+    "price_at_prediction": 290.6199951171875,
+    "outcome": null,
+    "was_correct": null
+  },
+  "6d48febe": {
+    "id": "6d48febe",
+    "timestamp": "2025-11-13T06:33:02.587901",
+    "ticker": "AMD",
+    "action": "HOLD",
+    "confidence": 100,
+    "reasoning": "groq: The high RSI and lack of Bollinger Squeeze, combined with mixed candlestick patterns and a negative macro score, suggest a cautious approach, but past learnings about re-evaluating bearish signals at similar RSI levels advise against a strong SELL call.",
+    "candle_pattern": "vcp",
+    "indicators": {
+      "rsi": 61.26786662824235
+    },
+    "price_at_prediction": 258.8900146484375,
+    "outcome": null,
+    "was_correct": null
+  },
+  "275636bb": {
+    "id": "275636bb",
+    "timestamp": "2025-11-13T06:33:03.265134",
+    "ticker": "TD.TO",
+    "action": "BUY",
+    "confidence": 100,
+    "reasoning": "groq: The presence of a three_outside_up bullish reversal pattern, despite a low success rate of the double_bottom pattern and a downtrend indicated by swing_highs_lows, suggests a potential upside, especially considering the need to be more decisive with bullish patterns as learned from past mistakes.",
+    "candle_pattern": "three_outside_up",
+    "indicators": {
+      "rsi": 67.0218275441002
+    },
+    "price_at_prediction": 115.88999938964844,
+    "outcome": null,
+    "was_correct": null
+  },
+  "3c9d09ad": {
+    "id": "3c9d09ad",
+    "timestamp": "2025-11-13T06:33:03.945856",
+    "ticker": "AMZN",
+    "action": "SELL",
+    "confidence": 100,
+    "reasoning": "groq: The presence of multiple bearish reversal candlestick patterns, including bearish_engulfing, dark_cloud_cover, and evening_star, along with a relatively high RSI, suggests a potential downward move, warranting a more decisive call based on past learnings.",
+    "candle_pattern": "bearish_engulfing",
+    "indicators": {
+      "rsi": 58.58850449572991
+    },
+    "price_at_prediction": 244.1999969482422,
+    "outcome": null,
+    "was_correct": null
+  },
+  "13dfec47": {
+    "id": "13dfec47",
+    "timestamp": "2025-11-13T06:33:04.519036",
+    "ticker": "CGL-C.TO",
+    "action": "BUY",
+    "confidence": 100,
+    "reasoning": "groq: The presence of a double_bottom bullish reversal pattern, despite a neutral to slightly overbought RSI, suggests a potential upside, and being more decisive with such patterns is a key learning from past mistakes.",
+    "candle_pattern": "double_bottom",
+    "indicators": {
+      "rsi": 63.42930658013113
+    },
+    "price_at_prediction": 49.2400016784668,
+    "outcome": null,
+    "was_correct": null
+  },
+  "a58168fa": {
+    "id": "a58168fa",
+    "timestamp": "2025-11-13T06:33:05.110396",
+    "ticker": "SVR-C.TO",
+    "action": "BUY",
+    "confidence": 100,
+    "reasoning": "groq: The presence of a bullish three_white_soldiers pattern, despite a relatively high RSI, suggests a potential buying opportunity, especially given past mistakes of being too cautious with similar patterns.",
+    "candle_pattern": "three_white_soldiers",
+    "indicators": {
+      "rsi": 67.43196832427373
+    },
+    "price_at_prediction": 28.25,
+    "outcome": null,
+    "was_correct": null
   }
 }
