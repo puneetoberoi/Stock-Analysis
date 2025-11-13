@@ -15782,5 +15782,170 @@
     "price_at_prediction": 28.040000915527344,
     "outcome": null,
     "was_correct": null
+  },
+  "a609d71c": {
+    "id": "a609d71c",
+    "timestamp": "2025-11-13T18:36:16.495772",
+    "ticker": "AAPL",
+    "action": "SELL",
+    "confidence": 95,
+    "reasoning": "groq: The bearish_reversal signal from the three_inside_down pattern, combined with a relatively high RSI and low volume, suggests a potential downturn for AAPL, warranting a cautious sell call.",
+    "candle_pattern": "three_inside_down",
+    "indicators": {
+      "rsi": 65.15350270183235
+    },
+    "price_at_prediction": 272.364990234375,
+    "outcome": null,
+    "was_correct": null
+  },
+  "5cfda5d9": {
+    "id": "5cfda5d9",
+    "timestamp": "2025-11-13T18:36:17.054667",
+    "ticker": "MSFT",
+    "action": "BUY",
+    "confidence": 95,
+    "reasoning": "groq: The relatively low RSI of 43.78 and the presence of a swing_highs_lows uptrend pattern suggest a potential buying opportunity, especially considering past mistakes of being overly bearish with similar RSI levels.",
+    "candle_pattern": "swing_highs_lows",
+    "indicators": {
+      "rsi": 43.77811363427547
+    },
+    "price_at_prediction": 506.4700012207031,
+    "outcome": null,
+    "was_correct": null
+  },
+  "eddcc5e9": {
+    "id": "eddcc5e9",
+    "timestamp": "2025-11-13T18:36:17.534264",
+    "ticker": "NVDA",
+    "action": "BUY",
+    "confidence": 100,
+    "reasoning": "groq: The relatively low RSI of 44.53, combined with the lessons learned from past mistakes where bearish signals were incorrect at similar RSI levels, suggests a potential buying opportunity for NVDA.",
+    "candle_pattern": "swing_highs_lows",
+    "indicators": {
+      "rsi": 44.52638648578492
+    },
+    "price_at_prediction": 184.19000244140625,
+    "outcome": null,
+    "was_correct": null
+  },
+  "1896834d": {
+    "id": "1896834d",
+    "timestamp": "2025-11-13T18:36:18.029738",
+    "ticker": "TSLA",
+    "action": "SELL",
+    "confidence": 100,
+    "reasoning": "groq: The combination of a bearish three_outside_down candlestick pattern, a downtrend indicated by swing_highs_lows, and a low RSI of 39.38 suggests a high likelihood of a downward move in TSLA's stock price.",
+    "candle_pattern": "three_outside_down",
+    "indicators": {
+      "rsi": 39.376092711884475
+    },
+    "price_at_prediction": 397.54998779296875,
+    "outcome": null,
+    "was_correct": null
+  },
+  "b5e286ae": {
+    "id": "b5e286ae",
+    "timestamp": "2025-11-13T18:36:18.455923",
+    "ticker": "GOOGL",
+    "action": "SELL",
+    "confidence": 100,
+    "reasoning": "groq: The presence of bearish reversal patterns like three_outside_down and double_top, combined with a relatively high RSI and low volume, suggests a potential downward move for GOOGL.",
+    "candle_pattern": "three_outside_down",
+    "indicators": {
+      "rsi": 57.26651650576632
+    },
+    "price_at_prediction": 277.8999938964844,
+    "outcome": null,
+    "was_correct": null
+  },
+  "a4d699d7": {
+    "id": "a4d699d7",
+    "timestamp": "2025-11-13T18:36:18.952684",
+    "ticker": "TSM",
+    "action": "SELL",
+    "confidence": 100,
+    "reasoning": "groq: The combination of a bearish three_black_crows candlestick pattern, a downtrend indicated by swing_highs_lows, and a relatively low RSI of 42.23 suggests a high likelihood of a downward move, especially considering the overall negative macro score.",
+    "candle_pattern": "three_black_crows",
+    "indicators": {
+      "rsi": 42.229463582439294
+    },
+    "price_at_prediction": 280.55999755859375,
+    "outcome": null,
+    "was_correct": null
+  },
+  "963407a2": {
+    "id": "963407a2",
+    "timestamp": "2025-11-13T18:36:19.488713",
+    "ticker": "AMD",
+    "action": "HOLD",
+    "confidence": 80,
+    "reasoning": "groq: The neutral RSI of 55.22 and presence of a swing_highs_lows consolidation pattern suggest a cautious approach, given past mistakes of being overly bearish with similar RSI levels and patterns.",
+    "candle_pattern": "swing_highs_lows",
+    "indicators": {
+      "rsi": 55.22378614966766
+    },
+    "price_at_prediction": 246.90899658203125,
+    "outcome": null,
+    "was_correct": null
+  },
+  "2aca55a3": {
+    "id": "2aca55a3",
+    "timestamp": "2025-11-13T18:36:20.075059",
+    "ticker": "TD.TO",
+    "action": "SELL",
+    "confidence": 100,
+    "reasoning": "groq: The presence of two consecutive bearish tweezer_top patterns with 100% success rate, combined with a downtrend signal from swing_highs_lows and a relatively high RSI, suggests a strong bearish reversal, outweighing the low volume and lack of Bollinger Squeeze.",
+    "candle_pattern": "tweezer_top",
+    "indicators": {
+      "rsi": 59.429128061511
+    },
+    "price_at_prediction": 114.7300033569336,
+    "outcome": null,
+    "was_correct": null
+  },
+  "9f83266e": {
+    "id": "9f83266e",
+    "timestamp": "2025-11-13T18:36:20.589120",
+    "ticker": "AMZN",
+    "action": "SELL",
+    "confidence": 100,
+    "reasoning": "groq: The presence of bearish reversal patterns like three_outside_down and double_top, combined with a relatively neutral RSI and low volume, suggests a potential downward move, warranting a more decisive sell call based on past learnings.",
+    "candle_pattern": "three_outside_down",
+    "indicators": {
+      "rsi": 52.821025653712404
+    },
+    "price_at_prediction": 238.19000244140625,
+    "outcome": null,
+    "was_correct": null
+  },
+  "f4f5420e": {
+    "id": "f4f5420e",
+    "timestamp": "2025-11-13T18:36:21.101957",
+    "ticker": "CGL-C.TO",
+    "action": "SELL",
+    "confidence": 90,
+    "reasoning": "groq: The presence of multiple bearish candlestick patterns, including dark_cloud_cover and bearish_marubozu, combined with a relatively high RSI and negative market context, suggests a potential downward move for CGL-C.TO.",
+    "candle_pattern": "dark_cloud_cover",
+    "indicators": {
+      "rsi": 60.52026306419743
+    },
+    "price_at_prediction": 48.84000015258789,
+    "outcome": null,
+    "was_correct": null
+  },
+  "0b8e6a51": {
+    "id": "0b8e6a51",
+    "timestamp": "2025-11-13T18:36:21.693168",
+    "ticker": "SVR-C.TO",
+    "action": "SELL",
+    "confidence": 100,
+    "reasoning": "groq: The presence of multiple bearish_marubozu patterns with a 67% success rate, combined with a relatively high RSI of 64.22, suggests a potential downward trend, outweighing the less reliable vcp pattern.",
+    "candle_pattern": "bearish_marubozu",
+    "indicators": {
+      "rsi": 64.22255012725745
+    },
+    "price_at_prediction": 27.889999389648438,
+    "outcome": null,
+    "was_correct": null
   }
 }
