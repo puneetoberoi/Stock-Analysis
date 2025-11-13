@@ -4,6 +4,8 @@ on:
   schedule:
     - cron: '0 11 * * 1-5'  # 6 AM EST
   workflow_dispatch:
+  push:
+    branches: Stable-till-LLMs-agree-but-not-intelligent-till-this-point
 
 permissions:
   contents: write  # ✅ ADD THIS LINE
