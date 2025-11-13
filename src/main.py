@@ -2255,22 +2255,39 @@ class IntelligentPredictionEngine:
         """Gathers predictions from multiple LLMs, including learning context."""
         logging.info(f"🔍[{ticker}] Getting LLM consensus. Available models: {list(self.llm_clients.keys())}")
     
-        # --- THIS IS THE CORRECTED LEARNING LOGIC ---
+        # ========== UPDATED LEARNING INTEGRATION ==========
         learning_context = ""
-        try:
-            # This import path is now reliable because we will run it from the root
-            from modules.autonomous_learner import AutonomousLearner
-            learner = AutonomousLearner()
-            learning_context = learner.get_learning_prompt()
-            if learning_context:
-                # THIS IS THE LOG MESSAGE YOU WERE MISSING!
-                logging.info(f"🧠 Loaded past learnings to guide new predictions for {ticker}.")
-            else:
-                logging.info(f"~ No past learnings found for {ticker}.")
-                
-        except Exception as e:
-            logging.warning(f"⚠️ Could not load learning insights for {ticker}: {e}")
-        # --- END OF FIX ---
+        learning_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'modules', 'learning_insights.json')
+        
+        # Try direct file reading first (more reliable)
+        if os.path.exists(learning_file):
+            try:
+                with open(learning_file, 'r') as f:
+                    data = json.load(f)
+                    insights = data.get('insights', [])
+                    if insights:
+                        learning_context = "\n🚨 CRITICAL LEARNINGS FROM PAST MISTAKES:\n"
+                        for insight in insights[:5]:  # Use top 5 most recent
+                            learning_context += f"- {insight}\n"
+                        learning_context += "\nApply these learnings to avoid repeating past errors.\n"
+                        logging.info(f"🧠 [{ticker}] ✅ Loaded {len(insights)} learning insights successfully!")
+                    else:
+                        logging.info(f"📝 [{ticker}] Learning file exists but no insights yet.")
+            except Exception as e:
+                logging.warning(f"⚠️ [{ticker}] Could not read learning file: {e}")
+        else:
+            # Fallback to AutonomousLearner method
+            try:
+                from modules.autonomous_learner import AutonomousLearner
+                learner = AutonomousLearner()
+                learning_context = learner.get_learning_prompt()
+                if learning_context:
+                    logging.info(f"🧠 [{ticker}] Loaded past learnings via AutonomousLearner.")
+                else:
+                    logging.info(f"📝 [{ticker}] No past learnings found yet.")
+            except Exception as e:
+                logging.info(f"📝 [{ticker}] No learning insights available yet (this is normal for first run).")
+        # ========== END OF UPDATED SECTION ==========
     
         # 2. Build the prompt
         pattern_text = "\n".join([f"- {p['name']} ({p['type']}, {pattern_success_rates.get(p['name'], 50):.0f}% success)" for p in candle_patterns[:3]]) if candle_patterns else "No clear patterns."
@@ -2306,7 +2323,7 @@ class IntelligentPredictionEngine:
             llm_names.append('gemini')
         if 'cohere' in self.llm_clients:
             if len(self.llm_clients) > 1:
-                 logging.info("Skipping Cohere due to rate limits (multiple LLMs active).")
+                logging.info("Skipping Cohere due to rate limits (multiple LLMs active).")
             else:
                 tasks.append(self._query_cohere(context, ticker))
                 llm_names.append('cohere')
@@ -2319,7 +2336,7 @@ class IntelligentPredictionEngine:
                     predictions[llm_name] = result
         
         logging.info(f"🔍[{ticker}] Received {len(predictions)} LLM predictions.")
-        return predictions
+        return predictions    
 
     async def _query_groq(self, prompt, ticker):
         try:
