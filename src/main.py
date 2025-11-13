@@ -2255,17 +2255,22 @@ class IntelligentPredictionEngine:
         """Gathers predictions from multiple LLMs, including learning context."""
         logging.info(f"🔍[{ticker}] Getting LLM consensus. Available models: {list(self.llm_clients.keys())}")
     
-        # --- THIS IS THE CORRECTED LEARNING LOGIC ---
+            # --- THIS IS THE CORRECTED LEARNING LOGIC ---
         learning_context = ""
         try:
-            # This import path is now reliable because we will run it from the root
-            from modules.autonomous_learner import AutonomousLearner
+            # Get the directory of the current script (main.py)
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            # Add the 'modules' directory to the system path
+            sys.path.insert(0, os.path.join(current_dir, 'modules'))
+            
+            from autonomous_learner import AutonomousLearner
             learner = AutonomousLearner()
             learning_context = learner.get_learning_prompt()
+            
             if learning_context:
-                # THIS IS THE LOG MESSAGE YOU WERE MISSING!
                 logging.info(f"🧠 Loaded past learnings to guide new predictions for {ticker}.")
             else:
+                # This can happen if the learning file is empty or doesn't exist yet
                 logging.info(f"~ No past learnings found for {ticker}.")
                 
         except Exception as e:
