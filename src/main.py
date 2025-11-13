@@ -2140,117 +2140,153 @@ class ConfidenceScorer:
 
 # ✅ COMPLETE FIXED CLASS - REPLACE YOUR EXISTING ONE
 # ✅ COMPLETE FINAL CLASS - REPLACE YOUR EXISTING ONE
+# In src/main.py, replace the whole class with this:
+
 class IntelligentPredictionEngine:
-    """Multi-LLM consensus with confidence scoring"""
-    
-    def __init__(self):
-        self.prediction_tracker = prediction_tracker
-        self.candle_analyzer = candle_analyzer
-        self.learning_memory = learning_memory
-        self.confidence_scorer = ConfidenceScorer()
-        self.llm_clients = {}
-        self._setup_llm_clients()
-    
-    def _setup_llm_clients(self):
-        """Setup all available LLM clients with explicit logging"""
+    def __init__(self, use_v2_features=False):
+        # This __init__ method is based on your original code's structure.
+        self.use_v2_features = use_v2_features
+        self.prediction_tracker = PredictionTracker()
+        self.pattern_detector = EnhancedPatternDetector()
+        self.llm_clients = self.load_llm_clients()
+        self.learning_memory = LearningMemory()
+        self.pattern_success_rates = self.prediction_tracker.load_pattern_success()
+        self.confidence_scorer = ConfidenceScorer(self.learning_memory)
+        # We will not initialize http_session or the learner here to keep it simple.
+
+    def load_llm_clients(self):
+        clients = {}
         if os.getenv("GROQ_API_KEY"):
             try:
-                from groq import Groq
-                self.llm_clients['groq'] = Groq(api_key=os.getenv("GROQ_API_KEY"))
+                clients['groq'] = Groq(api_key=os.getenv("GROQ_API_KEY"))
                 logging.info("✅ SUCCESS: Groq LLM client initialized.")
             except Exception as e:
-                logging.error(f"❌ FAILED: Groq initialization error: {e}")
-        else:
-            logging.warning("⚠️ SKIPPED: GROQ_API_KEY not found in secrets.")
+                logging.error(f"❌ Groq client failed to initialize: {e}")
+        # We are ignoring Gemini and Cohere as requested for now.
+        return clients
+
+    def _parse_llm_response(self, response_text, llm_name):
+        import re
+        action, confidence, reasoning = "HOLD", 50, response_text[:200]
+        action_match = re.search(r'ACTION:\s*\[?(BUY|SELL|HOLD)\]?', response_text, re.IGNORECASE)
+        if action_match: action = action_match.group(1).upper()
+        conf_match = re.search(r'CONFIDENCE:\s*\[?(\d+)\]?', response_text, re.IGNORECASE)
+        if conf_match: confidence = int(conf_match.group(1))
+        reason_match = re.search(r'REASON:\s*\[?(.+?)\]?(?:\n|$)', response_text, re.IGNORECASE)
+        if reason_match: reasoning = reason_match.group(1).strip()
+        return {'action': action, 'confidence': max(0, min(100, confidence)), 'reasoning': reasoning, 'llm': llm_name}
+
+    async def _query_groq(self, prompt, ticker):
+        try:
+            client = self.llm_clients['groq']
+            response = await asyncio.to_thread(
+                client.chat.completions.create,
+                model="llama3-70b-8192",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.2, max_tokens=150
+            )
+            return self._parse_llm_response(response.choices[0].message.content, 'groq')
+        except Exception as e:
+            logging.warning(f"Groq query failed for {ticker}: {e}")
+            return None
+
+    # This is the function that was causing the error. It is now correctly inside the class.
+    async def _get_multi_llm_consensus(self, ticker, existing_analysis, candle_patterns, pattern_success_rates, market_context):
+        logging.info(f"🔍[{ticker}] Getting LLM consensus. Available models: {list(self.llm_clients.keys())}")
+
+        # --- LEARNING LOOP INTEGRATION (SAFE VERSION) ---
+        learning_context = ""
+        try:
+            from modules.autonomous_learner import AutonomousLearner
+            learner = AutonomousLearner()
+            learning_context = learner.get_learning_prompt()
+            if learning_context:
+                logging.info(f"🧠 Loaded past learnings to guide prediction for {ticker}.")
+            else:
+                logging.info(f"~ No past learnings file found for {ticker}.")
+        except Exception as e:
+            logging.warning(f"⚠️ Could not load learning insights for {ticker}: {e}")
+        # --- END INTEGRATION ---
+
+        pattern_text = "\n".join([f"- {p['name']} ({p['type']}, {pattern_success_rates.get(p['name'], 50):.0f}% success)" for p in candle_patterns[:3]]) if candle_patterns else "No clear patterns."
         
-        if os.getenv("GEMINI_API_KEY"):
-            try:
-                import google.generativeai as genai
-                genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-                self.llm_clients['gemini'] = genai.GenerativeModel('gemini-pro') 
-                logging.info("✅ SUCCESS: Gemini LLM client initialized.")
-            except Exception as e:
-                logging.error(f"❌ FAILED: Gemini initialization error: {e}")
-        else:
-            logging.warning("⚠️ SKIPPED: GEMINI_API_KEY not found in secrets.")
+        context = f"""{learning_context}
+You are an expert stock analyst. Your goal is to improve prediction accuracy to over 90%. Analyze the following data for {ticker}.
+
+**Technical Data:**
+- RSI (14 day): {existing_analysis.get('rsi', 'N/A'):.2f}
+- Volume: {existing_analysis.get('volume_ratio', 1.0):.1f}x average
+- Bollinger Squeeze: {'Yes' if existing_analysis.get('bollinger_squeeze') else 'No'}
+
+**Candlestick Patterns Detected:**
+{pattern_text}
+
+**Market Context:**
+- Overall Macro Score: {market_context.get('overall_macro_score', 0):.0f}/30
+
+Based on ALL this information, especially the critical learnings from past mistakes, provide a one-week forecast.
+Respond with ONLY the following format:
+ACTION: [BUY/SELL/HOLD]
+CONFIDENCE: [0-100]
+REASON: [Your concise, one-sentence reasoning.]"""
         
-        if os.getenv("COHERE_API_KEY"):
-            try:
-                import cohere
-                self.llm_clients['cohere'] = cohere.Client(os.getenv("COHERE_API_KEY"))
-                logging.info("✅ SUCCESS: Cohere LLM client initialized.")
-            except Exception as e:
-                logging.error(f"❌ FAILED: Cohere initialization error: {e}")
-        else:
-            logging.warning("⚠️ SKIPPED: COHERE_API_KEY not found in secrets.")
+        tasks = [self._query_groq(context, ticker)]
+        llm_names = ['groq']
         
-        if not self.llm_clients:
-            logging.error("❌ CRITICAL: No LLM clients available. System is operating in rule-based mode only.")
-        else:
-            logging.info(f"✅ LLM clients loaded: {list(self.llm_clients.keys())}")
-            
-            
+        predictions = {}
+        if tasks:
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            for llm_name, result in zip(llm_names, results):
+                if not isinstance(result, Exception) and result:
+                    predictions[llm_name] = result
+        
+        logging.info(f"🔍[{ticker}] Received {len(predictions)} LLM predictions.")
+        return predictions
+
+    def _determine_final_action(self, llm_predictions, confidence_result, candle_patterns):
+        # This is your existing function, ensure it's inside the class.
+        if not llm_predictions:
+            action = "BUY" if confidence_result['score'] >= 60 and candle_patterns and 'bullish' in candle_patterns[0].get('type', '') else "SELL" if confidence_result['score'] <= 40 else "HOLD"
+            return {'action': action, 'confidence': confidence_result['score'], 'reasoning': f"Rule-based: {confidence_result['action_advice']}", 'llm_count': 0}
+        
+        actions = [p['action'] for p in llm_predictions.values()]
+        final_action = max(set(actions), key=actions.count) # Simple majority vote
+        
+        reasonings = [f"{p['llm']}: {p['reasoning']}" for p in llm_predictions.values()]
+        combined_reasoning = " | ".join(reasonings)
+        
+        return {'action': final_action, 'confidence': confidence_result['score'], 'reasoning': combined_reasoning[:500], 'llm_count': len(llm_predictions), 'llm_agreement': (actions.count(final_action) / len(actions)) * 100, 'confidence_breakdown': confidence_result['breakdown'], 'action_strength': confidence_result['action_strength'], 'action_advice': confidence_result['action_advice']}
+
+    # This is the main entry point called from outside
     async def analyze_with_learning(self, ticker, existing_analysis, hist_data, market_context=None):
-    # Get patterns from BOTH analyzers
-        candle_patterns = self.candle_analyzer.identify_pattern(hist_data)  # Basic patterns (18)
+        candle_patterns = self.pattern_detector.analyze(hist_data)
+        pattern_success_rates = self.prediction_tracker.load_pattern_success()
         
-        # 🆕 Add enhanced patterns (30+ advanced patterns)
-        if ENHANCED_PATTERNS_ENABLED and enhanced_pattern_detector:
-            try:
-                enhanced_patterns = enhanced_pattern_detector.detect_all_patterns(hist_data)
-                
-                # Convert enhanced pattern format to match existing format
-                for ep in enhanced_patterns:
-                    candle_patterns.append({
-                        'name': ep['name'],
-                        'type': ep['type'],
-                        'strength': 'very_strong' if ep['strength'] >= 90 else 'strong' if ep['strength'] >= 80 else 'medium',
-                        'description': ep['description'],
-                        'enhanced': True,  # Mark as enhanced pattern
-                        'strength_score': ep['strength']  # Keep original score
-                    })
-                
-                # Log the strongest pattern from enhanced detector
-                if enhanced_patterns:
-                    strongest = enhanced_patterns[0]  # Already sorted by strength
-                    emoji = "🟢" if strongest['signal'] == 'BUY' else "🔴" if strongest['signal'] == 'SELL' else "⚪"
-                    logging.info(f"   🕯️ Enhanced: {strongest['name']} {emoji} ({strongest['signal']}, {strongest['strength']}%)")
-            
-            except Exception as e:
-                logging.debug(f"Enhanced pattern detection error for {ticker}: {e}")
-    
-        # Rest of your existing code stays the same
-        pattern_success_rates = {p['name']: self.candle_analyzer.get_pattern_success_rate(p['name'], ticker) for p in candle_patterns}
         llm_predictions = await self._get_multi_llm_consensus(ticker, existing_analysis, candle_patterns, pattern_success_rates, market_context)
+        
+        if not llm_predictions:
+            logging.warning(f"No LLM predictions received for {ticker}, cannot generate final action.")
+            existing_analysis['ai_prediction'] = {'action': 'HOLD', 'confidence': 0, 'reasoning': 'Failed to get LLM analysis.'}
+            return existing_analysis
+
         confidence_result = self.confidence_scorer.calculate_confidence(llm_predictions, candle_patterns, pattern_success_rates, {'rsi': existing_analysis.get('rsi', 50), 'score': existing_analysis.get('score', 50)}, {'volume_ratio': existing_analysis.get('volume_ratio', 1.0)}, market_context)
         final_prediction = self._determine_final_action(llm_predictions, confidence_result, candle_patterns)
         
-        if final_prediction:
-            # ============================================================
-            # Build comprehensive reasoning from LLM predictions
-            # ============================================================
-            if llm_predictions:
-                # Format: "groq: reasoning | gemini: reasoning | cohere: reasoning"
-                llm_reasoning = " | ".join([
-                    f"{llm_name}: {pred.get('reasoning', pred.get('action', 'No reasoning'))}" 
-                    for llm_name, pred in llm_predictions.items()
-                ])
-            else:
-                llm_reasoning = final_prediction.get('reasoning', 'No LLM reasoning available')
-            
-            # Store prediction with detailed LLM reasoning
-            pred_id = self.prediction_tracker.store_prediction(
-                ticker=ticker,
-                action=final_prediction['action'],
-                confidence=confidence_result['score'],
-                reasoning=llm_reasoning,  # ← Use LLM reasoning, not final_prediction['reasoning']
-                candle_pattern=candle_patterns[0]['name'] if candle_patterns else None,
-                indicators={'rsi': existing_analysis.get('rsi', 50)}
-            )
-            final_prediction['prediction_id'] = pred_id
-        
-        return {**existing_analysis, 'candle_patterns': candle_patterns, 'pattern_success_rates': pattern_success_rates, 'llm_predictions': llm_predictions, 'confidence': confidence_result, 'ai_prediction': final_prediction, 'learning_insights': self.learning_memory.get_recent_insights(3)}
+        llm_reasoning = " | ".join([f"{name}: {pred.get('reasoning', 'N/A')}" for name, pred in llm_predictions.items()])
 
+        pred_id = self.prediction_tracker.store_prediction(
+            ticker=ticker,
+            action=final_prediction['action'],
+            confidence=confidence_result['score'],
+            reasoning=llm_reasoning,
+            candle_pattern=candle_patterns[0]['name'] if candle_patterns else None,
+            indicators={'rsi': existing_analysis.get('rsi', 50), 'current_price': existing_analysis.get('price', 0)},
+            llm_model='consensus'
+        )
+        final_prediction['prediction_id'] = pred_id
+
+        existing_analysis['ai_prediction'] = final_prediction
+        return existing_analysis
     # This is the ONLY function you need to replace in your working main.py
 
 async def _get_multi_llm_consensus(self, ticker, existing_analysis, candle_patterns, pattern_success_rates, market_context):
