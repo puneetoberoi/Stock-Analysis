@@ -2262,49 +2262,80 @@ class IntelligentPredictionEngine:
         
         return {**existing_analysis, 'candle_patterns': candle_patterns, 'pattern_success_rates': pattern_success_rates, 'llm_predictions': llm_predictions, 'confidence': confidence_result, 'ai_prediction': final_prediction, 'learning_insights': self.learning_memory.get_recent_insights(3)}
 
-    async def _get_multi_llm_consensus(self, ticker, existing_analysis, candle_patterns, pattern_success_rates, market_context):
-        """Gathers predictions from multiple LLMs, using pre-loaded learning context."""
-        logging.info(f"🔍[{ticker}] Getting LLM consensus. Available models: {list(self.llm_clients.keys())}")
-    
-        pattern_text = "\n".join([f"- {p['name']} ({p['type']}, {pattern_success_rates.get(p['name'], 50):.0f}% success)" for p in candle_patterns[:3]]) if candle_patterns else "No clear patterns."
+    # In src/main.py
+
+# ... a lot of your existing code ...
+
+# Find this function and replace it completely:
+async def _get_multi_llm_consensus(self, ticker, existing_analysis, candle_patterns, pattern_success_rates, market_context):
+    """Gathers predictions from multiple LLMs, including learning context."""
+    logging.info(f"🔍[{ticker}] Getting LLM consensus. Available models: {list(self.llm_clients.keys())}")
+
+    # --- START: ROBUST LEARNING CONTEXT LOADER ---
+    learning_context = ""
+    try:
+        # We will import it right here, inside the function, to guarantee it's available.
+        from modules.autonomous_learner import AutonomousLearner
         
-        # We now simply use the context we loaded during initialization. No more try/except here.
-        context = f"""{self.learning_prompt_context} 
-    You are an expert stock analyst. Your goal is to improve prediction accuracy to over 90%. Analyze the following data for {ticker}.
-    
-    **Technical Data:**
-    - RSI (14 day): {existing_analysis.get('rsi', 'N/A'):.2f}
-    - Volume: {existing_analysis.get('volume_ratio', 1.0):.1f}x average
-    - Bollinger Squeeze: {'Yes' if existing_analysis.get('bollinger_squeeze') else 'No'}
-    
-    **Candlestick Patterns Detected:**
-    {pattern_text}
-    
-    **Market Context:**
-    - Overall Macro Score: {market_context.get('overall_macro_score', 0):.0f}/30
-    
-    Based on ALL this information, especially the critical learnings, provide a one-week forecast.
-    Respond with ONLY the following format:
-    ACTION: [BUY/SELL/HOLD]
-    CONFIDENCE: [0-100]
-    REASON: [Your concise, one-sentence reasoning.]"""
+        learner = AutonomousLearner()
+        learning_context = learner.get_learning_prompt()
         
-        tasks, llm_names = [], []
-        # We are only using Groq for now, but the structure is ready for more
-        if 'groq' in self.llm_clients:
-            tasks.append(self._query_groq(context, ticker))
-            llm_names.append('groq')
-        
-        # This part remains the same, but will only process the Groq task
-        predictions = {}
-        if tasks:
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-            for llm_name, result in zip(llm_names, results):
-                if not isinstance(result, Exception) and result:
-                    predictions[llm_name] = result
-        
-        logging.info(f"🔍[{ticker}] Received {len(predictions)} LLM predictions.")
-        return predictions
+        if learning_context:
+            logging.info(f"🧠 Loaded past learnings to guide new predictions for {ticker}.")
+        else:
+            logging.info(f"~ No past learnings file found for {ticker}. This is normal on the first run.")
+            
+    except Exception as e:
+        # This will catch any import or file errors without crashing.
+        logging.warning(f"⚠️ Could not load learning insights for {ticker}: {e}")
+    # --- END: ROBUST LEARNING CONTEXT LOADER ---
+
+    pattern_text = "\n".join([f"- {p['name']} ({p['type']}, {pattern_success_rates.get(p['name'], 50):.0f}% success)" for p in candle_patterns[:3]]) if candle_patterns else "No clear patterns."
+    
+    # The learning_context variable is now correctly included in the prompt
+    context = f"""{learning_context}
+You are an expert stock analyst. Your goal is to improve prediction accuracy to over 90%. Analyze the following data for {ticker}.
+
+**Technical Data:**
+- RSI (14 day): {existing_analysis.get('rsi', 'N/A'):.2f}
+- Volume: {existing_analysis.get('volume_ratio', 1.0):.1f}x average
+- Bollinger Squeeze: {'Yes' if existing_analysis.get('bollinger_squeeze') else 'No'}
+
+**Candlestick Patterns Detected:**
+{pattern_text}
+
+**Market Context:**
+- Overall Macro Score: {market_context.get('overall_macro_score', 0):.0f}/30
+
+Based on ALL this information, especially the critical learnings from your past mistakes, provide a one-week forecast.
+Respond with ONLY the following format:
+ACTION: [BUY/SELL/HOLD]
+CONFIDENCE: [0-100]
+REASON: [Your concise, one-sentence reasoning.]"""
+    
+    tasks, llm_names = [], []
+    if 'groq' in self.llm_clients:
+        tasks.append(self._query_groq(context, ticker))
+        llm_names.append('groq')
+
+    if 'cohere' in self.llm_clients:
+         tasks.append(self._query_cohere(context, ticker))
+         llm_names.append('cohere')
+    
+    # We will leave Gemini and Cohere calls commented out for now to ensure stability
+    # if 'gemini' in self.llm_clients:
+    #     tasks.append(self._query_gemini(context, ticker))
+    #     llm_names.append('gemini')
+    
+    predictions = {}
+    if tasks:
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        for llm_name, result in zip(llm_names, results):
+            if not isinstance(result, Exception) and result:
+                predictions[llm_name] = result
+    
+    logging.info(f"🔍[{ticker}] Received {len(predictions)} LLM predictions.")
+    return predictions
 
     async def _query_groq(self, prompt, ticker):
         try:
