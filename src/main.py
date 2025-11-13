@@ -2257,41 +2257,37 @@ async def _get_multi_llm_consensus(self, ticker, existing_analysis, candle_patte
     """Gathers predictions from multiple LLMs, including learning context."""
     logging.info(f"🔍[{ticker}] Getting LLM consensus. Available models: {list(self.llm_clients.keys())}")
 
-    # --- START: ADD THIS CODE AT THE TOP OF THE FUNCTION ---
+     # --- START OF THE ONLY CODE YOU NEED TO ADD ---
     learning_context = ""
     try:
         from modules.autonomous_learner import AutonomousLearner
         learner = AutonomousLearner()
         learning_context = learner.get_learning_prompt()
         if learning_context:
-            logging.info(f"🧠 Loaded past learnings to guide predictions for {ticker}.")
+            logging.info(f"🧠 Loaded past learnings to guide new predictions for {ticker}.")
         else:
             logging.info(f"~ No past learnings file found for {ticker}.")
     except Exception as e:
         logging.warning(f"⚠️ Could not load learning insights for {ticker}: {e}")
-    # --- END OF ADDITION ---
+    # --- END OF THE ADDITION ---
 
     pattern_text = "\n".join([f"- {p['name']} ({p['type']}, {pattern_success_rates.get(p['name'], 50):.0f}% success)" for p in candle_patterns[:3]]) if candle_patterns else "No clear patterns."
     
-    context = f"""{learning_context}
-You are an expert stock analyst. Your goal is to improve prediction accuracy to over 90%. Analyze the following data for {ticker}.
-
-**Technical Data:**
-- RSI (14 day): {existing_analysis.get('rsi', 'N/A'):.2f}
+    # --- ADD {learning_context} TO THE START OF THIS STRING ---
+    context = f"""{learning_context}Analyze {ticker} and provide BUY/HOLD/SELL recommendation.
+TECHNICAL DATA:
+- Score: {existing_analysis.get('score', 'N/A')}/100
+- RSI: {existing_analysis.get('rsi', 'N/A')}
 - Volume: {existing_analysis.get('volume_ratio', 1.0):.1f}x average
-- Bollinger Squeeze: {'Yes' if existing_analysis.get('bollinger_squeeze') else 'No'}
-
-**Candlestick Patterns Detected:**
+CANDLESTICK PATTERNS (Today):
 {pattern_text}
-
-**Market Context:**
-- Overall Macro Score: {market_context.get('overall_macro_score', 0):.0f}/30
-
-Based on ALL this information, especially the critical learnings from past mistakes, provide a one-week forecast.
-Respond with ONLY the following format:
-ACTION: [BUY/SELL/HOLD]
+MARKET CONTEXT:
+{f"Macro Score: {market_context.get('overall_macro_score', 0):.0f}" if market_context else "Not available"}
+Respond with ONLY:
+ACTION: [BUY/SELL/SELL]
 CONFIDENCE: [0-100]
-REASON: [Your concise, one-sentence reasoning.]"""
+REASON: [One sentence]"""
+    # --- END OF THE CHANGE ---
     
     tasks, llm_names = [], []
     if 'groq' in self.llm_clients:
