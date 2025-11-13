@@ -59,6 +59,7 @@ jobs:
         ENABLE_V2_FEATURES: true
       run: |
         python src/main.py --output email
+        python src/modules/check_accuracy.py
         
     - name: Commit predictions and learning data
       run: |
@@ -82,4 +83,19 @@ jobs:
         
         # Push changes
         git push origin ${{ github.ref_name }} || git push --force-with-lease origin ${{ github.ref_name }}
+      continue-on-error: true
+
+    - name: Run Evening Learning Check
+      if: always()  # Run even if previous steps fail
+      run: |
+        # Wait 8 hours then run learning (or run immediately for testing)
+        echo "Running learning cycle check..."
+        python src/modules/autonomous_learner.py || echo "Learning cycle completed"
+      continue-on-error: true
+    
+    - name: Commit Learning Updates
+      if: always()
+      run: |
+        git add src/modules/learning_insights.json src/modules/data/learning.db || true
+        git diff --staged --quiet || (git commit -m "🧠 AI Learning: Updated insights from predictions" && git push)
       continue-on-error: true
