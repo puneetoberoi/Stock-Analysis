@@ -1,30 +1,48 @@
-name: Evening Learning Check
+name: Evening Learning Cycle
 on:
   schedule:
-    - cron: '0 21 * * 1-5'
+    - cron: '0 21 * * 1-5'  # 4 PM EST (21:00 UTC)
   workflow_dispatch:
+
+permissions:
+  contents: write
+
 jobs:
   learn:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
+    
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
-      - run: pip install yfinance pandas sqlite3
-      - run: python src/modules/autonomous_learner.py
-      - run: |
-          git config --global user.email "action@github.com"
-          git config --global user.name "GitHub Action"
-          git stash || true
-          git pull origin ${{ github.ref_name }} --rebase || true
-          git stash pop || true
-          
-          git add src/modules/learning_insights.json
-          git add src/modules/data/learning.db
-          
-          git diff --quiet && git diff --staged --quiet || git commit -m "🧠 Evening learning update [skip ci]"
-          git push origin ${{ github.ref_name }} || git push --force-with-lease origin ${{ github.ref_name }}
-        continue-on-error: true
+    - uses: actions/checkout@v3
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        fetch-depth: 0
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pandas yfinance
+    
+    - name: Run Learning Cycle
+      run: |
+        echo "🧠 Starting evening learning cycle..."
+        python src/modules/autonomous_learner.py
+    
+    - name: Commit Learning Updates
+      run: |
+        git config --global user.email "action@github.com"
+        git config --global user.name "GitHub Action"
+        git stash || true
+        git pull origin Stable-till-LLMs-agree-but-not-intelligent-till-this-point --rebase || true
+        git stash pop || true
+        
+        git add src/modules/learning_insights.json
+        git add src/modules/data/learning.db
+        
+        git diff --quiet && git diff --staged --quiet || git commit -m "🧠 Evening learning update [skip ci]"
+        git push origin Stable-till-LLMs-agree-but-not-intelligent-till-this-point || git push --force-with-lease origin Stable-till-LLMs-agree-but-not-intelligent-till-this-point
+      continue-on-error: true
