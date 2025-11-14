@@ -1,4 +1,4 @@
-name: Evening Learning
+name: Evening Learning Check
 on:
   schedule:
     - cron: '0 21 * * 1-5'
@@ -13,11 +13,18 @@ jobs:
       - uses: actions/setup-python@v4
         with:
           python-version: '3.11'
-      - run: pip install yfinance pandas
+      - run: pip install yfinance pandas sqlite3
       - run: python src/modules/autonomous_learner.py
       - run: |
-          git config user.name "GitHub Actions"
-          git config user.email "actions@github.com"
-          git add -A
-          git commit -m "Learning cycle update" || echo "No changes"
-          git push
+          git config --global user.email "action@github.com"
+          git config --global user.name "GitHub Action"
+          git stash || true
+          git pull origin ${{ github.ref_name }} --rebase || true
+          git stash pop || true
+          
+          git add src/modules/learning_insights.json
+          git add src/modules/data/learning.db
+          
+          git diff --quiet && git diff --staged --quiet || git commit -m "🧠 Evening learning update [skip ci]"
+          git push origin ${{ github.ref_name }} || git push --force-with-lease origin ${{ github.ref_name }}
+        continue-on-error: true
