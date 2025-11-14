@@ -8498,5 +8498,155 @@
     "price_at_prediction": 237.5800018310547,
     "outcome": null,
     "was_correct": null
+  },
+  "12b71c25": {
+    "id": "12b71c25",
+    "timestamp": "2025-11-14T11:15:25.852607",
+    "ticker": "AAPL",
+    "action": "HOLD",
+    "confidence": 90,
+    "reasoning": "groq: The presence of both bullish and bearish reversal candlestick patterns, combined with a neutral RSI and low volume, suggests a uncertain outlook for AAPL.",
+    "candle_pattern": "inverted_hammer",
+    "indicators": {
+      "rsi": 66.3737354520643
+    },
+    "price_at_prediction": 272.95001220703125,
+    "outcome": null,
+    "was_correct": null
+  },
+  "235d644e": {
+    "id": "235d644e",
+    "timestamp": "2025-11-14T11:15:27.812496",
+    "ticker": "MSFT",
+    "action": "SELL",
+    "confidence": 95,
+    "reasoning": "groq: The presence of a bearish reversal evening star candlestick pattern, combined with a negative macro score, outweighs the uptrend indication from swing highs and lows, suggesting a potential downturn for MSFT.",
+    "candle_pattern": "evening_star",
+    "indicators": {
+      "rsi": 41.67474706805002
+    },
+    "price_at_prediction": 503.2900085449219,
+    "outcome": null,
+    "was_correct": null
+  },
+  "148ade25": {
+    "id": "148ade25",
+    "timestamp": "2025-11-14T11:15:34.842618",
+    "ticker": "NVDA",
+    "action": "SELL",
+    "confidence": 95,
+    "reasoning": "groq: The presence of a downtrend candlestick pattern and a low RSI, combined with a negative Macro Score, suggests a bearish outlook for NVDA.",
+    "candle_pattern": "swing_highs_lows",
+    "indicators": {
+      "rsi": 46.413520419995756
+    },
+    "price_at_prediction": 186.86000061035156,
+    "outcome": null,
+    "was_correct": null
+  },
+  "08f47704": {
+    "id": "08f47704",
+    "timestamp": "2025-11-14T11:15:36.358879",
+    "ticker": "TSLA",
+    "action": "SELL",
+    "confidence": 100,
+    "reasoning": "groq: The presence of a bearish reversal candlestick pattern and a downtrend indication, combined with a negative macro score, suggests a potential downward movement in TSLA's price.",
+    "candle_pattern": "three_outside_down",
+    "indicators": {
+      "rsi": 40.284603300005834
+    },
+    "price_at_prediction": 401.989990234375,
+    "outcome": null,
+    "was_correct": null
+  },
+  "9ddc8bf0": {
+    "id": "9ddc8bf0",
+    "timestamp": "2025-11-14T11:15:37.650373",
+    "ticker": "GOOGL",
+    "action": "SELL",
+    "confidence": 100,
+    "reasoning": "groq: The presence of two bearish reversal candlestick patterns, three_outside_down and double_top, with high historical success rates, suggests a potential downturn in the stock price.",
+    "candle_pattern": "three_outside_down",
+    "indicators": {
+      "rsi": 57.930554961294185
+    },
+    "price_at_prediction": 278.57000732421875,
+    "outcome": null,
+    "was_correct": null
+  },
+  "954e65bb": {
+    "id": "954e65bb",
+    "timestamp": "2025-11-14T11:15:39.012250",
+    "ticker": "TSM",
+    "action": "SELL",
+    "confidence": 95,
+    "reasoning": "groq: The presence of bearish continuation and downtrend candlestick patterns, combined with a low RSI and negative macro score, suggests a downward trend.",
+    "candle_pattern": "three_black_crows",
+    "indicators": {
+      "rsi": 43.20681080287218
+    },
+    "price_at_prediction": 282.20001220703125,
+    "outcome": null,
+    "was_correct": null
+  },
+  "27e58d68": {
+    "id": "27e58d68",
+    "timestamp": "2025-11-14T11:15:41.192423",
+    "ticker": "AMD",
+    "action": "HOLD",
+    "confidence": 80,
+    "reasoning": "groq: The neutral RSI and average volume, combined with a low-success candlestick pattern and negative macro score, suggest a cautious approach, warranting a hold rather than a buy or sell.",
+    "candle_pattern": "swing_highs_lows",
+    "indicators": {
+      "rsi": 55.67998845797794
+    },
+    "price_at_prediction": 247.9600067138672,
+    "outcome": null,
+    "was_correct": null
+  },
+  "c2ee8c3e": {
+    "id": "c2ee8c3e",
+    "timestamp": "2025-11-14T11:15:45.704381",
+    "ticker": "TD.TO",
+    "action": "SELL",
+    "confidence": 100,
+    "reasoning": "groq: The presence of two bearish reversal tweezer top patterns with 100% historical success, combined with a downtrend swing highs and lows pattern, suggests a high likelihood of a price drop.",
+    "candle_pattern": "tweezer_top",
+    "indicators": {
+      "rsi": 56.609543718064316
+    },
+    "price_at_prediction": 114.22000122070312,
+    "outcome": null,
+    "was_correct": null
+  },
+  "ace29c0b": {
+    "id": "ace29c0b",
+    "timestamp": "2025-11-14T11:15:46.125212",
+    "ticker": "UHS",
+    "action": "SELL",
+    "confidence": 90,
+    "reasoning": "groq: The presence of a bearish_harami candlestick pattern with a 50% historical success rate, combined with a low Macro Score of -12, suggests a potential downward trend.",
+    "candle_pattern": "spinning_top",
+    "indicators": {
+      "rsi": 64.35181791420311
+    },
+    "price_at_prediction": 227.57000732421875,
+    "outcome": null,
+    "was_correct": null
+  },
+  "5cae1d15": {
+    "id": "5cae1d15",
+    "timestamp": "2025-11-14T11:15:46.519017",
+    "ticker": "AMZN",
+    "action": "SELL",
+    "confidence": 100,
+    "reasoning": "groq: The presence of two bearish reversal candlestick patterns, three_outside_down and double_top, with high historical success rates, suggests a strong downtrend.",
+    "candle_pattern": "three_outside_down",
+    "indicators": {
+      "rsi": 52.326387919962464
+    },
+    "price_at_prediction": 237.5800018310547,
+    "outcome": null,
+    "was_correct": null
   }
 }
