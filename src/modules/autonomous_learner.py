@@ -44,7 +44,7 @@ class AutonomousLearner:
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
-        one_day_ago = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')  # Grade today's predictions
+        one_day_ago = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')  # Grade today's predictions
         
         cursor.execute("""
             SELECT id, stock, prediction, entry_price, llm_model
