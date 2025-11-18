@@ -9098,5 +9098,155 @@
     "price_at_prediction": 234.69000244140625,
     "outcome": null,
     "was_correct": null
+  },
+  "c7e53c89": {
+    "id": "c7e53c89",
+    "timestamp": "2025-11-18T11:10:13.544043",
+    "ticker": "AAPL",
+    "action": "SELL",
+    "confidence": 100,
+    "reasoning": "groq: The presence of a double_top bearish reversal pattern with 100% historical success, combined with a negative Macro Score, outweighs the other indicators and suggests a potential downturn for AAPL.",
+    "candle_pattern": "spinning_top",
+    "indicators": {
+      "rsi": 54.61588253346649
+    },
+    "price_at_prediction": 267.4599914550781,
+    "outcome": null,
+    "was_correct": null
+  },
+  "5b5579d8": {
+    "id": "5b5579d8",
+    "timestamp": "2025-11-18T11:10:17.708649",
+    "ticker": "MSFT",
+    "action": "HOLD",
+    "confidence": 100,
+    "reasoning": "groq: The presence of mixed candlestick patterns and a neutral RSI value suggests indecision in the market, warranting a cautious hold approach amidst a negative macro context.",
+    "candle_pattern": "spinning_top",
+    "indicators": {
+      "rsi": 45.547153283156455
+    },
+    "price_at_prediction": 507.489990234375,
+    "outcome": null,
+    "was_correct": null
+  },
+  "f050dfb3": {
+    "id": "f050dfb3",
+    "timestamp": "2025-11-18T11:10:22.222824",
+    "ticker": "NVDA",
+    "action": "HOLD",
+    "confidence": 95,
+    "reasoning": "groq: The stock's neutral RSI and indecisive candlestick patterns, combined with a low macro score, suggest a lack of clear direction, making a hold position the most prudent choice.",
+    "candle_pattern": "spinning_top",
+    "indicators": {
+      "rsi": 46.39647351640091
+    },
+    "price_at_prediction": 186.60000610351562,
+    "outcome": null,
+    "was_correct": null
+  },
+  "4e93ac5e": {
+    "id": "4e93ac5e",
+    "timestamp": "2025-11-18T11:10:23.802263",
+    "ticker": "TSLA",
+    "action": "SELL",
+    "confidence": 100,
+    "reasoning": "groq: The presence of a downtrend candlestick pattern and a low RSI, combined with a negative Macro Score, suggests a bearish outlook for TSLA.",
+    "candle_pattern": "swing_highs_lows",
+    "indicators": {
+      "rsi": 42.63798325101357
+    },
+    "price_at_prediction": 408.9200134277344,
+    "outcome": null,
+    "was_correct": null
+  },
+  "c851be77": {
+    "id": "c851be77",
+    "timestamp": "2025-11-18T11:10:27.244550",
+    "ticker": "GOOGL",
+    "action": "HOLD",
+    "confidence": 95,
+    "reasoning": "groq: The presence of indecision candlestick patterns and a neutral RSI value suggests a pause in the trend, warranting a cautious hold approach.",
+    "candle_pattern": "doji",
+    "indicators": {
+      "rsi": 61.72143494633189
+    },
+    "price_at_prediction": 285.0199890136719,
+    "outcome": null,
+    "was_correct": null
+  },
+  "8a64ceb9": {
+    "id": "8a64ceb9",
+    "timestamp": "2025-11-18T11:10:28.790393",
+    "ticker": "TSM",
+    "action": "SELL",
+    "confidence": 100,
+    "reasoning": "groq: The presence of a downtrend swing_highs_lows pattern and a negative Macro Score outweigh the indecision indicated by the doji patterns, suggesting a bearish outlook.",
+    "candle_pattern": "doji",
+    "indicators": {
+      "rsi": 43.46374039820741
+    },
+    "price_at_prediction": 282.010009765625,
+    "outcome": null,
+    "was_correct": null
+  },
+  "d24fb4d7": {
+    "id": "d24fb4d7",
+    "timestamp": "2025-11-18T11:10:30.528538",
+    "ticker": "AMD",
+    "action": "HOLD",
+    "confidence": 100,
+    "reasoning": "groq: The neutral RSI and indecision candlestick patterns, combined with a negative macro score, suggest a cautious approach, warranting a hold rather than a buy or sell.",
+    "candle_pattern": "spinning_top",
+    "indicators": {
+      "rsi": 51.978803443835545
+    },
+    "price_at_prediction": 240.52000427246094,
+    "outcome": null,
+    "was_correct": null
+  },
+  "56fce8be": {
+    "id": "56fce8be",
+    "timestamp": "2025-11-18T11:10:31.169522",
+    "ticker": "TD.TO",
+    "action": "HOLD",
+    "confidence": 100,
+    "reasoning": "groq: The stock's neutral RSI and mixed candlestick patterns, combined with a negative macro score, suggest a cautious approach, warranting a hold rather than a buy or sell.",
+    "candle_pattern": "swing_highs_lows",
+    "indicators": {
+      "rsi": 57.50963837575728
+    },
+    "price_at_prediction": 114.45999908447266,
+    "outcome": null,
+    "was_correct": null
+  },
+  "b09e0ee2": {
+    "id": "b09e0ee2",
+    "timestamp": "2025-11-18T11:10:32.642019",
+    "ticker": "UHS",
+    "action": "BUY",
+    "confidence": 100,
+    "reasoning": "groq: The presence of multiple bullish reversal candlestick patterns, including two piercing lines, suggests a potential upward trend, despite a negative macro score.",
+    "candle_pattern": "piercing_line",
+    "indicators": {
+      "rsi": 61.89963240894813
+    },
+    "price_at_prediction": 226.5,
+    "outcome": null,
+    "was_correct": null
+  },
+  "889b647d": {
+    "id": "889b647d",
+    "timestamp": "2025-11-18T11:10:33.227239",
+    "ticker": "AMZN",
+    "action": "SELL",
+    "confidence": 100,
+    "reasoning": "groq: The presence of multiple bearish candlestick patterns, including a double_top with 100% historical success, suggests a strong reversal signal, warranting a sell recommendation.",
+    "candle_pattern": "three_black_crows",
+    "indicators": {
+      "rsi": 48.25691910440067
+    },
+    "price_at_prediction": 232.8699951171875,
+    "outcome": null,
+    "was_correct": null
   }
 }
